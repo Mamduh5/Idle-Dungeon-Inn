@@ -14,7 +14,18 @@ import type { HeroInstance } from "../types/heroTypes";
 import type { HeroStatus } from "../types/ids";
 import type { InnRoomState } from "../types/roomTypes";
 import type { TowerRunStatus } from "../types/towerTypes";
+import {
+  addCenteredLabel,
+  addLabel,
+  drawActionButton,
+  drawDivider,
+  drawHpBar,
+  drawPanel,
+  drawTinyHero,
+  formatStatusLabel
+} from "../ui/components";
 import { createSceneHud } from "../ui/sceneHud";
+import { UI_COLORS, UI_HEX } from "../ui/theme";
 
 export class InnScene extends Phaser.Scene {
   public constructor() {
@@ -33,8 +44,8 @@ export class InnScene extends Phaser.Scene {
       Boolean(party && hero && run) &&
       !isRunActive(run?.status) &&
       !isHeroUnavailable(hero?.status);
-    const buttonLabel = isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready";
     const targetFloor = party?.selectedTargetFloor ?? run?.floor ?? state.unlockedFloor;
+    const buttonLabel = isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready";
 
     this.drawBackdrop();
     this.drawInnShell();
@@ -42,24 +53,37 @@ export class InnScene extends Phaser.Scene {
     this.drawTrainingRoom(trainingRoom);
     this.drawCommonRoom(party?.name ?? "No Party");
     this.drawTowerGate(targetFloor, buttonLabel, canDispatch);
-    this.drawToast(latestEvent?.message ?? "No recent events yet.", latestEvent?.severity === "warning");
+    this.drawLatestEvent(latestEvent?.message ?? "The inn is waiting for orders.", latestEvent?.severity === "warning");
 
     if (hero) {
       this.drawHero(hero);
     }
 
     if (canDispatch) {
-      this.add
-        .zone(246, 682, 112, 50)
-        .setOrigin(0, 0)
-        .setInteractive({ useHandCursor: true })
-        .on("pointerup", () => {
+      drawActionButton(this, {
+        x: 294,
+        y: 696,
+        width: 142,
+        height: 54,
+        label: buttonLabel,
+        enabled: true,
+        onClick: () => {
           updateGameState(sendSelectedPartyToTower);
-          this.scene.restart();
-        });
+          this.scene.start("TowerScene");
+        }
+      });
+    } else {
+      drawActionButton(this, {
+        x: 294,
+        y: 696,
+        width: 142,
+        height: 54,
+        label: buttonLabel,
+        enabled: false
+      });
     }
 
-    createSceneHud(this, { title: "Inn View", activeLabel: "Inn" });
+    createSceneHud(this, { title: "Lantern Inn", activeLabel: "Inn" });
   }
 
   public update(_time: number, delta: number): void {
@@ -68,204 +92,188 @@ export class InnScene extends Phaser.Scene {
   }
 
   private drawBackdrop(): void {
-    this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x2f1d17).setOrigin(0, 0);
-    this.add.rectangle(0, 620, GAME_WIDTH, 142, 0x211713).setOrigin(0, 0);
-    this.add.line(0, 640, 16, 0, GAME_WIDTH - 16, 0, 0xb07742, 0.35).setOrigin(0, 0);
+    this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x241916).setOrigin(0, 0);
+    this.add.rectangle(0, 104, GAME_WIDTH, 210, 0x332848, 1).setOrigin(0, 0);
+    this.add.rectangle(0, 314, GAME_WIDTH, 448, 0x211713, 1).setOrigin(0, 0);
+    this.add.polygon(325, 142, [0, -36, 28, 42, -28, 42], 0x171d29, 1);
+    this.add.rectangle(311, 178, 28, 122, 0x171d29, 1);
+    this.add.rectangle(0, 606, GAME_WIDTH, 156, 0x18110f, 1).setOrigin(0, 0);
+
+    for (const star of [
+      { x: 46, y: 132 },
+      { x: 102, y: 164 },
+      { x: 182, y: 128 },
+      { x: 248, y: 158 },
+      { x: 354, y: 124 }
+    ]) {
+      this.add.circle(star.x, star.y, 1.5, UI_COLORS.gold, 0.75);
+    }
   }
 
   private drawInnShell(): void {
-    this.add.rectangle(22, 120, 346, 520, 0x7a432d, 1).setStrokeStyle(3, 0xd89a58);
-    this.add.polygon(GAME_WIDTH / 2, 121, [0, -28, 176, 0, -176, 0], 0x4a2a21, 1).setStrokeStyle(2, 0xd89a58);
+    drawPanel(this, 18, 126, 354, 512, UI_COLORS.timber, UI_COLORS.gold, 1, 6);
+    this.add.polygon(GAME_WIDTH / 2, 126, [0, -38, 184, 0, -184, 0], UI_COLORS.darkTimber, 1).setStrokeStyle(2, UI_COLORS.gold);
+    this.add.rectangle(36, 144, 318, 476, 0x7a432d, 1).setStrokeStyle(2, 0xe7ac64);
+    drawDivider(this, 36, 330, 354, 330, UI_COLORS.gold, 0.8);
+    drawDivider(this, 198, 144, 198, 620, UI_COLORS.gold, 0.75);
+    drawDivider(this, 244, 330, 244, 620, UI_COLORS.gold, 0.75);
 
-    this.add.line(0, 330, 42, 0, 342, 0, 0xd89a58, 0.9).setOrigin(0, 0);
-    this.add.line(0, 150, 196, 0, 196, 480, 0xd89a58, 0.85).setOrigin(0, 0);
-    this.add.line(0, 330, 238, 0, 238, 310, 0xd89a58, 0.85).setOrigin(0, 0);
-
-    this.add.text(GAME_WIDTH / 2, 136, "The Lantern Inn", {
-      align: "center",
-      color: "#fff0ce",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "15px",
-      fontStyle: "700"
-    }).setOrigin(0.5);
   }
 
   private drawBedRoom(room: InnRoomState | null): void {
-    this.add.rectangle(42, 154, 132, 164, 0x8f5935, 1).setStrokeStyle(2, 0xffcc7d);
-    this.add.text(56, 170, `Bed Lv${room?.level ?? 0}`, {
-      color: "#fff0ce",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "13px",
-      fontStyle: "700"
+    this.add.rectangle(52, 166, 126, 138, 0x8f5935, 1).setStrokeStyle(1, 0xffcc7d);
+    addLabel(this, 60, 174, `Bed Room Lv${room?.level ?? 0}`, {
+      color: UI_HEX.cream,
+      fontSize: 12,
+      fontStyle: "700",
+      width: 112
     });
 
-    this.add.rectangle(58, 220, 82, 48, 0x4d2d23, 1).setStrokeStyle(2, 0xf1c76f).setOrigin(0, 0);
-    this.add.rectangle(64, 226, 27, 17, 0xffe2b0, 1).setOrigin(0, 0);
-    this.add.rectangle(94, 228, 40, 34, 0xd86c58, 1).setOrigin(0, 0);
-    this.add.circle(146, 292, 10, 0xffd86f, 0.9);
-    this.add.text(58, 286, "HP rest", {
-      color: "#ffe7a3",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "12px"
+    this.add.rectangle(64, 218, 82, 46, 0x3a241d, 1).setStrokeStyle(2, UI_COLORS.gold).setOrigin(0, 0);
+    this.add.rectangle(70, 224, 28, 16, 0xffe2b0, 1).setOrigin(0, 0);
+    this.add.rectangle(100, 226, 38, 32, UI_COLORS.hearth, 1).setOrigin(0, 0);
+    this.add.rectangle(142, 232, 10, 30, 0xb07742, 1).setOrigin(0, 0);
+    this.add.circle(156, 286, 9, UI_COLORS.gold, 0.85);
+    addLabel(this, 62, 274, "rest space", {
+      color: UI_HEX.parchment,
+      fontSize: 11
     });
   }
 
   private drawTrainingRoom(room: InnRoomState | null): void {
     const isUnlocked = Boolean(room?.isUnlocked);
+    const fill = isUnlocked ? 0x76503b : 0x3a332e;
 
-    this.add.rectangle(218, 154, 128, 164, isUnlocked ? 0x76503b : 0x3b312c, 1).setStrokeStyle(
-      2,
-      isUnlocked ? 0xffcc7d : 0x7a6758
-    );
-    this.add.text(230, 170, isUnlocked ? `Training Lv${room?.level ?? 0}` : "Training Locked", {
-      color: isUnlocked ? "#fff0ce" : "#c9b8a6",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "12px",
-      fontStyle: "700"
+    this.add.rectangle(214, 166, 126, 138, fill, 1).setStrokeStyle(1, isUnlocked ? 0xffcc7d : 0x8a7a69);
+    addLabel(this, 222, 174, isUnlocked ? `Training Lv${room?.level ?? 0}` : "Training Locked", {
+      color: isUnlocked ? UI_HEX.cream : UI_HEX.mutedCream,
+      fontSize: 12,
+      fontStyle: "700",
+      width: 112
     });
 
-    this.add.line(0, 278, 278, 0, 278, 48, isUnlocked ? 0xf1c76f : 0x9f8d7d, 1).setOrigin(0, 0);
-    this.add.circle(278, 242, 24, isUnlocked ? 0xf1c76f : 0x6d5a49, 1);
-    this.add.circle(278, 242, 14, isUnlocked ? 0x7a432d : 0x3b312c, 1);
-    this.add.circle(278, 242, 5, isUnlocked ? 0xfff0ce : 0x9f8d7d, 1);
-    this.add.rectangle(250, 290, 56, 10, isUnlocked ? 0xb07742 : 0x6d5a49, 1);
+    this.add.line(0, 263, 278, 0, 278, 48, isUnlocked ? UI_COLORS.gold : 0xa39588, 1).setOrigin(0, 0);
+    this.add.circle(278, 232, 24, isUnlocked ? UI_COLORS.gold : 0x6d5a49, 1);
+    this.add.circle(278, 232, 14, isUnlocked ? 0x7a432d : 0x3b312c, 1);
+    this.add.rectangle(244, 280, 68, 10, isUnlocked ? 0xb07742 : 0x6d5a49, 1).setOrigin(0, 0);
 
     if (!isUnlocked) {
-      this.add.rectangle(218, 154, 128, 164, 0x15110f, 0.36);
-      this.add.line(0, 178, 232, 0, 332, 112, 0xc9b8a6, 0.45).setOrigin(0, 0);
-      this.add.line(0, 306, 232, 0, 332, -112, 0xc9b8a6, 0.45).setOrigin(0, 0);
+      this.add.rectangle(214, 166, 126, 138, 0x11100f, 0.32);
+      drawDivider(this, 226, 196, 328, 288, UI_COLORS.mutedCream, 0.45);
+      drawDivider(this, 328, 196, 226, 288, UI_COLORS.mutedCream, 0.45);
     }
   }
 
   private drawCommonRoom(partyName: string): void {
-    this.add.rectangle(42, 344, 194, 238, 0x6f3d28, 1).setStrokeStyle(2, 0xd89a58);
-    this.add.text(58, 358, partyName, {
-      color: "#fff3df",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "16px",
-      fontStyle: "700"
+    this.add.rectangle(52, 350, 176, 204, 0x6f3d28, 1).setStrokeStyle(1, 0xe7ac64);
+    addLabel(this, 60, 360, partyName, {
+      color: UI_HEX.cream,
+      fontSize: 14,
+      fontStyle: "700",
+      width: 154
     });
 
-    this.add.circle(130, 452, 34, 0xf0a247, 0.76);
-    this.add.circle(130, 452, 18, 0xffd86f, 0.95);
-    this.add.rectangle(74, 512, 78, 32, 0x4d2d23, 1).setStrokeStyle(1, 0xb57745);
-    this.add.rectangle(160, 506, 42, 44, 0x4d2d23, 1).setStrokeStyle(1, 0xb57745);
-    this.add.text(74, 548, "common room", {
-      color: "#f9dfbc",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "12px"
+    this.add.circle(122, 442, 36, UI_COLORS.amber, 0.55);
+    this.add.circle(122, 442, 20, UI_COLORS.gold, 0.95);
+    this.add.rectangle(72, 494, 74, 30, 0x3a241d, 1).setStrokeStyle(1, 0xb57745);
+    this.add.rectangle(154, 488, 44, 42, 0x3a241d, 1).setStrokeStyle(1, 0xb57745);
+    addLabel(this, 70, 532, "hearth and party table", {
+      color: UI_HEX.parchment,
+      fontSize: 11,
+      width: 150
     });
   }
 
   private drawTowerGate(targetFloor: number, buttonLabel: string, canDispatch: boolean): void {
-    this.add.rectangle(246, 344, 96, 238, 0x543526, 1).setStrokeStyle(2, 0xd89a58);
-    this.add.text(268, 360, `Target F${targetFloor}`, {
-      color: "#ffe7a3",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "13px",
+    this.add.rectangle(258, 350, 76, 204, 0x543526, 1).setStrokeStyle(1, 0xe7ac64);
+    addCenteredLabel(this, 296, 364, `Target F${targetFloor}`, {
+      color: UI_HEX.gold,
+      fontSize: 12,
+      fontStyle: "700",
+      width: 70
+    });
+
+    this.add.rectangle(276, 421, 40, 88, 0x151922, 1).setStrokeStyle(2, UI_COLORS.skyBlue);
+    this.add.circle(296, 421, 20, 0x151922, 1).setStrokeStyle(2, UI_COLORS.skyBlue);
+    this.add.circle(306, 472, 3, UI_COLORS.gold, 1);
+    this.add.line(0, 552, 296, 0, 296, 92, UI_COLORS.skyBlue, 0.35).setOrigin(0, 0);
+    this.add.line(0, 610, 276, 0, 246, 76, UI_COLORS.skyBlue, 0.24).setOrigin(0, 0);
+    this.add.line(0, 610, 314, 0, 344, 76, UI_COLORS.skyBlue, 0.24).setOrigin(0, 0);
+    addCenteredLabel(this, 296, 526, "tower gate", {
+      color: UI_HEX.skyBlue,
+      fontSize: 11,
       fontStyle: "700"
     });
-
-    this.add.rectangle(272, 428, 44, 86, 0x1f1a1a, 1).setStrokeStyle(2, 0xa8d7ff);
-    this.add.circle(294, 428, 22, 0x1f1a1a, 1).setStrokeStyle(2, 0xa8d7ff);
-    this.add.circle(304, 476, 3, 0xffd86f, 1);
-    this.add.line(0, 560, 292, 0, 330, 84, 0xa8d7ff, 0.5).setOrigin(0, 0);
-    this.add.line(0, 610, 292, 0, 330, -84, 0xa8d7ff, 0.35).setOrigin(0, 0);
-    this.add.text(262, 522, "Tower Gate", {
-      color: "#d7e8ff",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "12px"
+    addCenteredLabel(this, 294, 655, canDispatch ? "path is clear" : buttonLabel, {
+      color: canDispatch ? UI_HEX.success : UI_HEX.mutedCream,
+      fontSize: 11,
+      width: 140
     });
-
-    this.add.rectangle(246, 682, 112, 50, canDispatch ? 0xf0a247 : 0x6d5a49, 1).setStrokeStyle(
-      2,
-      canDispatch ? 0xffd86f : 0x9a8068
-    ).setOrigin(0, 0);
-    this.add.text(302, 707, buttonLabel, {
-      align: "center",
-      color: canDispatch ? "#251611" : "#ead8c7",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "14px",
-      fontStyle: "700",
-      wordWrap: { width: 92 }
-    }).setOrigin(0.5);
   }
 
-  private drawToast(message: string, isWarning: boolean): void {
-    this.add.rectangle(36, 602, 204, 44, isWarning ? 0x6b4724 : 0x4d2d23, 0.96).setStrokeStyle(
-      1,
-      isWarning ? 0xffd86f : 0xb57745
-    ).setOrigin(0, 0);
-    this.add.text(50, 614, message, {
-      color: isWarning ? "#ffe7a3" : "#f9dfbc",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "13px",
-      wordWrap: { width: 176 }
+  private drawLatestEvent(message: string, isWarning: boolean): void {
+    drawPanel(this, 36, 650, 196, 60, isWarning ? 0x6b4724 : 0x3a241d, isWarning ? UI_COLORS.gold : 0xb57745, 0.98, 7);
+    addLabel(this, 50, 660, "Latest", {
+      color: isWarning ? UI_HEX.gold : UI_HEX.parchment,
+      fontSize: 11,
+      fontStyle: "700"
+    });
+    addLabel(this, 50, 678, message, {
+      color: isWarning ? UI_HEX.gold : UI_HEX.mutedCream,
+      fontSize: 12,
+      width: 168
     });
   }
 
   private drawHero(hero: HeroInstance): void {
-    const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? hero.currentHp;
-    const hpRatio = Phaser.Math.Clamp(hero.currentHp / maxHp, 0, 1);
+    const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? Math.max(1, hero.currentHp);
+    const hpRatio = Phaser.Math.Clamp(hero.currentHp / Math.max(1, maxHp), 0, 1);
     const position = getHeroPosition(hero.status);
+    const palette = hero.status === "in_tower" ? "away" : hero.status === "defeated" ? "defeated" : "hero";
 
-    if (hero.status === "in_tower") {
-      this.drawAwayMarker(hero, maxHp, position.x, position.y);
-      return;
-    }
-
-    this.add.rectangle(position.x, position.y + 23, 40, 8, 0x231713, 0.35);
-    this.add.rectangle(position.x, position.y + 4, 22, 30, 0x465f8e, 1).setStrokeStyle(1, 0xffd86f);
-    this.add.circle(position.x, position.y - 17, 13, 0xffd86f, 1);
-    this.add.rectangle(position.x - 13, position.y - 25, 26, 7, 0x8f5935, 1).setOrigin(0, 0);
-    this.add.rectangle(position.x + 16, position.y + 4, 5, 24, 0xc9b8a6, 1);
-
-    if (hero.status === "defeated") {
-      this.add.line(0, position.y, position.x - 18, 0, position.x + 18, 0, 0xffe7a3, 0.8).setOrigin(0, 0);
-    }
-
-    this.drawHeroLabels(hero, maxHp, hpRatio, position.x - 52, position.y - 66);
-  }
-
-  private drawAwayMarker(hero: HeroInstance, maxHp: number, x: number, y: number): void {
-    this.add.circle(x, y, 12, 0xffd86f, 0.95);
-    this.add.rectangle(x - 8, y + 10, 16, 24, 0xa8d7ff, 0.9).setOrigin(0, 0);
-    this.add.line(0, y + 44, x - 18, 0, x + 18, 0, 0xa8d7ff, 0.55).setOrigin(0, 0);
-    this.drawHeroLabels(hero, maxHp, 1, 246, 584);
-  }
-
-  private drawHeroLabels(hero: HeroInstance, maxHp: number, hpRatio: number, x: number, y: number): void {
-    this.add.rectangle(x, y + 20, 84, 9, 0x2c1b17, 1).setOrigin(0, 0);
-    this.add.rectangle(x, y + 20, 84 * hpRatio, 9, 0xd86c58, 1).setOrigin(0, 0);
-    this.add.text(x, y, `${hero.name} Lv${hero.level}`, {
-      color: "#fff3df",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "12px",
-      fontStyle: "700"
+    drawTinyHero(this, position.x, position.y, {
+      hpRatio,
+      palette
     });
-    this.add.text(x, y + 32, `HP ${hero.currentHp}/${maxHp}`, {
-      color: "#f9dfbc",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "11px"
+
+    const labelPosition = getHeroLabelPosition(hero.status);
+    addLabel(this, labelPosition.x, labelPosition.y, `${hero.name} Lv ${hero.level}`, {
+      color: UI_HEX.cream,
+      fontSize: 11,
+      fontStyle: "700",
+      width: 116
     });
-    this.add.text(x, y + 46, formatStatus(hero.status), {
-      color: hero.status === "in_tower" ? "#a8d7ff" : "#ffe7a3",
-      fontFamily: "Inter, Arial, sans-serif",
-      fontSize: "11px"
+    drawHpBar(this, labelPosition.x, labelPosition.y + 36, 106, 8, hpRatio, `HP ${hero.currentHp}/${maxHp}`);
+    addLabel(this, labelPosition.x, labelPosition.y + 50, formatStatusLabel(hero.status), {
+      color: hero.status === "in_tower" ? UI_HEX.skyBlue : UI_HEX.gold,
+      fontSize: 10,
+      width: 106
     });
   }
 }
 
 function getHeroPosition(status: HeroStatus): { x: number; y: number } {
   if (status === "in_tower") {
-    return { x: 294, y: 548 };
+    return { x: 296, y: 574 };
   }
 
   if (status === "resting" || status === "wounded" || status === "defeated") {
-    return { x: 114, y: 292 };
+    return { x: 116, y: 282 };
   }
 
-  return { x: 162, y: 488 };
+  return { x: 164, y: 470 };
+}
+
+function getHeroLabelPosition(status: HeroStatus): { x: number; y: number } {
+  if (status === "in_tower") {
+    return { x: 248, y: 568 };
+  }
+
+  if (status === "resting" || status === "wounded" || status === "defeated") {
+    return { x: 58, y: 190 };
+  }
+
+  return { x: 60, y: 382 };
 }
 
 function isRunActive(status: TowerRunStatus | undefined): boolean {
@@ -282,8 +290,4 @@ function isHeroUnavailable(status: HeroStatus | undefined): boolean {
     status === "training" ||
     status === "gearing"
   );
-}
-
-function formatStatus(status: HeroStatus): string {
-  return status.split("_").join(" ");
 }
