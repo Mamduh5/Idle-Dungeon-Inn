@@ -1,6 +1,8 @@
 import type { HeroId, PartyId, TowerFloorId } from "./ids";
 
 export type RecentEventType =
+  | "party_dispatched"
+  | "party_dispatch_blocked"
   | "party_floor_reached"
   | "party_wiped"
   | "hero_defeated"

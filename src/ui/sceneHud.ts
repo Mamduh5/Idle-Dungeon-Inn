@@ -1,7 +1,8 @@
 import Phaser from "phaser";
-import { initialGameState } from "../game/initialState";
 import { NAV_ITEMS } from "../game/navigation";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
+import { getSelectedTowerRun } from "../state/gameSelectors";
+import { getGameState } from "../state/gameStore";
 
 export interface HudOptions {
   title: string;
@@ -14,10 +15,9 @@ export function createSceneHud(scene: Phaser.Scene, options: HudOptions): void {
 }
 
 function createTopHud(scene: Phaser.Scene, title: string): void {
-  const selectedRun = initialGameState.towerRuns.find(
-    (run) => run.partyId === initialGameState.selectedPartyId
-  );
-  const displayFloor = selectedRun?.floor ?? initialGameState.unlockedFloor;
+  const state = getGameState();
+  const selectedRun = getSelectedTowerRun(state);
+  const displayFloor = selectedRun?.floor ?? state.unlockedFloor;
 
   scene.add.rectangle(0, 0, GAME_WIDTH, 104, 0x211b18, 0.96).setOrigin(0, 0);
   scene.add.rectangle(20, 78, GAME_WIDTH - 40, 1, 0x6d5a49, 0.55).setOrigin(0, 0.5);
@@ -29,7 +29,7 @@ function createTopHud(scene: Phaser.Scene, title: string): void {
     fontStyle: "700"
   });
 
-  scene.add.text(24, 62, `Coins ${initialGameState.currencies.coins}`, {
+  scene.add.text(24, 62, `Coins ${state.currencies.coins}`, {
     color: "#f1c76f",
     fontFamily: "Inter, Arial, sans-serif",
     fontSize: "14px"

@@ -20,7 +20,7 @@ export function createInitialGameState(): GameState {
     level: 1,
     xp: 0,
     currentHp: rookieKnight.baseStats.hp,
-    status: "assigned",
+    status: "ready",
     assignedPartyId: STARTER_PARTY_ID,
     highestFloorCleared: 0,
     defeats: 0,
