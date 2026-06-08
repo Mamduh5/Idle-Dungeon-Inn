@@ -8,6 +8,7 @@ import {
   getSelectedTowerRun
 } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
+import { tickGameState } from "../systems/gameTickSystem";
 import { sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
 import type { HeroInstance } from "../types/heroTypes";
 import type { HeroStatus } from "../types/ids";
@@ -59,6 +60,11 @@ export class InnScene extends Phaser.Scene {
     }
 
     createSceneHud(this, { title: "Inn View", activeLabel: "Inn" });
+  }
+
+  public update(_time: number, delta: number): void {
+    const now = Date.now();
+    updateGameState((currentState) => tickGameState(currentState, delta, now));
   }
 
   private drawBackdrop(): void {
