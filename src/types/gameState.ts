@@ -1,36 +1,26 @@
-export interface HeroState {
-  id: string;
-  name: string;
-  role: string;
-  level: number;
-}
-
-export interface PartyState {
-  activePartyId: string;
-  parties: Array<{
-    id: string;
-    name: string;
-    heroIds: string[];
-  }>;
-}
-
-export interface TowerRunState {
-  currentFloor: number;
-  bestFloor: number;
-  activePartyId: string | null;
-  isRunning: boolean;
-}
-
-export interface RecentEvent {
-  id: string;
-  message: string;
-  createdAt: number;
-}
+import type { AutomationState } from "./automationTypes";
+import type { CurrencyState } from "./economyTypes";
+import type { HeroInstance } from "./heroTypes";
+import type { PartyId, TowerFloorId } from "./ids";
+import type { InventoryState } from "./lootTypes";
+import type { PartyState } from "./partyTypes";
+import type { RecentEvent } from "./recentEventTypes";
+import type { InnRoomState } from "./roomTypes";
+import type { TowerRunState } from "./towerTypes";
 
 export interface GameState {
-  coins: number;
-  heroes: HeroState[];
-  party: PartyState;
-  towerRun: TowerRunState;
+  version: number;
+  currencies: CurrencyState;
+  heroes: HeroInstance[];
+  parties: PartyState[];
+  selectedPartyId: PartyId;
+  towerRuns: TowerRunState[];
+  innRooms: InnRoomState[];
+  automation: AutomationState;
+  unlockedFloor: TowerFloorId;
+  highestFloorCleared: TowerFloorId;
+  firstClearFloorIds: TowerFloorId[];
+  inventory: InventoryState;
   recentEvents: RecentEvent[];
+  lastActiveAt: number;
 }

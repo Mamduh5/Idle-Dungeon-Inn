@@ -14,6 +14,11 @@ export function createSceneHud(scene: Phaser.Scene, options: HudOptions): void {
 }
 
 function createTopHud(scene: Phaser.Scene, title: string): void {
+  const selectedRun = initialGameState.towerRuns.find(
+    (run) => run.partyId === initialGameState.selectedPartyId
+  );
+  const displayFloor = selectedRun?.floor ?? initialGameState.unlockedFloor;
+
   scene.add.rectangle(0, 0, GAME_WIDTH, 104, 0x211b18, 0.96).setOrigin(0, 0);
   scene.add.rectangle(20, 78, GAME_WIDTH - 40, 1, 0x6d5a49, 0.55).setOrigin(0, 0.5);
 
@@ -24,13 +29,13 @@ function createTopHud(scene: Phaser.Scene, title: string): void {
     fontStyle: "700"
   });
 
-  scene.add.text(24, 62, `Coins ${initialGameState.coins}`, {
+  scene.add.text(24, 62, `Coins ${initialGameState.currencies.coins}`, {
     color: "#f1c76f",
     fontFamily: "Inter, Arial, sans-serif",
     fontSize: "14px"
   });
 
-  scene.add.text(GAME_WIDTH - 24, 62, `Floor ${initialGameState.towerRun.currentFloor}`, {
+  scene.add.text(GAME_WIDTH - 24, 62, `Floor ${displayFloor}`, {
     align: "right",
     color: "#a8d7ff",
     fontFamily: "Inter, Arial, sans-serif",
