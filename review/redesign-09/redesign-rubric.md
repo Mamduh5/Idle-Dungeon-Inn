@@ -12,11 +12,15 @@ A screen passes only if every critical item scores at least 3.
 ## Inn View Critical Checks
 
 - Looks like a cozy inn/base, not a dashboard.
+- Inn world is larger than the 390px viewport and cannot be fully seen at once.
+- Camera drag/pan works with pointer input.
+- Camera bounds keep the viewport inside the Inn world.
+- Bed, Hearth, Training, and Tower Gate are spatial zones in the world.
 - Hero is physically represented in the inn when available.
 - Bed/rest space is visual, not just a text card.
 - Training space is visual, locked/unlocked readable.
 - Tower gate/path is visible.
-- Send to Tower action is obvious and connected to the gate/path.
+- Send to Tower action is attached to the Tower Gate zone, not floating as a generic dashboard button.
 - Core info is readable: party, hero, HP, target floor, coins, latest event.
 - Text supports the scene instead of dominating it.
 

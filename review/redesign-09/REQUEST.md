@@ -1,7 +1,7 @@
 # UI Redesign Review Request
 
 Status:
-REFERENCE_SELF_EVALUATION_PASSED - AWAITING HUMAN REVIEW
+REVISED_PANABLE_WORLD_PASS - AWAITING HUMAN REVIEW
 
 ## Reference board
 
@@ -25,34 +25,29 @@ review/redesign-09/self-evaluation.md
 
 ## Summary
 
-Idle Dungeon Inn was redesigned from panel-like prototype screens into a small fantasy game-world presentation. The Inn now opens as a physical cutaway with Bed Room, locked Training Room, hearth, hero, tower gate, path, latest event, and a gate-connected Send to Tower action. Tower now presents a dark dungeon run with node track, visual travel/explore/combat/clear/exit states, hero-left/enemy-right staging, HP bars, compact combat feedback, and state-specific Continue Run / Complete Floor actions. Heroes and Build were rebuilt as intentional game screens with roster/party bench and room-plan presentations. The bottom nav labels remain exactly Inn | Tower | Heroes | Build.
+Idle Dungeon Inn was revised after rejection to make the Inn a larger panable base world instead of a fitted one-screen poster. The Inn world is 1260px wide inside a 390px viewport, with pointer camera drag, clamped camera bounds, Bed Room on the left, Hearth/common area in the center, locked Training wing to the right, and Tower Gate at the far edge. Mira is placed inside the world by status, the Send to Tower action is attached to the Gate zone, and HUD/nav remain fixed overlays while the world pans underneath. Tower, Heroes, and Build remain the redesigned game-world screens from the prior pass, and the bottom nav labels remain exactly Inn | Tower | Heroes | Build.
 
 ## Changed files
 
-- package.json
-- package-lock.json
-- src/ui/theme.ts
-- src/ui/components.ts
-- src/ui/sceneHud.ts
+- src/main.ts
 - src/scenes/InnScene.ts
-- src/scenes/TowerScene.ts
-- src/scenes/HeroesScene.ts
-- src/scenes/BuildScene.ts
 - review/redesign-09/reference-board.md
-- review/redesign-09/redesign-rubric.md
 - review/redesign-09/design-plan.md
 - review/redesign-09/self-evaluation.md
 - review/redesign-09/loop-validation.spec.ts
 - review/redesign-09/REQUEST.md
-- review/redesign-09/screenshots/01-inn-before-send.png
-- review/redesign-09/screenshots/02-tower-traveling.png
-- review/redesign-09/screenshots/03-tower-fighting.png
-- review/redesign-09/screenshots/04-tower-continue-run.png
-- review/redesign-09/screenshots/05-tower-complete-floor.png
-- review/redesign-09/screenshots/06-inn-after-return.png
-- review/redesign-09/screenshots/07-heroes-view.png
-- review/redesign-09/screenshots/08-build-view.png
+- review/redesign-09/screenshots/01-inn-left-bed-area.png
+- review/redesign-09/screenshots/02-inn-center-hearth-area.png
+- review/redesign-09/screenshots/03-inn-right-gate-area.png
+- review/redesign-09/screenshots/04-tower-traveling.png
+- review/redesign-09/screenshots/05-tower-fighting.png
+- review/redesign-09/screenshots/06-tower-continue-run.png
+- review/redesign-09/screenshots/07-tower-complete-floor.png
+- review/redesign-09/screenshots/08-inn-after-return.png
+- review/redesign-09/screenshots/09-heroes-view.png
+- review/redesign-09/screenshots/10-build-view.png
 - review/redesign-09/screenshots/responsive-360x640.png
+- review/redesign-09/screenshots/responsive-360x640-inn-gate.png
 - review/redesign-09/screenshots/responsive-360x640-tower.png
 - review/redesign-09/screenshots/responsive-390x844.png
 
@@ -70,7 +65,7 @@ Observed output summary:
 - 35 modules transformed
 - `dist/index.html` generated
 - `dist/assets/index-DGwNm4E4.css` generated
-- `dist/assets/index-DqPIE4pG.js` generated
+- `dist/assets/index-B8E9dI7L.js` generated
 - Vite emitted a non-blocking chunk-size warning for the Phaser-sized bundle.
 
 Other validation scripts:
@@ -89,7 +84,10 @@ Result:
 Validated loop:
 
 - App opened to Inn.
-- Send to Tower was clicked from the gate-connected action.
+- Inn camera was dragged to the left Bed area and scrollX was asserted near the left bound.
+- Inn camera was dragged to the center Hearth area and scrollX was asserted to increase.
+- Inn camera was dragged to the right Gate area and scrollX was asserted to increase and remain within bounds.
+- Send to Tower was clicked from the gate-attached action after panning to the Gate.
 - Tower showed traveling.
 - Tower advanced through exploring toward combat.
 - Tower reached fighting.
@@ -106,25 +104,28 @@ Validated loop:
 
 ## Screenshot paths
 
-- review/redesign-09/screenshots/01-inn-before-send.png
-- review/redesign-09/screenshots/02-tower-traveling.png
-- review/redesign-09/screenshots/03-tower-fighting.png
-- review/redesign-09/screenshots/04-tower-continue-run.png
-- review/redesign-09/screenshots/05-tower-complete-floor.png
-- review/redesign-09/screenshots/06-inn-after-return.png
-- review/redesign-09/screenshots/07-heroes-view.png
-- review/redesign-09/screenshots/08-build-view.png
+- review/redesign-09/screenshots/01-inn-left-bed-area.png
+- review/redesign-09/screenshots/02-inn-center-hearth-area.png
+- review/redesign-09/screenshots/03-inn-right-gate-area.png
+- review/redesign-09/screenshots/04-tower-traveling.png
+- review/redesign-09/screenshots/05-tower-fighting.png
+- review/redesign-09/screenshots/06-tower-continue-run.png
+- review/redesign-09/screenshots/07-tower-complete-floor.png
+- review/redesign-09/screenshots/08-inn-after-return.png
+- review/redesign-09/screenshots/09-heroes-view.png
+- review/redesign-09/screenshots/10-build-view.png
 - review/redesign-09/screenshots/responsive-360x640.png
+- review/redesign-09/screenshots/responsive-360x640-inn-gate.png
 - review/redesign-09/screenshots/responsive-360x640-tower.png
 - review/redesign-09/screenshots/responsive-390x844.png
 
 ## Responsive checks
 
 390x844:
-Passed. Native-size screenshots show Inn, Tower, Heroes, and Build readable with no key elements hidden under bottom nav.
+Passed. Native-size screenshots show left, center, and right Inn camera positions plus Tower, Heroes, and Build readable with no key elements hidden under bottom nav.
 
 360x640:
-Passed. `responsive-360x640.png` and `responsive-360x640-tower.png` show the scaled Inn and Tower remain readable, with HUD, actor, HP, event, action/nav regions visible.
+Passed. `responsive-360x640.png`, `responsive-360x640-inn-gate.png`, and `responsive-360x640-tower.png` show the scaled Inn and Tower remain readable, with HUD, actor, HP, event, gate action, and nav regions visible.
 
 ## Known issues
 
@@ -135,4 +136,4 @@ Vite emits a chunk-size warning because Phaser is bundled into the main build ou
 
 ## Why this should pass
 
-The redesign applies the reference-board principles without copying assets or layouts: the Inn is now a physical base, Tower is a watched dungeon/combat scene, Heroes is a roster hall, and Build is a room-planning surface. The self-evaluation scores every critical rubric item at 2 or higher, with the only score-2 items being compact mobile label breathing room, successful-loop screenshot coverage not including wiped state, and smaller text after 360x640 scaling. The current gameplay loop, coin reward, floor unlock, bottom nav labels, and pure-module boundaries were validated.
+The revised pass directly addresses the rejection: the Inn no longer tries to fit Bed, Hearth, Training, Gate, hero, status, event, and action into one 390px screen. The player drags a camera across a wider base world, and the screenshots prove separate Bed, Hearth, and Gate views. The self-evaluation scores the new Inn camera-world requirements at 3, while the current gameplay loop, coin reward, floor unlock, bottom nav labels, and pure-module boundaries were validated.

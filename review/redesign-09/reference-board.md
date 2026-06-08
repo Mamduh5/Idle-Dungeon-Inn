@@ -2,6 +2,148 @@
 
 This board records layout and presentation principles from real games. The references are for analysis only. No art, logos, characters, UI skins, names, or exact layouts are copied into Idle Dungeon Inn.
 
+## Panable Mobile Base Focus
+
+The rejected pass was too easy to satisfy with a fitted one-screen cutaway. This addendum focuses on games where the main screen is a camera viewport over a larger physical place.
+
+## Reference: Clash of Clans
+
+URL:
+https://supercell.com/en/games/clashofclans/
+
+Studied:
+Fantasy base/village readability, camera-as-viewport presentation, and spatial building identity.
+
+Works:
+- The village is larger than the device viewport, so the player expects to pan and inspect.
+- Buildings read as objects in a persistent world, not as stacked menu cards.
+- Important actions are connected to places and buildings.
+
+Does not fit Idle Dungeon Inn:
+- Free building placement, combat base defense, and monetized construction timers are outside scope.
+- The isometric village scale is larger than the current prototype needs.
+
+Borrowable principle:
+- Treat the Inn as a wide base map where rooms and the Tower Gate are world objects the player moves the camera between.
+
+Do not copy:
+- Buildings, troops, icons, village layout, camera angle, palette, UI chrome, names, or economy.
+
+## Reference: Hay Day
+
+URL:
+https://supercell.com/en/games/hayday/
+
+Studied:
+Farm map panning, production buildings as spatial objects, and expansion readability.
+
+Works:
+- The player inspects a larger map through touch panning.
+- Buildings and production spaces are recognizable from shape and placement before reading labels.
+- Expansion is implied by territory beyond the current focus.
+
+Does not fit Idle Dungeon Inn:
+- Farming loops, crop timers, trade systems, and bright farm theme are outside scope.
+- The Inn should stay side-cutaway fantasy, not become an isometric farm.
+
+Borrowable principle:
+- Let adjacent off-screen areas imply the Inn continues beyond the current viewport.
+
+Do not copy:
+- Farm buildings, crops, decorations, characters, UI, icons, colors, or map layout.
+
+## Reference: Township
+
+URL:
+https://www.playrix.com/games/township
+
+Studied:
+Expandable town map, readable districts, and panned city-builder layout.
+
+Works:
+- The town is understood as a large continuous space with themed clusters.
+- Roads and object placement communicate where the player can inspect next.
+- Locked or future areas can be shown spatially without becoming fake active buttons.
+
+Does not fit Idle Dungeon Inn:
+- City construction, zoning, factories, and map scale are too broad for the prototype.
+- The current game has fixed rooms rather than build-anywhere placement.
+
+Borrowable principle:
+- Use a road/floor path to connect Bed, Hearth, Training, and Gate as a browsable base.
+
+Do not copy:
+- City buildings, road style, decorations, UI, icons, palette, or production systems.
+
+## Reference: Fallout Shelter
+
+URL:
+https://falloutshelter.bethesda.net/
+
+Studied:
+Rooms as physical spaces, characters inside rooms, and side-cutaway base readability.
+
+Works:
+- Rooms are functional spaces containing people, not abstract status cards.
+- The building can extend beyond one viewport while keeping each room readable.
+- Characters communicate current activity by where they stand.
+
+Does not fit Idle Dungeon Inn:
+- Vault theme, resource triad, room merging, and dweller systems are outside scope.
+- The Inn should be warm fantasy, not bunker sci-fi.
+
+Borrowable principle:
+- Place Mira inside the Bed, Hearth, or Gate zone based on status so hero state is spatial.
+
+Do not copy:
+- Vault rooms, characters, costumes, UI frames, icons, typography, or bunker layout.
+
+## Reference: Tiny Tower
+
+URL:
+https://play.google.com/store/apps/details?hl=en_US&id=com.nimblebit.tinytower
+
+Studied:
+Mobile building rooms, small characters in functional floors, and camera inspection rhythm.
+
+Works:
+- Floors are physical spaces with characters, labels, and activity.
+- The player understands the building as bigger than one focused view.
+- Small labels support room identity without replacing room art.
+
+Does not fit Idle Dungeon Inn:
+- Skyscraper business theme and shop economy are not the desired fantasy inn direction.
+- Exact vertical stacked floors would make the Inn feel like another tower.
+
+Borrowable principle:
+- Use clear room boundaries and tiny character placement while keeping labels secondary.
+
+Do not copy:
+- Floors, bitizen style, business icons, elevator motif, or UI chrome.
+
+## Reference: Kairosoft-Style Town/Base Games
+
+Examples:
+Dungeon Village, Dungeon Village 2, Cavern Adventurers.
+
+Studied:
+Tiny readable characters, compact building zones, and playful base management readability.
+
+Works:
+- Buildings and characters stay legible with simple shapes.
+- Game state reads from where characters are and what buildings are present.
+- Locked or future spaces can be shown as part of a larger base.
+
+Does not fit Idle Dungeon Inn:
+- Dense management layers, full settlement placement, and exact pixel styling are beyond the prototype.
+- The current pass needs a fixed Inn layout, not an open construction simulator.
+
+Borrowable principle:
+- Keep the Inn world simple, spatial, and readable: Bed, Hearth, Training, Gate, hero, and path.
+
+Do not copy:
+- Pixel sprites, building arrangements, icons, fonts, UI skins, names, or exact layouts.
+
 ## Reference: Dungeon Village
 
 URL:
