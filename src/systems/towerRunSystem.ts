@@ -139,7 +139,11 @@ function resolveReachedNode(
         ...run,
         status: "fighting",
         nodeProgress: 1,
-        enemies: enemyIds.map(createEnemyState)
+        enemies: enemyIds.map(createEnemyState),
+        heroCombatCooldowns: {},
+        enemyCombatCooldowns: {},
+        lastCombatEventMessage: "Combat started.",
+        combatStartedAt: null
       },
       event: createEvent(
         now,

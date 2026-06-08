@@ -1,4 +1,4 @@
-import type { EnemyId, LootId, PartyId, TowerFloorId, TowerNodeId, TowerNodeType } from "./ids";
+import type { EnemyId, HeroId, LootId, PartyId, TowerFloorId, TowerNodeId, TowerNodeType } from "./ids";
 import type { LootStack, RewardDefinition } from "./lootTypes";
 
 export type TowerRunStatus =
@@ -43,6 +43,10 @@ export interface TowerRunState {
   nodeIndex: number;
   nodeProgress: number;
   enemies: TowerRunEnemyState[];
+  heroCombatCooldowns: Record<HeroId, number>;
+  enemyCombatCooldowns: Record<string, number>;
+  lastCombatEventMessage: string | null;
+  combatStartedAt: number | null;
   lootBag: LootStack[];
   lastFailureReason: string | null;
   startedAt: number;

@@ -10,3 +10,18 @@ export interface CombatStats {
   aggro: number;
   lootBonus: number;
 }
+
+export type CombatActorSide = "hero" | "enemy";
+
+export type CombatEventType = "damage" | "actor_defeated" | "combat_started" | "combat_ended";
+
+export interface CombatEvent {
+  type: CombatEventType;
+  actorSide: CombatActorSide;
+  actorId: string;
+  targetSide?: CombatActorSide;
+  targetId?: string;
+  amount?: number;
+  message: string;
+  createdAt: number;
+}

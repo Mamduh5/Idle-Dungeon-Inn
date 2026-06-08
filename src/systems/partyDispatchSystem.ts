@@ -81,6 +81,10 @@ export function sendSelectedPartyToTower(state: GameState): GameState {
             nodeIndex: 0,
             nodeProgress: 0,
             enemies: [],
+            heroCombatCooldowns: {},
+            enemyCombatCooldowns: {},
+            lastCombatEventMessage: null,
+            combatStartedAt: null,
             lootBag: [],
             lastFailureReason: null,
             startedAt: now

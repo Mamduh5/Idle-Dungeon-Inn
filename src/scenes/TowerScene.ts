@@ -5,6 +5,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getHeroesForParty, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
 import { tickGameState } from "../systems/gameTickSystem";
+import { heroDefinitions } from "../data/heroData";
 import type { HeroStatus } from "../types/ids";
 import type { TowerNodeDefinition, TowerRunState } from "../types/towerTypes";
 import { createSceneHud } from "../ui/sceneHud";
@@ -26,7 +27,7 @@ export class TowerScene extends Phaser.Scene {
     const status = run?.status ?? "preparing";
     const progress = run?.nodeProgress ?? 0;
 
-    this.renderKey = getTowerRenderKey(run);
+    this.renderKey = getTowerRenderKey(run, heroes);
     this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x111827).setOrigin(0, 0);
     this.add.rectangle(40, 128, GAME_WIDTH - 80, 520, 0x1f2937, 1).setStrokeStyle(2, 0x5b6b84);
 
@@ -59,6 +60,7 @@ export class TowerScene extends Phaser.Scene {
     heroes.forEach((hero, index) => {
       const y = 468 + index * 48;
       this.add.rectangle(GAME_WIDTH / 2, y, 238, 36, 0x273449, 1).setStrokeStyle(1, 0x7186a4);
+      const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? hero.currentHp;
       this.add.text(88, y - 10, `${hero.name} Lv ${hero.level}`, {
         color: "#edf5ff",
         fontFamily: "Inter, Arial, sans-serif",
@@ -70,9 +72,14 @@ export class TowerScene extends Phaser.Scene {
         fontFamily: "Inter, Arial, sans-serif",
         fontSize: "12px"
       });
+      this.add.text(88, y + 4, `HP ${hero.currentHp}/${maxHp}`, {
+        color: hero.currentHp <= 0 ? "#f9b6a8" : "#9eb8d8",
+        fontFamily: "Inter, Arial, sans-serif",
+        fontSize: "11px"
+      });
     });
 
-    if (run?.status === "fighting") {
+    if (run && run.enemies.length > 0) {
       this.drawEnemies(run);
     }
 
@@ -91,7 +98,9 @@ export class TowerScene extends Phaser.Scene {
     const now = Date.now();
     const state = updateGameState((currentState) => tickGameState(currentState, delta, now));
     const nextRun = getSelectedTowerRun(state);
-    const nextKey = getTowerRenderKey(nextRun);
+    const nextParty = getSelectedParty(state);
+    const nextHeroes = nextParty ? getHeroesForParty(state, nextParty.id) : [];
+    const nextKey = getTowerRenderKey(nextRun, nextHeroes);
 
     if (nextKey !== this.renderKey && now - this.lastRestartAt > 80) {
       this.lastRestartAt = now;
@@ -138,7 +147,8 @@ export class TowerScene extends Phaser.Scene {
   }
 
   private drawEnemies(run: TowerRunState): void {
-    this.add.text(72, 546, "Encounter Ready", {
+    const title = run.status === "blocked" ? "Encounter Cleared" : run.status === "wiped" ? "Encounter Ended" : "Encounter";
+    this.add.text(72, 546, title, {
       color: "#ffe7a3",
       fontFamily: "Inter, Arial, sans-serif",
       fontSize: "16px",
@@ -157,10 +167,16 @@ export class TowerScene extends Phaser.Scene {
         fontSize: "13px",
         fontStyle: "700"
       });
-      this.add.text(246, y - 10, `HP ${enemy.currentHp ?? "?"}`, {
+      const maxHp = enemyDefinition?.baseStats.hp ?? enemy.currentHp ?? "?";
+      this.add.text(214, y - 10, formatStatus(enemy.status), {
+        color: enemy.status === "defeated" ? "#9eb8d8" : "#f9b6a8",
+        fontFamily: "Inter, Arial, sans-serif",
+        fontSize: "11px"
+      });
+      this.add.text(258, y - 10, `HP ${enemy.currentHp ?? "?"}/${maxHp}`, {
         color: "#f9b6a8",
         fontFamily: "Inter, Arial, sans-serif",
-        fontSize: "12px"
+        fontSize: "11px"
       });
     });
   }
@@ -184,7 +200,7 @@ function getTowerMessage(partyName: string, run: TowerRunState | null, node: Tow
   }
 
   if (run.status === "fighting") {
-    return "Combat encounter ready. Combat system not implemented yet.";
+    return run.lastCombatEventMessage ?? "Combat running...";
   }
 
   if (run.status === "looting") {
@@ -192,23 +208,30 @@ function getTowerMessage(partyName: string, run: TowerRunState | null, node: Tow
   }
 
   if (run.status === "blocked") {
-    return "Run is blocked until the next system is implemented.";
+    return run.lastFailureReason === "Encounter cleared. Node advancement is not implemented yet."
+      ? "Encounter cleared. Rewards/floor clear not implemented yet."
+      : "Run is blocked until the next system is implemented.";
+  }
+
+  if (run.status === "wiped") {
+    return "Party wiped. Return/revive not implemented yet.";
   }
 
   return `${partyName} status: ${formatStatus(run.status)}.`;
 }
 
-function getTowerRenderKey(run: TowerRunState | null): string {
+function getTowerRenderKey(run: TowerRunState | null, heroes: Array<{ id: string; currentHp: number; status: string }>): string {
   if (!run) {
     return "none";
   }
 
   const progressBucket = Math.floor(run.nodeProgress * 20);
+  const heroesKey = heroes.map((hero) => `${hero.id}:${hero.currentHp}:${hero.status}`).join(",");
   const enemiesKey = run.enemies
     .map((enemy) => `${enemy.enemyId}:${enemy.currentHp}:${enemy.status}`)
     .join(",");
 
-  return `${run.status}|${run.floor}|${run.nodeIndex}|${progressBucket}|${enemiesKey}`;
+  return `${run.status}|${run.floor}|${run.nodeIndex}|${progressBucket}|${heroesKey}|${enemiesKey}|${run.lastCombatEventMessage}`;
 }
 
 function formatStatus(status: string | HeroStatus): string {
