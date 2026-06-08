@@ -13,6 +13,7 @@ import {
   FLOOR_CLEAR_HOLD_REASON,
   TREASURE_HOLD_REASON
 } from "../systems/towerNodeActionSystem";
+import { canCompleteSelectedFloor, completeSelectedFloor } from "../systems/floorClearSystem";
 import type { HeroStatus } from "../types/ids";
 import type { TowerNodeDefinition, TowerRunState } from "../types/towerTypes";
 import { createSceneHud } from "../ui/sceneHud";
@@ -92,6 +93,10 @@ export class TowerScene extends Phaser.Scene {
 
     if (canContinueTowerRun(run)) {
       this.drawContinueButton();
+    }
+
+    if (canCompleteSelectedFloor(state)) {
+      this.drawCompleteFloorButton();
     }
 
     this.add.text(GAME_WIDTH / 2, 684, "Tower View", {
@@ -211,6 +216,26 @@ export class TowerScene extends Phaser.Scene {
       this.scene.restart();
     });
   }
+
+  private drawCompleteFloorButton(): void {
+    const button = this.add
+      .rectangle(GAME_WIDTH / 2, 648, 170, 42, 0xf1c76f, 1)
+      .setStrokeStyle(2, 0xffe7a3)
+      .setInteractive({ useHandCursor: true });
+
+    this.add.text(GAME_WIDTH / 2, 648, "Complete Floor", {
+      align: "center",
+      color: "#111827",
+      fontFamily: "Inter, Arial, sans-serif",
+      fontSize: "15px",
+      fontStyle: "700"
+    }).setOrigin(0.5);
+
+    button.on("pointerup", () => {
+      updateGameState(completeSelectedFloor);
+      this.scene.restart();
+    });
+  }
 }
 
 function getCurrentNode(run: TowerRunState): TowerNodeDefinition | null {
@@ -246,7 +271,7 @@ function getTowerMessage(partyName: string, run: TowerRunState | null, node: Tow
     }
 
     if (run.lastFailureReason === FLOOR_CLEAR_HOLD_REASON) {
-      return "Exit reached. Floor clear not implemented yet.";
+      return "Exit reached. Complete Floor to return to the inn.";
     }
 
     return "Run is blocked until the next system is implemented.";

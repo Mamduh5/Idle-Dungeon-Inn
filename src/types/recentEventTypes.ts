@@ -9,6 +9,8 @@ export type RecentEventType =
   | "tower_node_continue_blocked"
   | "tower_encounter_started"
   | "tower_encounter_cleared"
+  | "floor_cleared"
+  | "floor_clear_blocked"
   | "party_floor_reached"
   | "party_wiped"
   | "hero_defeated"
