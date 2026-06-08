@@ -12,4 +12,4 @@ export type UpgradeId = string;
 
 export type TowerNodeType = "combat" | "elite" | "treasure" | "trap" | "camp" | "boss" | "exit";
 export type PartyMode = "push" | "safe_farm" | "material_hunt" | "boss_attempt";
-export type HeroStatus = "idle" | "assigned" | "resting" | "defeated";
+export type HeroStatus = "idle" | "assigned" | "resting" | "defeated" | "in_tower" | "wounded" | "ready" | "eating" | "training" | "gearing";
