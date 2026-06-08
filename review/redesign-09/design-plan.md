@@ -21,7 +21,7 @@
 
 - Cozy fantasy inn/base: a wide panable cutaway where the phone is a camera viewport over a larger inn world, not a fitted poster.
 - The Inn world is spatial first: Bed Room, Hearth/common room, Training wing, and Tower Gate live at different world x positions with floor paths and visible continuation beyond the viewport.
-- Tower run: dark stone corridor, torches, node track, hero on the left, enemies on the right, clear HP bars, state lighting.
+- Tower run: a wider physical dungeon corridor/room where the camera frames travel, exploration, combat, cleared passage, and exit portal as places in the run rather than a centered status screen.
 - Heroes: roster hall with one active hero plaque and party bench slots.
 - Build: inn blueprint/workshop view with physical room miniatures and honest locked/future markers.
 - UI copy stays compact. Text explains state, not mechanics tutorials.
@@ -45,6 +45,29 @@ World object positions:
 | Tower Gate | x 1040-1215, y 190-620 | Edge-of-world gateway with target floor label, path beams, and attached Send to Tower action. |
 | Hero | Bed x 190 y 428, Hearth x 520 y 482, Gate x 1115 y 565 | Placement follows hero status rather than floating in a panel. |
 
+## 3B. Tower World Stage Layout
+
+- Canvas viewport: 390x844. The top HUD and bottom nav remain fixed overlays.
+- Tower world size: 960x844. The camera selects the active part of the corridor based on run status instead of fitting the full dungeon into one screen.
+- Camera focus:
+  - traveling: follows Mira along the corridor path from the entry side toward the floor gate.
+  - exploring: follows Mira through side rooms and archways.
+  - fighting: scrollX 300, framing the encounter room with hero-left and enemy-right staging.
+  - encounter cleared: scrollX 425, framing defeated enemy and open passage.
+  - exit reached: scrollX 520, framing Mira and the floor exit portal.
+- Fixed overlay content: compact party/floor/node/status strip and node progress pips near the top.
+- World content: corridor walls, torches, doors, hero, enemies, portals, event line, and contextual Continue/Complete signs.
+
+Tower world object positions:
+
+| Object | World position / footprint | Notes |
+| --- | --- | --- |
+| Entry / travel corridor | x 80-820, y 520-612 | Traveling/exploring movement path. |
+| Encounter room | x 350-710, y 314-564 | Fighting stage with hero at x 430 and enemy at x 650. |
+| Open passage | x 704, y 420 | Continue Run action connects to this area after combat clears. |
+| Exit portal | x 715, y 418 | Complete Floor action connects to this area at floor clear. |
+| Compact run overlay | screen x 18-372, y 112-200 | Floor/node info stays as overlay, not center content. |
+
 ## 4. Screen-by-Screen Redesign Plan
 
 Inn:
@@ -58,11 +81,13 @@ Inn:
 - Add a compact drag hint and small directional arrows as world labels, not a tutorial block.
 
 Tower:
-- Replace the central panel/list stack with a dungeon scene.
-- Draw a top node track and progress bar for floor/node progress.
-- Draw state-specific scenes: traveling bridge, exploring corridor, fighting arena, cleared gate, exit portal, wiped red overlay.
+- Replace the central panel/list stack with a 960px-wide dungeon world stage.
+- Draw compact node/floor overlay near the top, not as the center of the screen.
+- Draw state-specific world scenes: traveling corridor, exploring archways, fighting encounter room, cleared open passage, exit portal, wiped red overlay.
+- Put hero and enemies at physical world positions rather than list rows.
 - Draw hero and enemy HP near actors.
-- Use one combat/event line and a single relevant action button.
+- Use one combat/event line when it helps active states.
+- Continue Run and Complete Floor are smaller contextual signs connected to the passage/portal, not main dashboard commands.
 
 Heroes:
 - Draw a roster hall with active hero portrait/body, HP bar, status, level, and assigned party.
@@ -99,6 +124,7 @@ Build:
   - drag/pan to right Gate area and capture
   - click Send to Tower at the gate
   - observe traveling, exploring, fighting
+  - wait for actual fighting status before capturing the fighting screenshot
   - wait for encounter clear
   - click Continue Run
   - wait for exit
@@ -108,6 +134,7 @@ Build:
 - Capture required screenshots at 390x844.
 - Capture responsive checks at 390x844 and 360x640.
 - Assert the Inn camera scroll changes after pointer drag and remains clamped within bounds.
+- Visually inspect regenerated Tower screenshots after Playwright passes; tests alone are not sufficient for approval.
 
 ## 7. Risk List
 

@@ -44,20 +44,33 @@ Validation artifacts used:
 | Core info is readable: party, hero, HP, target floor, coins, latest event. | 3 | 02, 03 | HUD shows coins/floor, Hearth label shows party context, hero HP is near Mira, gate shows target, notice shows latest event. | None. |
 | Text supports the scene instead of dominating it. | 3 | 01, 02, 03 | Text is limited to room labels, compact status labels, one latest-event notice, and a short drag hint. | None. |
 
+## Tower World Questions
+
+| Question | Answer | Evidence |
+|---|---|---|
+| Is Tower still a fitted status screen? | No. Tower now uses a 960px-wide dungeon world with camera focus per run state. | src/scenes/TowerScene.ts, screenshots 04-07 |
+| Are hero and enemy physically staged? | Yes. Fighting frames an encounter room with Mira on the left and Cave Slime on the right. | screenshot 05 |
+| Do traveling/exploring read as movement through space? | Yes. Traveling shows Mira advancing along a corridor path; exploring uses archways/rooms with camera focus following progress. | screenshot 04, TowerScene exploring branch |
+| Are Continue/Complete contextual actions? | Yes. Continue and Complete are smaller signs connected to open passage/exit portal geometry rather than bottom dashboard commands. | screenshots 06-07 |
+| Was this visually inspected, not only tested? | Yes. Screenshots 04, 05, 06, 07, and responsive-360x640-tower.png were opened and checked after Playwright regenerated them. | visual inspection notes from this pass |
+
 ## Tower View
 
 | Critical item | Score | Evidence | Explanation | Issues if below 3 |
 |---|---:|---|---|---|
-| Looks like a dungeon/tower run, not a status report. | 3 | 04, 05, 06, 07 | Dark stone background, torches, node track, corridor floor, and actors replace list panels. | None. |
-| Traveling, exploring, fighting, cleared, exit, and wiped states are visually distinct. | 2 | 04, 05, 06, 07, TowerScene wiped branch | Traveling has bridge/path, fighting has enemy side, cleared has defeated enemy and open passage, exit has portal. Wiped has a red overlay branch in code. | Wiped is implemented but not part of the successful-loop screenshot set. |
+| Looks like a dungeon/tower run, not a status report. | 3 | 04, 05, 06, 07 | Dark corridor walls, torches, doors, path lines, room frames, actors, and portals are the main visual surface. | None. |
+| Tower is a wider physical corridor/room stage. | 3 | 04, 05, 06, 07 | Tower world is 960px wide and the camera frames travel, fight, cleared passage, and exit locations. | None. |
+| Node/floor info is compact overlay, not center content. | 3 | 04-07 | Party/floor/node/status and pips sit in a small top overlay while the dungeon world owns the center. | None. |
+| Traveling/exploring show movement through space. | 3 | 04, TowerScene exploring branch | Traveling places Mira on the corridor path according to run progress; exploring uses room archways and a moving lantern/hero position. | None. |
+| Fighting shows physical encounter staging. | 3 | 05 | Mira is on the left side of the encounter room and Cave Slime is on the right with HP near actors. | None. |
+| Continue Run and Complete Floor are contextual world actions. | 3 | 06, 07 | Actions are smaller signs connected to the open passage or exit portal, not generic bottom dashboard buttons. | None. |
+| Traveling, exploring, fighting, cleared, exit, and wiped states are visually distinct. | 2 | 04, 05, 06, 07, TowerScene wiped branch | Traveling corridor, combat room, cleared passage, and exit portal are distinct. Wiped has a red overlay branch in code. | Wiped is implemented but not part of the successful-loop screenshot set. |
 | Hero side and enemy side are clear. | 3 | 05, 06 | Hero is left, enemy is right, with separate HP bars and actor shapes. | None. |
 | HP bars are readable. | 3 | 05, 06, 07 | Hero and enemy HP bars sit close to actors and show numeric current/max HP. | None. |
-| Floor/node progress is readable. | 3 | 04, 05, 07 | Header, node pips, and progress bar show floor/node state. | None. |
-| Continue Run action is clear when available. | 3 | 06 | Continue Run appears as the only active button in the cleared state. | None. |
-| Complete Floor action is clear when available. | 3 | 07 | Complete Floor appears as the only active button at the exit hold. | None. |
-| Combat feedback is visible without becoming text spam. | 3 | 05 | One event line reports the latest attack. | None. |
-| No visual confusion at 390x844. | 3 | 04, 05, 06, 07 | Required Tower screenshots are readable at native game size. | None. |
-| No visual confusion at 360x640. | 2 | responsive-360x640-tower.png | Scaled Tower traveling view keeps header, actor, HP, event line, and nav visible. | Text is smaller due canvas scaling, but no key element is hidden or overlapping. |
+| Floor/node progress is readable. | 3 | 04, 05, 07 | Compact overlay pips and progress bar show floor/node state without dominating the screen. | None. |
+| Combat feedback is visible without becoming text spam. | 3 | 05 | One event line reports combat state while the encounter staging remains primary. | None. |
+| No visual confusion at 390x844. | 3 | 04, 05, 06, 07 | Required Tower screenshots were visually inspected at native game size. | None. |
+| No visual confusion at 360x640. | 2 | responsive-360x640-tower.png | Scaled Tower traveling view keeps header, corridor, actor, HP, event line, and nav visible. | Text is smaller due canvas scaling, but no key element is hidden or overlapping. |
 
 ## Heroes View
 
@@ -98,4 +111,5 @@ Validation artifacts used:
 
 - `npm run build`: passed. Vite emitted the existing large chunk warning for Phaser bundle size.
 - `npx playwright test review/redesign-09/loop-validation.spec.ts --reporter=line`: 3 passed.
+- Visual screenshot inspection: opened and checked Tower traveling, fighting, continue, complete, and responsive 360x640 Tower screenshots after regeneration.
 - Pure module Phaser import check: no matches in src/types, src/data, src/state, or src/systems.

@@ -15,7 +15,6 @@ import {
   TREASURE_HOLD_REASON
 } from "../systems/towerNodeActionSystem";
 import type { HeroInstance } from "../types/heroTypes";
-import type { HeroStatus } from "../types/ids";
 import type { TowerNodeDefinition, TowerRunEnemyState, TowerRunState } from "../types/towerTypes";
 import {
   addCenteredLabel,
@@ -24,7 +23,6 @@ import {
   drawDivider,
   drawHpBar,
   drawPanel,
-  drawProgressBar,
   drawStatusBadge,
   drawTinyEnemy,
   drawTinyHero,
@@ -32,6 +30,9 @@ import {
 } from "../ui/components";
 import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
+
+const TOWER_WORLD_WIDTH = 960;
+const TOWER_MAX_SCROLL_X = TOWER_WORLD_WIDTH - GAME_WIDTH;
 
 export class TowerScene extends Phaser.Scene {
   private renderKey = "";
@@ -47,15 +48,18 @@ export class TowerScene extends Phaser.Scene {
     const run = getSelectedTowerRun(state);
     const heroes = party ? getHeroesForParty(state, party.id) : [];
     const node = run ? getCurrentNode(run) : null;
+    const partyName = party?.name ?? "Party";
 
     this.renderKey = getTowerRenderKey(run, heroes);
-    this.drawBackdrop(run);
-    this.drawRunHeader(party?.name ?? "No Party", run, node);
-    this.drawNodeTrack(run);
-    this.drawTowerScene(party?.name ?? "Party", run, node, heroes);
-    this.drawActionArea(state, run);
+    this.configureCamera(run);
+    this.drawDungeonWorld(run);
+    this.drawTowerStage(partyName, run, node, heroes);
+    this.drawContextAction(state, run);
 
+    const fixedChildStart = this.children.list.length;
+    this.drawCompactRunOverlay(partyName, run, node);
     createSceneHud(this, { title: "Tower Run", activeLabel: "Tower" });
+    this.fixChildrenAddedAfter(fixedChildStart);
   }
 
   public update(_time: number, delta: number): void {
@@ -72,69 +76,88 @@ export class TowerScene extends Phaser.Scene {
     }
   }
 
-  private drawBackdrop(run: TowerRunState | null): void {
-    const status = run?.status ?? "preparing";
-    const base = status === "fighting" ? 0x121827 : status === "wiped" ? 0x24131a : UI_COLORS.towerBlue;
-    this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, base).setOrigin(0, 0);
-    this.add.rectangle(0, 104, GAME_WIDTH, 658, 0x111827, 1).setOrigin(0, 0);
+  private configureCamera(run: TowerRunState | null): void {
+    const camera = this.cameras.main;
+    camera.setBounds(0, 0, TOWER_WORLD_WIDTH, GAME_HEIGHT);
+    camera.setScroll(getTowerCameraScrollX(run), 0);
+  }
 
-    for (let row = 0; row < 9; row += 1) {
-      for (let col = 0; col < 5; col += 1) {
-        const x = col * 88 - (row % 2) * 28;
-        const y = 118 + row * 68;
-        this.add.rectangle(x, y, 82, 64, row % 2 === 0 ? 0x1a2535 : 0x172030, 0.38).setOrigin(0, 0);
+  private drawDungeonWorld(run: TowerRunState | null): void {
+    const status = run?.status ?? "preparing";
+    const wallColor = status === "wiped" ? 0x25131a : status === "fighting" ? 0x111825 : 0x142033;
+
+    this.add.rectangle(0, 0, TOWER_WORLD_WIDTH, GAME_HEIGHT, wallColor).setOrigin(0, 0);
+    this.add.rectangle(0, 104, TOWER_WORLD_WIDTH, 164, 0x0c1421, 1).setOrigin(0, 0);
+    this.add.rectangle(0, 268, TOWER_WORLD_WIDTH, 494, 0x111827, 1).setOrigin(0, 0);
+
+    for (let row = 0; row < 7; row += 1) {
+      for (let col = 0; col < 12; col += 1) {
+        const x = col * 88 - (row % 2) * 32;
+        const y = 130 + row * 64;
+        this.add.rectangle(x, y, 82, 58, row % 2 === 0 ? 0x1a2535 : 0x172030, 0.38).setOrigin(0, 0);
       }
     }
 
-    this.add.polygon(52, 640, [0, -20, 86, -260, 172, -20], 0x0f1218, 0.44);
-    this.add.polygon(338, 640, [0, -20, -86, -260, -172, -20], 0x0f1218, 0.44);
-    this.add.rectangle(0, 680, GAME_WIDTH, 82, 0x0f1218, 0.72).setOrigin(0, 0);
+    this.add.rectangle(46, 558, 864, 54, 0x283247, 1).setOrigin(0, 0).setStrokeStyle(2, 0x53657e);
+    this.add.rectangle(86, 526, 788, 32, 0x1b2434, 1).setOrigin(0, 0).setStrokeStyle(1, 0x53657e);
+    this.add.rectangle(0, 666, TOWER_WORLD_WIDTH, 96, 0x0b1018, 0.8).setOrigin(0, 0);
+
+    for (const x of [94, 276, 456, 638, 820]) {
+      this.add.rectangle(x, 250, 22, 318, 0x0d1320, 1).setOrigin(0, 0).setStrokeStyle(1, 0x334155);
+      this.add.rectangle(x - 12, 236, 46, 18, 0x1c2a3d, 1).setOrigin(0, 0).setStrokeStyle(1, 0x53657e);
+    }
+
+    this.drawWorldTorches(status);
+    this.drawFarDoor(130, "Entry", UI_COLORS.towerStone);
+    this.drawFarDoor(830, "Deep", UI_COLORS.towerStone);
   }
 
-  private drawRunHeader(partyName: string, run: TowerRunState | null, node: TowerNodeDefinition | null): void {
-    drawPanel(this, 28, 118, 334, 62, 0x1d2a3f, UI_COLORS.towerStone, 0.94, 7);
-    addLabel(this, 44, 130, partyName, {
+  private drawCompactRunOverlay(partyName: string, run: TowerRunState | null, node: TowerNodeDefinition | null): void {
+    drawPanel(this, 18, 112, 354, 88, 0x101722, UI_COLORS.towerStone, 0.96, 7);
+    addLabel(this, 34, 124, partyName, {
       color: UI_HEX.cream,
-      fontSize: 15,
+      fontSize: 13,
       fontStyle: "700",
-      width: 150
+      width: 136
     });
-    addLabel(this, 44, 152, `Floor ${run?.floor ?? 1} / Node ${(run?.nodeIndex ?? 0) + 1}`, {
+    addLabel(this, 34, 144, `Floor ${run?.floor ?? 1} / Node ${(run?.nodeIndex ?? 0) + 1}`, {
       color: UI_HEX.skyBlue,
-      fontSize: 12,
+      fontSize: 11,
       fontStyle: "700"
     });
-
-    drawStatusBadge(this, 204, 130, formatTowerStatus(run, node), statusColor(run));
+    drawStatusBadge(this, 246, 123, formatTowerStatus(run, node), statusColor(run));
+    this.drawCompactNodeTrack(run);
   }
 
-  private drawNodeTrack(run: TowerRunState | null): void {
+  private drawCompactNodeTrack(run: TowerRunState | null): void {
     const floor = run ? prototypeTowerFloors.find((candidate) => candidate.floor === run.floor) : null;
     const nodes = floor?.nodes ?? [];
-    const startX = 64;
-    const y = 214;
+    const startX = 38;
+    const endX = 352;
+    const y = 178;
 
-    drawDivider(this, startX, y, GAME_WIDTH - 64, y, UI_COLORS.towerStone, 0.8);
+    drawDivider(this, startX, y, endX, y, UI_COLORS.towerStone, 0.75);
     nodes.forEach((node, index) => {
-      const x = nodes.length <= 1 ? GAME_WIDTH / 2 : startX + (index * (GAME_WIDTH - 128)) / (nodes.length - 1);
+      const x = nodes.length <= 1 ? GAME_WIDTH / 2 : startX + (index * (endX - startX)) / (nodes.length - 1);
       const isCurrent = Boolean(run && index === run.nodeIndex);
       const isPast = Boolean(run && index < run.nodeIndex);
       const fill = isCurrent ? UI_COLORS.gold : isPast ? UI_COLORS.success : 0x334155;
-      this.add.circle(x, y, isCurrent ? 13 : 10, fill, 1).setStrokeStyle(2, isCurrent ? UI_COLORS.parchment : UI_COLORS.towerStone);
-      addCenteredLabel(this, x, y + 26, node.type, {
+      this.add.circle(x, y, isCurrent ? 9 : 7, fill, 1).setStrokeStyle(1, isCurrent ? UI_COLORS.parchment : UI_COLORS.towerStone);
+      addCenteredLabel(this, x, y + 14, node.type, {
         color: isCurrent ? UI_HEX.gold : UI_HEX.mutedCream,
-        fontSize: 10,
+        fontSize: 9,
         fontStyle: isCurrent ? "700" : "500",
-        width: 66
+        width: 58
       });
     });
 
     if (run) {
-      drawProgressBar(this, 76, 246, GAME_WIDTH - 152, run.nodeProgress, "node");
+      this.add.rectangle(94, 190, 202, 5, UI_COLORS.deepInk, 1).setOrigin(0, 0).setStrokeStyle(1, UI_COLORS.towerStone);
+      this.add.rectangle(94, 190, 202 * Phaser.Math.Clamp(run.nodeProgress, 0, 1), 5, UI_COLORS.skyBlue, 1).setOrigin(0, 0);
     }
   }
 
-  private drawTowerScene(
+  private drawTowerStage(
     partyName: string,
     run: TowerRunState | null,
     node: TowerNodeDefinition | null,
@@ -143,265 +166,174 @@ export class TowerScene extends Phaser.Scene {
     const status = run?.status ?? "preparing";
     const hero = heroes[0] ?? null;
 
-    drawPanel(this, 30, 294, 330, 328, 0x172235, UI_COLORS.towerStone, 0.92, 7);
-    this.add.rectangle(50, 564, 290, 28, 0x283247, 1).setOrigin(0, 0).setStrokeStyle(1, 0x53657e);
-    this.add.rectangle(60, 548, 270, 16, 0x1b2434, 1).setOrigin(0, 0).setStrokeStyle(1, 0x53657e);
-    this.drawTorches(status);
-
     if (!run || status === "preparing") {
-      this.drawPreparingScene(hero);
+      this.drawPreparingStage(hero);
     } else if (status === "traveling") {
-      this.drawTravelingScene(partyName, run, hero);
+      this.drawTravelingStage(partyName, run, hero);
     } else if (status === "exploring") {
-      this.drawExploringScene(run, node, hero);
+      this.drawExploringStage(run, node, hero);
     } else if (status === "fighting") {
-      this.drawCombatScene(run, hero);
+      this.drawCombatStage(run, hero);
     } else if (status === "blocked" && run.lastFailureReason === ENCOUNTER_CLEAR_HOLD_REASON) {
-      this.drawClearedScene(run, hero);
+      this.drawClearedStage(run, hero);
     } else if (status === "blocked" && run.lastFailureReason === FLOOR_CLEAR_HOLD_REASON) {
-      this.drawExitScene(run, hero);
+      this.drawExitStage(run, hero);
     } else if (status === "looting") {
-      this.drawTreasureScene(run, hero);
+      this.drawTreasureStage(run, hero);
     } else if (status === "wiped") {
-      this.drawWipedScene(run, hero);
+      this.drawWipedStage(run, hero);
     } else {
-      this.drawBlockedScene(run, hero);
+      this.drawBlockedStage(run, hero);
     }
 
-    this.drawEventLine(getTowerMessage(partyName, run, node));
-  }
-
-  private drawTorches(status: string): void {
-    const flame = status === "wiped" ? UI_COLORS.danger : status === "fighting" ? UI_COLORS.gold : UI_COLORS.amber;
-    for (const x of [68, 322]) {
-      this.add.rectangle(x - 3, 340, 6, 42, 0x5b3525, 1).setOrigin(0, 0);
-      this.add.circle(x, 334, 12, flame, 0.55);
-      this.add.circle(x, 334, 6, UI_COLORS.gold, 0.9);
+    if (shouldDrawWorldEventLine(run)) {
+      this.drawWorldEventLine(getTowerMessage(partyName, run, node));
     }
   }
 
-  private drawPreparingScene(hero: HeroInstance | null): void {
-    this.add.rectangle(150, 394, 90, 126, 0x171413, 1).setStrokeStyle(2, UI_COLORS.skyBlue);
-    this.add.circle(195, 394, 45, 0x171413, 1).setStrokeStyle(2, UI_COLORS.skyBlue);
-    addCenteredLabel(this, 195, 470, "The party is still at the inn.", {
+  private drawPreparingStage(hero: HeroInstance | null): void {
+    this.drawPortal(170, 426, UI_COLORS.skyBlue, "Tower mouth");
+    addCenteredLabel(this, 222, 646, "waiting at the threshold", {
       color: UI_HEX.mutedCream,
-      fontSize: 13,
-      width: 220
+      fontSize: 12,
+      width: 180
     });
 
     if (hero) {
-      this.drawHeroUnit(hero, 114, 520, "waiting");
+      this.drawHeroUnit(hero, 112, 524, "waiting");
     }
   }
 
-  private drawTravelingScene(partyName: string, run: TowerRunState, hero: HeroInstance | null): void {
-    const travelX = 95 + run.nodeProgress * 175;
-    this.add.line(0, 492, 80, 0, 292, 0, UI_COLORS.skyBlue, 0.55).setOrigin(0, 0);
-    this.add.polygon(306, 454, [0, -48, 44, 56, -44, 56], 0x0f1218, 1).setStrokeStyle(2, UI_COLORS.towerStone);
-    addCenteredLabel(this, 195, 326, `${partyName} approaches the tower`, {
+  private drawTravelingStage(partyName: string, run: TowerRunState, hero: HeroInstance | null): void {
+    const travelX = 130 + run.nodeProgress * 610;
+    this.add.line(0, 554, 108, 0, 808, 0, UI_COLORS.skyBlue, 0.45).setOrigin(0, 0);
+    this.add.line(0, 532, 108, 0, 808, -20, UI_COLORS.towerStone, 0.65).setOrigin(0, 0);
+    this.drawPortal(826, 418, UI_COLORS.skyBlue, "Floor gate");
+    addCenteredLabel(this, travelX, 632, `${partyName} advances`, {
       color: UI_HEX.skyBlue,
+      fontSize: 12,
+      fontStyle: "700",
+      width: 150
+    });
+
+    if (hero) {
+      this.drawHeroUnit(hero, travelX, 528, "traveling");
+    }
+  }
+
+  private drawExploringStage(run: TowerRunState, node: TowerNodeDefinition | null, hero: HeroInstance | null): void {
+    const exploreX = 170 + run.nodeProgress * 520;
+    this.drawArchway(250, 412, 0x172235, "side room");
+    this.drawArchway(520, 392, 0x172235, node?.type ?? "node");
+    this.drawArchway(760, 422, 0x172235, "passage");
+    this.add.circle(exploreX + 26, 492, 22, UI_COLORS.gold, 0.18);
+    this.add.circle(exploreX + 26, 492, 9, UI_COLORS.gold, 0.85);
+
+    if (hero) {
+      this.drawHeroUnit(hero, exploreX, 528, "exploring");
+    }
+  }
+
+  private drawCombatStage(run: TowerRunState, hero: HeroInstance | null): void {
+    this.add.rectangle(350, 314, 360, 250, 0x0f1724, 0.68).setOrigin(0, 0).setStrokeStyle(2, 0x53657e);
+    this.add.circle(530, 552, 178, 0x121827, 0.46);
+    addCenteredLabel(this, 530, 326, "encounter room", {
+      color: UI_HEX.gold,
       fontSize: 13,
       fontStyle: "700",
-      width: 250
+      width: 150
     });
 
     if (hero) {
-      this.drawHeroUnit(hero, travelX, 492, "traveling");
+      this.drawHeroUnit(hero, 430, 524, "in tower");
     }
+
+    this.drawEnemies(run.enemies, 650, 510);
+    this.add.line(0, 508, 500, 0, 586, 0, UI_COLORS.danger, 0.5).setOrigin(0, 0);
+    this.add.line(0, 496, 500, 0, 586, 0, UI_COLORS.gold, 0.35).setOrigin(0, 0);
   }
 
-  private drawExploringScene(run: TowerRunState, node: TowerNodeDefinition | null, hero: HeroInstance | null): void {
-    const exploreX = 92 + run.nodeProgress * 150;
-    this.add.rectangle(84, 378, 220, 108, 0x0f1218, 1).setStrokeStyle(2, UI_COLORS.towerStone);
-    this.add.rectangle(114, 404, 42, 62, 0x172235, 1).setStrokeStyle(1, 0x53657e);
-    this.add.rectangle(206, 404, 42, 62, 0x172235, 1).setStrokeStyle(1, 0x53657e);
-    addCenteredLabel(this, 195, 326, `Searching for ${node?.type ?? "the next room"}`, {
-      color: UI_HEX.skyBlue,
-      fontSize: 13,
+  private drawClearedStage(run: TowerRunState, hero: HeroInstance | null): void {
+    this.add.rectangle(440, 314, 360, 250, 0x0f1724, 0.68).setOrigin(0, 0).setStrokeStyle(2, 0x53657e);
+
+    if (hero) {
+      this.drawHeroUnit(hero, 496, 524, "ready");
+    }
+
+    this.drawEnemies(run.enemies, 626, 510, true);
+    this.drawPortal(704, 420, UI_COLORS.success, "open passage");
+  }
+
+  private drawExitStage(run: TowerRunState, hero: HeroInstance | null): void {
+    this.drawPortal(715, 418, UI_COLORS.gold, "Exit");
+    this.add.circle(715, 438, 82, UI_COLORS.gold, 0.16);
+    addCenteredLabel(this, 715, 604, `Floor ${run.floor} clear`, {
+      color: UI_HEX.gold,
+      fontSize: 12,
       fontStyle: "700",
-      width: 250
+      width: 128
     });
 
     if (hero) {
-      this.drawHeroUnit(hero, exploreX, 512, "exploring");
+      this.drawHeroUnit(hero, 620, 528, "at exit");
     }
   }
 
-  private drawCombatScene(run: TowerRunState, hero: HeroInstance | null): void {
-    addCenteredLabel(this, 195, 326, "Encounter", {
-      color: UI_HEX.gold,
-      fontSize: 14,
-      fontStyle: "700"
-    });
-
-    if (hero) {
-      this.drawHeroUnit(hero, 116, 492, "in tower");
-    }
-
-    this.drawEnemies(run.enemies, 278, 478);
-    this.add.line(0, 510, 174, 0, 216, 0, UI_COLORS.danger, 0.45).setOrigin(0, 0);
-    this.add.line(0, 502, 174, 0, 216, 0, UI_COLORS.gold, 0.35).setOrigin(0, 0);
-  }
-
-  private drawClearedScene(run: TowerRunState, hero: HeroInstance | null): void {
-    addCenteredLabel(this, 195, 326, "Encounter Cleared", {
-      color: UI_HEX.success,
-      fontSize: 14,
-      fontStyle: "700"
-    });
-
-    if (hero) {
-      this.drawHeroUnit(hero, 118, 492, "ready to continue");
-    }
-
-    this.drawEnemies(run.enemies, 278, 486, true);
-    this.add.rectangle(188, 380, 38, 108, 0x111827, 1).setStrokeStyle(2, UI_COLORS.success);
-    this.add.circle(207, 380, 19, 0x111827, 1).setStrokeStyle(2, UI_COLORS.success);
-    addCenteredLabel(this, 195, 552, "next passage open", {
-      color: UI_HEX.success,
-      fontSize: 12,
-      fontStyle: "700"
-    });
-  }
-
-  private drawExitScene(run: TowerRunState, hero: HeroInstance | null): void {
-    addCenteredLabel(this, 195, 326, "Exit Reached", {
-      color: UI_HEX.gold,
-      fontSize: 14,
-      fontStyle: "700"
-    });
-    this.add.circle(244, 440, 52, UI_COLORS.gold, 0.22);
-    this.add.rectangle(214, 390, 60, 116, 0x151922, 1).setStrokeStyle(3, UI_COLORS.gold);
-    this.add.circle(244, 390, 30, 0x151922, 1).setStrokeStyle(3, UI_COLORS.gold);
-    addCenteredLabel(this, 244, 528, `Floor ${run.floor} clear`, {
-      color: UI_HEX.gold,
-      fontSize: 12,
-      fontStyle: "700"
-    });
-
-    if (hero) {
-      this.drawHeroUnit(hero, 118, 500, "at exit");
-    }
-  }
-
-  private drawTreasureScene(run: TowerRunState, hero: HeroInstance | null): void {
-    addCenteredLabel(this, 195, 326, "Treasure Room", {
-      color: UI_HEX.gold,
-      fontSize: 14,
-      fontStyle: "700"
-    });
-    this.add.rectangle(224, 458, 78, 54, 0x7a432d, 1).setStrokeStyle(2, UI_COLORS.gold);
-    this.add.rectangle(214, 440, 98, 24, UI_COLORS.amber, 1).setStrokeStyle(2, UI_COLORS.gold);
-    addCenteredLabel(this, 263, 528, run.lastFailureReason === TREASURE_HOLD_REASON ? "continue when ready" : "found", {
+  private drawTreasureStage(run: TowerRunState, hero: HeroInstance | null): void {
+    this.drawArchway(650, 386, 0x172235, "treasure");
+    this.add.rectangle(628, 498, 90, 56, 0x7a432d, 1).setStrokeStyle(2, UI_COLORS.gold);
+    this.add.rectangle(616, 476, 114, 28, UI_COLORS.amber, 1).setStrokeStyle(2, UI_COLORS.gold);
+    addCenteredLabel(this, 673, 580, run.lastFailureReason === TREASURE_HOLD_REASON ? "continue" : "found", {
       color: UI_HEX.gold,
       fontSize: 12,
       width: 120
     });
 
     if (hero) {
-      this.drawHeroUnit(hero, 118, 500, "looting");
+      this.drawHeroUnit(hero, 526, 528, "looting");
     }
   }
 
-  private drawWipedScene(run: TowerRunState, hero: HeroInstance | null): void {
-    this.add.rectangle(30, 294, 330, 328, 0x4d1824, 0.38).setOrigin(0, 0);
-    addCenteredLabel(this, 195, 326, "Party Wiped", {
+  private drawWipedStage(run: TowerRunState, hero: HeroInstance | null): void {
+    this.add.rectangle(330, 300, 390, 286, 0x4d1824, 0.38).setOrigin(0, 0);
+    addCenteredLabel(this, 525, 328, "Party Wiped", {
       color: UI_HEX.danger,
       fontSize: 14,
       fontStyle: "700"
     });
 
     if (hero) {
-      this.drawHeroUnit(hero, 116, 500, "defeated", true);
+      this.drawHeroUnit(hero, 430, 528, "defeated", true);
     }
 
-    this.drawEnemies(run.enemies, 278, 486);
+    this.drawEnemies(run.enemies, 650, 510);
   }
 
-  private drawBlockedScene(run: TowerRunState, hero: HeroInstance | null): void {
-    addCenteredLabel(this, 195, 326, "Run Paused", {
-      color: UI_HEX.gold,
-      fontSize: 14,
-      fontStyle: "700"
-    });
+  private drawBlockedStage(run: TowerRunState, hero: HeroInstance | null): void {
+    this.drawArchway(620, 390, 0x172235, "paused");
 
     if (hero) {
-      this.drawHeroUnit(hero, 118, 500, "waiting");
+      this.drawHeroUnit(hero, 500, 528, "waiting");
     }
 
-    addCenteredLabel(this, 244, 440, run.lastFailureReason ?? "The party is waiting.", {
+    addCenteredLabel(this, 640, 574, run.lastFailureReason ?? "The party is waiting.", {
       color: UI_HEX.mutedCream,
       fontSize: 12,
-      width: 154
+      width: 170
     });
   }
 
-  private drawHeroUnit(hero: HeroInstance, x: number, y: number, status: string, forceDefeated = false): void {
-    const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? Math.max(1, hero.currentHp);
-    const hpRatio = Phaser.Math.Clamp(hero.currentHp / Math.max(1, maxHp), 0, 1);
-    drawTinyHero(this, x, y, {
-      facing: "right",
-      palette: forceDefeated || hero.status === "defeated" ? "defeated" : "hero"
-    });
-    drawHpBar(this, x - 46, y - 78, 92, 8, hpRatio, `${hero.name} HP ${hero.currentHp}/${maxHp}`, UI_COLORS.success);
-    addCenteredLabel(this, x, y + 42, status, {
-      color: UI_HEX.mutedCream,
-      fontSize: 10,
-      width: 86
-    });
-  }
+  private drawContextAction(state: ReturnType<typeof getGameState>, run: TowerRunState | null): void {
+    const actionX = this.cameras.main.scrollX + GAME_WIDTH / 2;
+    const actionY = 652;
 
-  private drawEnemies(enemies: TowerRunEnemyState[], x: number, y: number, forceDefeated = false): void {
-    if (enemies.length === 0) {
-      addCenteredLabel(this, x, y - 20, "No enemy in sight", {
-        color: UI_HEX.mutedCream,
-        fontSize: 12,
-        width: 120
-      });
-      return;
-    }
-
-    enemies.slice(0, 2).forEach((enemy, index) => {
-      const enemyDefinition = enemyDefinitions[enemy.enemyId];
-      const enemyY = y + index * 74;
-      const maxHp = enemyDefinition?.baseStats.hp ?? Math.max(1, enemy.currentHp ?? 1);
-      const currentHp = enemy.currentHp ?? maxHp;
-      const hpRatio = Phaser.Math.Clamp(currentHp / Math.max(1, maxHp), 0, 1);
-      const defeated = forceDefeated || enemy.status === "defeated" || currentHp <= 0;
-
-      drawTinyEnemy(this, x, enemyY, {
-        name: enemyDefinition?.name ?? enemy.enemyId,
-        palette: defeated ? "defeated" : "enemy"
-      });
-      drawHpBar(
-        this,
-        x - 48,
-        enemyY - 76,
-        96,
-        8,
-        hpRatio,
-        `${enemyDefinition?.name ?? "Enemy"} HP ${currentHp}/${maxHp}`,
-        UI_COLORS.danger
-      );
-    });
-  }
-
-  private drawEventLine(message: string): void {
-    drawPanel(this, 44, 632, 302, 50, 0x101722, UI_COLORS.towerStone, 0.98, 7);
-    addLabel(this, 58, 644, message, {
-      color: UI_HEX.cream,
-      fontSize: 12,
-      width: 274
-    });
-  }
-
-  private drawActionArea(state: ReturnType<typeof getGameState>, run: TowerRunState | null): void {
     if (canCompleteSelectedFloor(state)) {
+      this.drawActionConnector(actionX, actionY, UI_COLORS.gold);
       drawActionButton(this, {
-        x: GAME_WIDTH / 2,
-        y: 714,
-        width: 174,
-        height: 50,
+        x: actionX,
+        y: actionY,
+        width: 154,
+        height: 44,
         label: "Complete Floor",
         enabled: true,
         fill: UI_COLORS.gold,
@@ -415,11 +347,12 @@ export class TowerScene extends Phaser.Scene {
     }
 
     if (canContinueTowerRun(run)) {
+      this.drawActionConnector(actionX, actionY, UI_COLORS.skyBlue);
       drawActionButton(this, {
-        x: GAME_WIDTH / 2,
-        y: 714,
-        width: 174,
-        height: 50,
+        x: actionX,
+        y: actionY,
+        width: 154,
+        height: 44,
         label: "Continue Run",
         enabled: true,
         fill: UI_COLORS.skyBlue,
@@ -431,17 +364,165 @@ export class TowerScene extends Phaser.Scene {
       });
       return;
     }
+  }
 
-    addCenteredLabel(this, GAME_WIDTH / 2, 714, getPassiveActionHint(run), {
+  private drawActionConnector(x: number, y: number, color: number): void {
+    this.add.line(0, 0, x, y - 24, x + 52, y - 88, color, 0.32).setOrigin(0, 0);
+    this.add.line(0, 0, x, y - 24, x - 52, y - 88, color, 0.2).setOrigin(0, 0);
+  }
+
+  private drawWorldTorches(status: string): void {
+    const flame = status === "wiped" ? UI_COLORS.danger : status === "fighting" ? UI_COLORS.gold : UI_COLORS.amber;
+
+    for (const x of [174, 368, 548, 742]) {
+      this.add.rectangle(x - 3, 314, 6, 44, 0x5b3525, 1).setOrigin(0, 0);
+      this.add.circle(x, 306, 13, flame, 0.48);
+      this.add.circle(x, 306, 6, UI_COLORS.gold, 0.88);
+    }
+  }
+
+  private drawFarDoor(x: number, label: string, stroke: number): void {
+    this.add.rectangle(x - 32, 390, 64, 112, 0x0c1220, 1).setStrokeStyle(2, stroke);
+    this.add.circle(x, 390, 32, 0x0c1220, 1).setStrokeStyle(2, stroke);
+    addCenteredLabel(this, x, 522, label, {
       color: UI_HEX.mutedCream,
+      fontSize: 10,
+      width: 78
+    });
+  }
+
+  private drawPortal(x: number, y: number, color: number, label: string): void {
+    this.add.rectangle(x - 38, y - 8, 76, 138, 0x111827, 1).setStrokeStyle(3, color);
+    this.add.circle(x, y - 8, 38, 0x111827, 1).setStrokeStyle(3, color);
+    this.add.circle(x, y + 54, 5, color, 1);
+    addCenteredLabel(this, x, y + 156, label, {
+      color: color === UI_COLORS.gold ? UI_HEX.gold : color === UI_COLORS.success ? UI_HEX.success : UI_HEX.skyBlue,
+      fontSize: 11,
+      fontStyle: "700",
+      width: 120
+    });
+  }
+
+  private drawArchway(x: number, y: number, fill: number, label: string): void {
+    this.add.rectangle(x - 54, y, 108, 108, fill, 1).setStrokeStyle(2, UI_COLORS.towerStone);
+    this.add.circle(x, y, 54, fill, 1).setStrokeStyle(2, UI_COLORS.towerStone);
+    this.add.rectangle(x - 42, y + 18, 84, 92, 0x0d1320, 1).setStrokeStyle(1, 0x53657e);
+    addCenteredLabel(this, x, y + 134, label, {
+      color: UI_HEX.mutedCream,
+      fontSize: 10,
+      width: 88
+    });
+  }
+
+  private drawHeroUnit(hero: HeroInstance, x: number, y: number, status: string, forceDefeated = false): void {
+    const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? Math.max(1, hero.currentHp);
+    const hpRatio = Phaser.Math.Clamp(hero.currentHp / Math.max(1, maxHp), 0, 1);
+
+    drawTinyHero(this, x, y, {
+      facing: "right",
+      palette: forceDefeated || hero.status === "defeated" ? "defeated" : "hero"
+    });
+    drawHpBar(this, x - 50, y - 86, 100, 8, hpRatio, `${hero.name} HP ${hero.currentHp}/${maxHp}`, UI_COLORS.success);
+    addCenteredLabel(this, x, y + 44, status, {
+      color: UI_HEX.mutedCream,
+      fontSize: 10,
+      width: 88
+    });
+  }
+
+  private drawEnemies(enemies: TowerRunEnemyState[], x: number, y: number, forceDefeated = false): void {
+    if (enemies.length === 0) {
+      addCenteredLabel(this, x, y - 22, "No enemy in sight", {
+        color: UI_HEX.mutedCream,
+        fontSize: 12,
+        width: 120
+      });
+      return;
+    }
+
+    enemies.slice(0, 2).forEach((enemy, index) => {
+      const enemyDefinition = enemyDefinitions[enemy.enemyId];
+      const enemyY = y + index * 78;
+      const maxHp = enemyDefinition?.baseStats.hp ?? Math.max(1, enemy.currentHp ?? 1);
+      const currentHp = enemy.currentHp ?? maxHp;
+      const hpRatio = Phaser.Math.Clamp(currentHp / Math.max(1, maxHp), 0, 1);
+      const defeated = forceDefeated || enemy.status === "defeated" || currentHp <= 0;
+
+      drawTinyEnemy(this, x, enemyY, {
+        name: enemyDefinition?.name ?? enemy.enemyId,
+        palette: defeated ? "defeated" : "enemy"
+      });
+      drawHpBar(
+        this,
+        x - 52,
+        enemyY - 82,
+        104,
+        8,
+        hpRatio,
+        `${enemyDefinition?.name ?? "Enemy"} HP ${currentHp}/${maxHp}`,
+        UI_COLORS.danger
+      );
+    });
+  }
+
+  private drawWorldEventLine(message: string): void {
+    const x = this.cameras.main.scrollX + 42;
+    drawPanel(this, x, 626, 306, 50, 0x101722, UI_COLORS.towerStone, 0.96, 7);
+    addLabel(this, x + 14, 638, message, {
+      color: UI_HEX.cream,
       fontSize: 12,
-      width: 210
+      width: 278
+    });
+  }
+
+  private fixChildrenAddedAfter(startIndex: number): void {
+    this.children.list.slice(startIndex).forEach((child) => {
+      const maybeFixed = child as Phaser.GameObjects.GameObject & {
+        setScrollFactor?: (x: number, y?: number) => Phaser.GameObjects.GameObject;
+      };
+      maybeFixed.setScrollFactor?.(0);
     });
   }
 }
 
 function getCurrentNode(run: TowerRunState): TowerNodeDefinition | null {
   return prototypeTowerFloors.find((floor) => floor.floor === run.floor)?.nodes[run.nodeIndex] ?? null;
+}
+
+function getTowerCameraScrollX(run: TowerRunState | null): number {
+  if (!run || run.status === "preparing") {
+    return 0;
+  }
+
+  if (run.status === "traveling") {
+    return clampCameraScroll(130 + run.nodeProgress * 610 - 168);
+  }
+
+  if (run.status === "exploring") {
+    return clampCameraScroll(170 + run.nodeProgress * 520 - 168);
+  }
+
+  if (run.status === "fighting" || run.status === "wiped") {
+    return 300;
+  }
+
+  if (run.status === "blocked" && run.lastFailureReason === ENCOUNTER_CLEAR_HOLD_REASON) {
+    return 425;
+  }
+
+  if (run.status === "blocked" && run.lastFailureReason === FLOOR_CLEAR_HOLD_REASON) {
+    return 520;
+  }
+
+  if (run.status === "looting") {
+    return 425;
+  }
+
+  return 300;
+}
+
+function clampCameraScroll(scrollX: number): number {
+  return Phaser.Math.Clamp(scrollX, 0, TOWER_MAX_SCROLL_X);
 }
 
 function getTowerMessage(partyName: string, run: TowerRunState | null, node: TowerNodeDefinition | null): string {
@@ -467,7 +548,7 @@ function getTowerMessage(partyName: string, run: TowerRunState | null, node: Tow
 
   if (run.status === "blocked") {
     if (run.lastFailureReason === ENCOUNTER_CLEAR_HOLD_REASON) {
-      return "Encounter cleared. Continue to the next node.";
+      return "Encounter cleared. Continue through the open passage.";
     }
 
     if (run.lastFailureReason === FLOOR_CLEAR_HOLD_REASON) {
@@ -524,20 +605,16 @@ function statusColor(run: TowerRunState | null): number {
   return 0x334155;
 }
 
-function getPassiveActionHint(run: TowerRunState | null): string {
-  if (!run || run.status === "preparing") {
-    return "Send from Inn";
+function shouldDrawWorldEventLine(run: TowerRunState | null): boolean {
+  if (!run) {
+    return true;
   }
 
-  if (run.status === "traveling" || run.status === "exploring" || run.status === "fighting") {
-    return "watching run";
+  if (run.status === "blocked") {
+    return run.lastFailureReason !== ENCOUNTER_CLEAR_HOLD_REASON && run.lastFailureReason !== FLOOR_CLEAR_HOLD_REASON;
   }
 
-  if (run.status === "wiped") {
-    return "party defeated";
-  }
-
-  return "waiting";
+  return true;
 }
 
 function getTowerRenderKey(run: TowerRunState | null, heroes: Array<{ id: string; currentHp: number; status: string }>): string {
@@ -552,8 +629,4 @@ function getTowerRenderKey(run: TowerRunState | null, heroes: Array<{ id: string
     .join(",");
 
   return `${run.status}|${run.floor}|${run.nodeIndex}|${progressBucket}|${heroesKey}|${enemiesKey}|${run.lastCombatEventMessage}|${run.lastFailureReason}`;
-}
-
-function formatStatus(status: string | HeroStatus): string {
-  return formatStatusLabel(status);
 }

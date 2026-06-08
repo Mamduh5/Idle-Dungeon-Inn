@@ -27,6 +27,11 @@ A screen passes only if every critical item scores at least 3.
 ## Tower View Critical Checks
 
 - Looks like a dungeon/tower run, not a status report.
+- Tower is a wider physical corridor/room stage, not a fitted central panel.
+- Node/floor info is compact overlay, not center content.
+- Traveling and exploring show hero movement through a path or room sequence.
+- Fighting shows encounter staging with hero physically on one side and enemy physically on the other.
+- Continue Run and Complete Floor are contextual world actions connected to passage/exit, not main dashboard buttons.
 - Traveling, exploring, fighting, cleared, exit, and wiped states are visually distinct.
 - Hero side and enemy side are clear.
 - HP bars are readable.

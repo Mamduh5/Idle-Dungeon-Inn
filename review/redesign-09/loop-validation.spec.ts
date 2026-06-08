@@ -39,20 +39,20 @@ test("full current gameplay loop and required screenshots", async ({ page }) => 
   await page.screenshot({ path: shot("03-inn-right-gate-area.png") });
 
   await clickCanvas(page, 250, 676);
-  await page.waitForTimeout(350);
+  await waitForTowerStatus(page, "traveling");
   await page.screenshot({ path: shot("04-tower-traveling.png") });
 
-  await page.waitForTimeout(9500);
+  await waitForTowerStatus(page, "fighting");
   await page.screenshot({ path: shot("05-tower-fighting.png") });
 
-  await page.waitForTimeout(4500);
+  await waitForTowerBlockedReason(page, "Encounter cleared");
   await page.screenshot({ path: shot("06-tower-continue-run.png") });
 
-  await clickCanvas(page, 195, 714);
-  await page.waitForTimeout(4200);
+  await clickCanvas(page, 195, 652);
+  await waitForTowerBlockedReason(page, "Floor clear");
   await page.screenshot({ path: shot("07-tower-complete-floor.png") });
 
-  await clickCanvas(page, 195, 714);
+  await clickCanvas(page, 195, 652);
   await page.waitForTimeout(500);
   await page.screenshot({ path: shot("08-inn-after-return.png") });
 
@@ -136,4 +136,35 @@ async function getInnCameraScrollX(page: Page): Promise<number> {
   }
 
   return scrollX;
+}
+
+async function waitForTowerStatus(page: Page, status: string): Promise<void> {
+  await page.waitForFunction(
+    (expectedStatus) => {
+      const game = (globalThis as typeof globalThis & {
+        __idleDungeonInnGame?: Phaser.Game;
+      }).__idleDungeonInnGame;
+      const scene = game?.scene.getScene("TowerScene") as (Phaser.Scene & { renderKey?: string }) | undefined;
+      return scene?.renderKey?.startsWith(`${expectedStatus}|`) ?? false;
+    },
+    status,
+    { timeout: 14000 }
+  );
+  await page.waitForTimeout(250);
+}
+
+async function waitForTowerBlockedReason(page: Page, reasonFragment: string): Promise<void> {
+  await page.waitForFunction(
+    (expectedReason) => {
+      const game = (globalThis as typeof globalThis & {
+        __idleDungeonInnGame?: Phaser.Game;
+      }).__idleDungeonInnGame;
+      const scene = game?.scene.getScene("TowerScene") as (Phaser.Scene & { renderKey?: string }) | undefined;
+      const renderKey = scene?.renderKey ?? "";
+      return renderKey.startsWith("blocked|") && renderKey.includes(expectedReason);
+    },
+    reasonFragment,
+    { timeout: 14000 }
+  );
+  await page.waitForTimeout(250);
 }

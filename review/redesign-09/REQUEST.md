@@ -1,7 +1,7 @@
 # UI Redesign Review Request
 
 Status:
-REVISED_PANABLE_WORLD_PASS - AWAITING HUMAN REVIEW
+REVISED_TOWER_WORLD_PASS - AWAITING HUMAN REVIEW
 
 ## Reference board
 
@@ -25,13 +25,15 @@ review/redesign-09/self-evaluation.md
 
 ## Summary
 
-Idle Dungeon Inn was revised after rejection to make the Inn a larger panable base world instead of a fitted one-screen poster. The Inn world is 1260px wide inside a 390px viewport, with pointer camera drag, clamped camera bounds, Bed Room on the left, Hearth/common area in the center, locked Training wing to the right, and Tower Gate at the far edge. Mira is placed inside the world by status, the Send to Tower action is attached to the Gate zone, and HUD/nav remain fixed overlays while the world pans underneath. Tower, Heroes, and Build remain the redesigned game-world screens from the prior pass, and the bottom nav labels remain exactly Inn | Tower | Heroes | Build.
+Idle Dungeon Inn keeps the approved panable Inn foundation and now applies the same world-first approach to Tower View. The Inn remains a 1260px panable base world with Bed, Hearth, Training, and Gate zones. Tower is now a 960px physical dungeon corridor/stage: traveling and exploring move Mira through a path/room sequence, fighting frames hero-left/enemy-right encounter staging, cleared and exit states use open-passage/portal geometry, node/floor info is a compact overlay, and Continue Run / Complete Floor are contextual signs connected to the world instead of main dashboard buttons. Bottom nav labels remain exactly Inn | Tower | Heroes | Build.
 
 ## Changed files
 
 - src/main.ts
 - src/scenes/InnScene.ts
+- src/scenes/TowerScene.ts
 - review/redesign-09/reference-board.md
+- review/redesign-09/redesign-rubric.md
 - review/redesign-09/design-plan.md
 - review/redesign-09/self-evaluation.md
 - review/redesign-09/loop-validation.spec.ts
@@ -65,7 +67,7 @@ Observed output summary:
 - 35 modules transformed
 - `dist/index.html` generated
 - `dist/assets/index-DGwNm4E4.css` generated
-- `dist/assets/index-B8E9dI7L.js` generated
+- `dist/assets/index-ChU6fVNh.js` generated
 - Vite emitted a non-blocking chunk-size warning for the Phaser-sized bundle.
 
 Other validation scripts:
@@ -90,12 +92,12 @@ Validated loop:
 - Send to Tower was clicked from the gate-attached action after panning to the Gate.
 - Tower showed traveling.
 - Tower advanced through exploring toward combat.
-- Tower reached fighting.
+- Tower reached actual fighting status before the fighting screenshot was captured.
 - Combat changed HP and showed latest attack feedback.
 - Enemy defeat created the encounter-cleared hold.
-- Continue Run appeared and was clicked.
+- Contextual Continue Run appeared connected to the open passage and was clicked.
 - Run advanced to the exit node.
-- Complete Floor appeared and was clicked.
+- Contextual Complete Floor appeared connected to the exit portal and was clicked.
 - Floor clear granted 25 coins.
 - Floor clear unlocked Floor 2.
 - Party returned to Inn with Mira ready.
@@ -122,10 +124,13 @@ Validated loop:
 ## Responsive checks
 
 390x844:
-Passed. Native-size screenshots show left, center, and right Inn camera positions plus Tower, Heroes, and Build readable with no key elements hidden under bottom nav.
+Passed. Native-size screenshots show left, center, and right Inn camera positions plus Tower traveling, fighting, cleared/continue, exit/complete, Heroes, and Build readable with no key elements hidden under bottom nav.
 
 360x640:
-Passed. `responsive-360x640.png`, `responsive-360x640-inn-gate.png`, and `responsive-360x640-tower.png` show the scaled Inn and Tower remain readable, with HUD, actor, HP, event, gate action, and nav regions visible.
+Passed. `responsive-360x640.png`, `responsive-360x640-inn-gate.png`, and `responsive-360x640-tower.png` show the scaled Inn and Tower remain readable, with HUD, corridor, actor, HP, event, gate action, and nav regions visible.
+
+Visual screenshot inspection:
+Passed. After Playwright regenerated screenshots, Tower traveling, fighting, continue, complete, and responsive 360x640 Tower screenshots were opened and checked visually. The fighting screenshot now captures the active encounter, not the cleared state.
 
 ## Known issues
 
@@ -136,4 +141,4 @@ Vite emits a chunk-size warning because Phaser is bundled into the main build ou
 
 ## Why this should pass
 
-The revised pass directly addresses the rejection: the Inn no longer tries to fit Bed, Hearth, Training, Gate, hero, status, event, and action into one 390px screen. The player drags a camera across a wider base world, and the screenshots prove separate Bed, Hearth, and Gate views. The self-evaluation scores the new Inn camera-world requirements at 3, while the current gameplay loop, coin reward, floor unlock, bottom nav labels, and pure-module boundaries were validated.
+The revised pass keeps the approved Inn direction and directly addresses the new Tower feedback. Tower no longer reads as a fitted status panel: the main screen is a dungeon corridor/room stage with physical actor placement, path movement, compact run overlay, and contextual passage/exit actions. The current gameplay loop, coin reward, floor unlock, bottom nav labels, visual screenshots, and pure-module boundaries were validated.
