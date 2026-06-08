@@ -15,6 +15,7 @@ Validation artifacts used:
 - review/redesign-09/screenshots/08-inn-after-return.png
 - review/redesign-09/screenshots/09-heroes-view.png
 - review/redesign-09/screenshots/10-build-view.png
+- review/redesign-09/screenshots/11-build-bed-upgraded.png
 - review/redesign-09/screenshots/responsive-360x640.png
 - review/redesign-09/screenshots/responsive-360x640-inn-gate.png
 - review/redesign-09/screenshots/responsive-360x640-tower.png
@@ -86,25 +87,27 @@ Validation artifacts used:
 
 | Critical item | Score | Evidence | Explanation | Issues if below 3 |
 |---|---:|---|---|---|
-| Looks intentional, not like a forgotten placeholder. | 3 | 10 | Build view is an inn plan table with room miniatures and future wing area. | None. |
-| Shows Bed Room and Training Room as upgrade/build directions. | 3 | 10 | Both rooms are visible as separate room plans with level/effect labels. | None. |
-| Communicates locked/future systems honestly. | 3 | 10 | Training Room is marked Locked, future wings are labeled future. | None. |
-| Does not pretend unimplemented room upgrades are functional. | 3 | 10 | No upgrade buttons are present; copy states these are directions, not active buttons. | None. |
-| Feels like a game build screen, not a settings page. | 3 | 10 | The screen uses parchment/table/room miniatures instead of settings rows. | None. |
+| Looks intentional, not like a forgotten placeholder. | 3 | 10, 11 | Build view is an inn plan table with room miniatures, future wing area, and room purchase controls. | None. |
+| Shows Bed Room and Training Room as upgrade/build directions. | 3 | 10, 11 | Both rooms are visible as separate room plans with level/effect labels and purchase status. | None. |
+| Defined room purchase buttons perform real coin spend and level/unlock changes. | 3 | 10, 11, Playwright state assertion | Bed Room Upgrade 25c spends the Floor 1 reward and changes Bed Room from Lv 1 to Lv 2. | None. |
+| Communicates locked/future systems honestly. | 3 | 10, 11 | Training Room is marked Locked and coin-gated; future wings remain labeled future. | None. |
+| Does not pretend unimplemented room upgrades are functional. | 3 | 10, 11 | Defined rooms have real purchase buttons; future wings remain display-only and unavailable. | None. |
+| Feels like a game build screen, not a settings page. | 3 | 10, 11 | The screen uses parchment/table/room miniatures and small room action controls instead of settings rows. | None. |
 
 ## Global
 
 | Critical item | Score | Evidence | Explanation | Issues if below 3 |
 |---|---:|---|---|---|
-| Coherent art direction across all screens. | 3 | 01-10 | Screens share flat Phaser-drawn fantasy shapes, warm HUD, consistent labels, and simple actor language. | None. |
-| Consistent HUD/nav. | 3 | 01-10 | All scenes use the same HUD and bottom nav; Inn keeps HUD/nav fixed while the world pans underneath. | None. |
+| Coherent art direction across all screens. | 3 | 01-11 | Screens share flat Phaser-drawn fantasy shapes, warm HUD, consistent labels, and simple actor language. | None. |
+| Consistent HUD/nav. | 3 | 01-11 | All scenes use the same HUD and bottom nav; Inn keeps HUD/nav fixed while the world pans underneath. | None. |
 | Touch targets are readable. | 3 | 03, 06, 07, nav screenshots | Main actions are large and nav buttons keep stable dimensions. | None. |
-| No important elements hidden under bottom nav. | 3 | 01-10 | Buttons and content sit above the nav. | None. |
-| No text walls. | 3 | 01-10 | Text is limited to compact labels and one short event line. | None. |
+| No important elements hidden under bottom nav. | 3 | 01-11 | Buttons and content sit above the nav. | None. |
+| No text walls. | 3 | 01-11 | Text is limited to compact labels and one short event line. | None. |
 | No copyrighted/trademarked art. | 3 | Source inspection | All visuals are Phaser primitives drawn in code. | None. |
 | Full current gameplay loop still works. | 3 | Playwright validation run | The validation spec drove pan to gate, send, travel, explore, fight, continue, exit, complete floor, return, and nav. | None. |
 | Coins from floor clear still work. | 3 | 08 | Coins increased from 0 to 25 after Floor 1 clear. | None. |
-| Bottom nav labels remain exactly Inn \| Tower \| Heroes \| Build. | 3 | 01-10 and src/game/navigation.ts | Labels are unchanged and visible on every screen. | None. |
+| Room upgrade purchasing v1 works. | 3 | 10, 11, Playwright state assertion | Bed Room upgrade spends 25 coins, raises Bed Room from Lv 1 to Lv 2, and refreshes Build state. | None. |
+| Bottom nav labels remain exactly Inn \| Tower \| Heroes \| Build. | 3 | 01-11 and src/game/navigation.ts | Labels are unchanged and visible on every screen. | None. |
 | No Phaser imports are added to pure modules. | 3 | rg check | `rg` over src/types, src/data, src/state, and src/systems returned no Phaser imports. | None. |
 
 ## Validation Results
@@ -112,4 +115,5 @@ Validation artifacts used:
 - `npm run build`: passed. Vite emitted the existing large chunk warning for Phaser bundle size.
 - `npx playwright test review/redesign-09/loop-validation.spec.ts --reporter=line`: 3 passed.
 - Visual screenshot inspection: opened and checked Tower traveling, fighting, continue, complete, and responsive 360x640 Tower screenshots after regeneration.
+- Room purchase validation: Playwright clicked Bed Room Upgrade 25c after Floor 1 clear and asserted coins 0 plus Bed Room Lv 2.
 - Pure module Phaser import check: no matches in src/types, src/data, src/state, or src/systems.

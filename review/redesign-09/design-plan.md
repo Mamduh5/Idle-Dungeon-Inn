@@ -98,7 +98,7 @@ Build:
 - Draw a warm drafting table and room miniatures.
 - Show Bed Room as active/unlocked and Training Room as locked until Floor 2.
 - Show future wings as honest planning markers.
-- No fake upgrade buttons.
+- Room upgrade purchasing v1 is active for defined rooms: buttons spend tower coins, increase/unlock room level, and show floor/coin gating.
 
 ## 5. Files Likely To Change
 
@@ -158,6 +158,7 @@ Build:
 - Heroes future party slots are displayed as future capacity only.
 - Build room directions are display-only unless an existing system already supports them.
 - Training Room is shown locked/future because the current state has it locked and no upgrade action exists.
+- Training Room remains floor/coin gated until the player reaches its unlock floor and can afford it.
 - Treasure and reward systems are not expanded beyond existing floor-clear coins.
 
 ## 10. Mobile Readability

@@ -68,6 +68,13 @@ test("full current gameplay loop and required screenshots", async ({ page }) => 
   await clickCanvas(page, 341, 814);
   await page.waitForTimeout(250);
   await page.screenshot({ path: shot("10-build-view.png") });
+
+  await clickCanvas(page, 116, 402);
+  await page.waitForTimeout(250);
+  const upgradedState = await getGameStateSnapshot(page);
+  expect(upgradedState.currencies.coins).toBe(0);
+  expect(upgradedState.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(2);
+  await page.screenshot({ path: shot("11-build-bed-upgraded.png") });
 });
 
 test("responsive readability at 360x640", async ({ browser }) => {
@@ -136,6 +143,27 @@ async function getInnCameraScrollX(page: Page): Promise<number> {
   }
 
   return scrollX;
+}
+
+async function getGameStateSnapshot(page: Page): Promise<{
+  currencies: { coins: number };
+  innRooms: Array<{ roomId: string; level: number; isUnlocked: boolean }>;
+}> {
+  const state = await page.evaluate(() => {
+    const getState = (globalThis as typeof globalThis & {
+      __idleDungeonInnGetState?: () => {
+        currencies: { coins: number };
+        innRooms: Array<{ roomId: string; level: number; isUnlocked: boolean }>;
+      };
+    }).__idleDungeonInnGetState;
+    return getState?.();
+  });
+
+  if (!state) {
+    throw new Error("Game state snapshot was not available.");
+  }
+
+  return state;
 }
 
 async function waitForTowerStatus(page: Page, status: string): Promise<void> {

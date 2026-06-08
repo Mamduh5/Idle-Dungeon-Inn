@@ -54,6 +54,7 @@ A screen passes only if every critical item scores at least 3.
 
 - Looks intentional, not like a forgotten placeholder.
 - Shows Bed Room and Training Room as upgrade/build directions.
+- Defined room purchase buttons perform real coin spend and level/unlock changes.
 - Communicates locked/future systems honestly.
 - Does not pretend unimplemented room upgrades are functional.
 - Feels like a game build screen, not a settings page.

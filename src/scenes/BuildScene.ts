@@ -1,12 +1,16 @@
 import Phaser from "phaser";
+import { roomDefinitions } from "../data/roomData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getInnRoom } from "../state/gameSelectors";
-import { getGameState } from "../state/gameStore";
+import { getGameState, updateGameState } from "../state/gameStore";
+import { getRoomUpgradePreview, purchaseRoomUpgrade, type RoomUpgradePreview } from "../systems/roomUpgradeSystem";
+import type { RoomId } from "../types/ids";
 import type { InnRoomState } from "../types/roomTypes";
 import {
   addCenteredLabel,
   addLabel,
   drawDivider,
+  drawActionButton,
   drawPanel,
   drawStatusBadge
 } from "../ui/components";
@@ -22,11 +26,13 @@ export class BuildScene extends Phaser.Scene {
     const state = getGameState();
     const bedRoom = getInnRoom(state, "bed_room");
     const trainingRoom = getInnRoom(state, "training_room");
+    const bedUpgrade = getRoomUpgradePreview(state, "bed_room");
+    const trainingUpgrade = getRoomUpgradePreview(state, "training_room");
 
     this.drawBackdrop();
     this.drawPlanTable();
-    this.drawRoomPlan(48, 218, "Bed Room", bedRoom, "rest_recovery", true);
-    this.drawRoomPlan(206, 218, "Training Room", trainingRoom, "hero_training", Boolean(trainingRoom?.isUnlocked));
+    this.drawRoomPlan(48, 218, "bed_room", bedRoom, bedUpgrade);
+    this.drawRoomPlan(206, 218, "training_room", trainingRoom, trainingUpgrade);
     this.drawFuturePlans();
 
     createSceneHud(this, { title: "Build", activeLabel: "Build" });
@@ -49,7 +55,7 @@ export class BuildScene extends Phaser.Scene {
     this.add.rectangle(70, 160, 94, 18, UI_COLORS.parchment, 1).setStrokeStyle(1, 0x7a432d).setOrigin(0, 0);
     this.add.rectangle(178, 160, 68, 18, UI_COLORS.parchment, 1).setStrokeStyle(1, 0x7a432d).setOrigin(0, 0);
     this.add.rectangle(260, 160, 52, 18, UI_COLORS.parchment, 1).setStrokeStyle(1, 0x7a432d).setOrigin(0, 0);
-    addCenteredLabel(this, GAME_WIDTH / 2, 188, "Room directions, not active upgrade buttons", {
+    addCenteredLabel(this, GAME_WIDTH / 2, 188, "Spend tower coins on room upgrades", {
       color: UI_HEX.mutedCream,
       fontSize: 11,
       width: 250
@@ -59,14 +65,18 @@ export class BuildScene extends Phaser.Scene {
   private drawRoomPlan(
     x: number,
     y: number,
-    title: string,
+    roomId: RoomId,
     room: InnRoomState | null,
-    effect: string,
-    isAvailable: boolean
+    upgrade: RoomUpgradePreview | null
   ): void {
+    const definition = roomDefinitions[roomId];
+    const title = definition?.name ?? roomId;
+    const effect = definition?.effectType ?? "unknown";
+    const isAvailable = Boolean(room?.isUnlocked);
+    const isFloorUnlocked = upgrade?.isFloorUnlocked ?? false;
     const fill = isAvailable ? 0x6f3d28 : 0x3b312c;
     const stroke = isAvailable ? UI_COLORS.gold : 0x8a7a69;
-    drawPanel(this, x, y, 136, 188, fill, stroke, 0.98, 7);
+    drawPanel(this, x, y, 136, 214, fill, stroke, 0.98, 7);
     addLabel(this, x + 12, y + 14, title, {
       color: isAvailable ? UI_HEX.cream : UI_HEX.mutedCream,
       fontSize: 14,
@@ -89,10 +99,16 @@ export class BuildScene extends Phaser.Scene {
       this.add.rectangle(x + 36, y + 140, 64, 10, isAvailable ? 0xb07742 : 0x6d5a49, 1).setOrigin(0, 0);
     }
 
-    drawStatusBadge(this, x + 14, y + 154, isAvailable ? "Unlocked" : "Locked", isAvailable ? 0x275241 : 0x4a4038);
+    drawStatusBadge(
+      this,
+      x + 14,
+      y + 142,
+      isAvailable ? "Unlocked" : isFloorUnlocked ? "Locked" : `Floor ${definition?.unlockFloor ?? "?"}`,
+      isAvailable ? 0x275241 : 0x4a4038
+    );
 
     if (!isAvailable) {
-      this.add.rectangle(x, y, 136, 188, 0x11100f, 0.24).setOrigin(0, 0);
+      this.add.rectangle(x, y, 136, 140, 0x11100f, 0.24).setOrigin(0, 0);
       drawDivider(this, x + 18, y + 80, x + 118, y + 142, UI_COLORS.mutedCream, 0.35);
     }
 
@@ -101,6 +117,23 @@ export class BuildScene extends Phaser.Scene {
       fontSize: 10,
       width: 112
     });
+
+    if (upgrade) {
+      drawActionButton(this, {
+        x: x + 68,
+        y: y + 184,
+        width: 114,
+        height: 36,
+        label: upgrade.canPurchase ? upgrade.label : upgrade.reason ?? upgrade.label,
+        enabled: upgrade.canPurchase,
+        fill: UI_COLORS.amber,
+        stroke: UI_COLORS.gold,
+        onClick: () => {
+          updateGameState(purchaseRoomUpgrade(roomId));
+          this.scene.restart();
+        }
+      });
+    }
   }
 
   private drawFuturePlans(): void {
@@ -137,7 +170,7 @@ export class BuildScene extends Phaser.Scene {
       });
     });
 
-    addCenteredLabel(this, GAME_WIDTH / 2, 640, "Current prototype supports display only for room directions.", {
+    addCenteredLabel(this, GAME_WIDTH / 2, 640, "More rooms will become purchasable as systems come online.", {
       color: UI_HEX.mutedCream,
       fontSize: 11,
       width: 272

@@ -1,7 +1,7 @@
 # UI Redesign Review Request
 
 Status:
-REVISED_TOWER_WORLD_PASS - AWAITING HUMAN REVIEW
+PROMPT_09_ROOM_UPGRADE_PURCHASING_V1 - AWAITING HUMAN REVIEW
 
 ## Reference board
 
@@ -25,13 +25,15 @@ review/redesign-09/self-evaluation.md
 
 ## Summary
 
-Idle Dungeon Inn keeps the approved panable Inn foundation and now applies the same world-first approach to Tower View. The Inn remains a 1260px panable base world with Bed, Hearth, Training, and Gate zones. Tower is now a 960px physical dungeon corridor/stage: traveling and exploring move Mira through a path/room sequence, fighting frames hero-left/enemy-right encounter staging, cleared and exit states use open-passage/portal geometry, node/floor info is a compact overlay, and Continue Run / Complete Floor are contextual signs connected to the world instead of main dashboard buttons. Bottom nav labels remain exactly Inn | Tower | Heroes | Build.
+Idle Dungeon Inn keeps the approved panable Inn and world-first Tower foundation, then resumes gameplay Prompt 09 with room upgrade purchasing v1. The Inn remains a 1260px panable base world with Bed, Hearth, Training, and Gate zones. Tower remains a 960px physical dungeon corridor/stage. Build now has real room purchase controls for defined rooms: tower coins can upgrade/unlock rooms, floor locks and coin shortages disable buttons with clear reasons, and the Bed Room Lv1 to Lv2 purchase is validated after the Floor 1 coin reward. Bottom nav labels remain exactly Inn | Tower | Heroes | Build.
 
 ## Changed files
 
 - src/main.ts
+- src/scenes/BuildScene.ts
 - src/scenes/InnScene.ts
 - src/scenes/TowerScene.ts
+- src/systems/roomUpgradeSystem.ts
 - review/redesign-09/reference-board.md
 - review/redesign-09/redesign-rubric.md
 - review/redesign-09/design-plan.md
@@ -48,6 +50,7 @@ Idle Dungeon Inn keeps the approved panable Inn foundation and now applies the s
 - review/redesign-09/screenshots/08-inn-after-return.png
 - review/redesign-09/screenshots/09-heroes-view.png
 - review/redesign-09/screenshots/10-build-view.png
+- review/redesign-09/screenshots/11-build-bed-upgraded.png
 - review/redesign-09/screenshots/responsive-360x640.png
 - review/redesign-09/screenshots/responsive-360x640-inn-gate.png
 - review/redesign-09/screenshots/responsive-360x640-tower.png
@@ -67,7 +70,7 @@ Observed output summary:
 - 35 modules transformed
 - `dist/index.html` generated
 - `dist/assets/index-DGwNm4E4.css` generated
-- `dist/assets/index-ChU6fVNh.js` generated
+- `dist/assets/index-C6Mz10oK.js` generated
 - Vite emitted a non-blocking chunk-size warning for the Phaser-sized bundle.
 
 Other validation scripts:
@@ -103,6 +106,8 @@ Validated loop:
 - Party returned to Inn with Mira ready.
 - Inn showed Target F2 and Send to Tower readiness.
 - Bottom nav was exercised through Tower, Inn, Heroes, and Build.
+- Bed Room upgrade was purchased from Build for 25 coins.
+- State assertion confirmed coins dropped to 0 and Bed Room reached Lv 2.
 
 ## Screenshot paths
 
@@ -116,6 +121,7 @@ Validated loop:
 - review/redesign-09/screenshots/08-inn-after-return.png
 - review/redesign-09/screenshots/09-heroes-view.png
 - review/redesign-09/screenshots/10-build-view.png
+- review/redesign-09/screenshots/11-build-bed-upgraded.png
 - review/redesign-09/screenshots/responsive-360x640.png
 - review/redesign-09/screenshots/responsive-360x640-inn-gate.png
 - review/redesign-09/screenshots/responsive-360x640-tower.png
@@ -132,6 +138,9 @@ Passed. `responsive-360x640.png`, `responsive-360x640-inn-gate.png`, and `respon
 Visual screenshot inspection:
 Passed. After Playwright regenerated screenshots, Tower traveling, fighting, continue, complete, and responsive 360x640 Tower screenshots were opened and checked visually. The fighting screenshot now captures the active encounter, not the cleared state.
 
+Room upgrade purchase check:
+Passed. `11-build-bed-upgraded.png` shows Bed Room Lv 2 and Coins 0 after the validated purchase.
+
 ## Known issues
 
 No known blocking issues for human review.
@@ -141,4 +150,4 @@ Vite emits a chunk-size warning because Phaser is bundled into the main build ou
 
 ## Why this should pass
 
-The revised pass keeps the approved Inn direction and directly addresses the new Tower feedback. Tower no longer reads as a fitted status panel: the main screen is a dungeon corridor/room stage with physical actor placement, path movement, compact run overlay, and contextual passage/exit actions. The current gameplay loop, coin reward, floor unlock, bottom nav labels, visual screenshots, and pure-module boundaries were validated.
+The revised pass preserves the accepted Inn/Tower foundation and adds a real gameplay loop on top of it. Room upgrade purchasing v1 is data-driven from room definitions, spends existing floor-clear coins, mutates room level/unlock state, and reports through recent events. The current gameplay loop, coin reward, floor unlock, Bed Room purchase, bottom nav labels, visual screenshots, and pure-module boundaries were validated.
