@@ -16,8 +16,8 @@ export const prototypeTowerFloors: TowerFloorDefinition[] = [
         type: "exit"
       }
     ],
-    firstClearRewards: [rewardDefinitions.coins_floor_clear],
-    repeatRewards: [rewardDefinitions.coins_tiny]
+    firstClearRewards: [rewardDefinitions.floor_1_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_1_repeat_clear_coins]
   },
   {
     floor: 2,
@@ -38,8 +38,8 @@ export const prototypeTowerFloors: TowerFloorDefinition[] = [
         type: "exit"
       }
     ],
-    firstClearRewards: [rewardDefinitions.coins_floor_clear],
-    repeatRewards: [rewardDefinitions.coins_small]
+    firstClearRewards: [rewardDefinitions.floor_2_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_2_repeat_clear_coins]
   },
   {
     floor: 3,
@@ -60,7 +60,7 @@ export const prototypeTowerFloors: TowerFloorDefinition[] = [
         type: "exit"
       }
     ],
-    firstClearRewards: [rewardDefinitions.coins_floor_clear],
-    repeatRewards: [rewardDefinitions.coins_small]
+    firstClearRewards: [rewardDefinitions.floor_3_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_3_repeat_clear_coins]
   }
 ];

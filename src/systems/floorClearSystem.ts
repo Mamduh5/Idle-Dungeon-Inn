@@ -2,6 +2,7 @@ import { prototypeTowerFloors } from "../data/towerData";
 import { getHeroesForParty, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
 import { appendRecentEvent } from "../state/recentEvents";
 import { FLOOR_CLEAR_HOLD_REASON } from "./towerNodeActionSystem";
+import { calculateFloorCoinReward } from "./rewardSystem";
 import type { GameState } from "../types/gameState";
 import type { PartyState } from "../types/partyTypes";
 import type { RecentEvent } from "../types/recentEventTypes";
@@ -40,13 +41,22 @@ export function completeSelectedFloor(state: GameState): GameState {
 
   const currentFloor = run.floor;
   const nextFloor = currentFloor + 1;
+  const coinReward = calculateFloorCoinReward(state, currentFloor);
   const partyHeroIds = new Set(getHeroesForParty(state, party.id).map((hero) => hero.id));
   const firstClearFloorIds = state.firstClearFloorIds.includes(currentFloor)
     ? state.firstClearFloorIds
     : [...state.firstClearFloorIds, currentFloor];
+  const eventMessage =
+    coinReward > 0
+      ? `${party.name} cleared Floor ${currentFloor} and earned ${coinReward} coins.`
+      : `${party.name} cleared Floor ${currentFloor}. No coin reward was configured.`;
 
   return {
     ...state,
+    currencies: {
+      ...state.currencies,
+      coins: state.currencies.coins + coinReward
+    },
     highestFloorCleared: Math.max(state.highestFloorCleared, currentFloor),
     firstClearFloorIds,
     unlockedFloor: Math.max(state.unlockedFloor, nextFloor),
@@ -87,14 +97,7 @@ export function completeSelectedFloor(state: GameState): GameState {
     ),
     recentEvents: appendRecentEvent(
       state.recentEvents,
-      createEvent(
-        now,
-        "floor_cleared",
-        `${party.name} cleared Floor ${currentFloor} and returned to the inn. Rewards are not implemented yet.`,
-        "success",
-        party,
-        run
-      )
+      createEvent(now, "floor_cleared", eventMessage, "success", party, run)
     ),
     lastActiveAt: now
   };
