@@ -5,6 +5,8 @@ export type RecentEventType =
   | "party_dispatch_blocked"
   | "tower_floor_entered"
   | "tower_node_reached"
+  | "tower_node_continued"
+  | "tower_node_continue_blocked"
   | "tower_encounter_started"
   | "tower_encounter_cleared"
   | "party_floor_reached"

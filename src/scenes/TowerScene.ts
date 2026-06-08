@@ -6,6 +6,13 @@ import { getHeroesForParty, getSelectedParty, getSelectedTowerRun } from "../sta
 import { getGameState, updateGameState } from "../state/gameStore";
 import { tickGameState } from "../systems/gameTickSystem";
 import { heroDefinitions } from "../data/heroData";
+import {
+  canContinueTowerRun,
+  continueSelectedTowerRun,
+  ENCOUNTER_CLEAR_HOLD_REASON,
+  FLOOR_CLEAR_HOLD_REASON,
+  TREASURE_HOLD_REASON
+} from "../systems/towerNodeActionSystem";
 import type { HeroStatus } from "../types/ids";
 import type { TowerNodeDefinition, TowerRunState } from "../types/towerTypes";
 import { createSceneHud } from "../ui/sceneHud";
@@ -81,6 +88,10 @@ export class TowerScene extends Phaser.Scene {
 
     if (run && run.enemies.length > 0) {
       this.drawEnemies(run);
+    }
+
+    if (canContinueTowerRun(run)) {
+      this.drawContinueButton();
     }
 
     this.add.text(GAME_WIDTH / 2, 684, "Tower View", {
@@ -180,6 +191,26 @@ export class TowerScene extends Phaser.Scene {
       });
     });
   }
+
+  private drawContinueButton(): void {
+    const button = this.add
+      .rectangle(GAME_WIDTH / 2, 648, 170, 42, 0xa8d7ff, 1)
+      .setStrokeStyle(2, 0xd7e8ff)
+      .setInteractive({ useHandCursor: true });
+
+    this.add.text(GAME_WIDTH / 2, 648, "Continue Run", {
+      align: "center",
+      color: "#111827",
+      fontFamily: "Inter, Arial, sans-serif",
+      fontSize: "15px",
+      fontStyle: "700"
+    }).setOrigin(0.5);
+
+    button.on("pointerup", () => {
+      updateGameState(continueSelectedTowerRun);
+      this.scene.restart();
+    });
+  }
 }
 
 function getCurrentNode(run: TowerRunState): TowerNodeDefinition | null {
@@ -204,13 +235,21 @@ function getTowerMessage(partyName: string, run: TowerRunState | null, node: Tow
   }
 
   if (run.status === "looting") {
-    return "Treasure found. Rewards not implemented yet.";
+    return run.lastFailureReason === TREASURE_HOLD_REASON
+      ? "Treasure found. Rewards not implemented yet. Continue when ready."
+      : "Treasure found. Rewards not implemented yet.";
   }
 
   if (run.status === "blocked") {
-    return run.lastFailureReason === "Encounter cleared. Node advancement is not implemented yet."
-      ? "Encounter cleared. Rewards/floor clear not implemented yet."
-      : "Run is blocked until the next system is implemented.";
+    if (run.lastFailureReason === ENCOUNTER_CLEAR_HOLD_REASON) {
+      return "Encounter cleared. Continue to the next node.";
+    }
+
+    if (run.lastFailureReason === FLOOR_CLEAR_HOLD_REASON) {
+      return "Exit reached. Floor clear not implemented yet.";
+    }
+
+    return "Run is blocked until the next system is implemented.";
   }
 
   if (run.status === "wiped") {

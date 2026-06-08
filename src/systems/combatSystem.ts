@@ -1,6 +1,7 @@
 import { enemyDefinitions } from "../data/enemyData";
 import { heroDefinitions } from "../data/heroData";
 import { appendRecentEvent } from "../state/recentEvents";
+import { ENCOUNTER_CLEAR_HOLD_REASON } from "./towerNodeActionSystem";
 import type { CombatStats } from "../types/combatTypes";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
@@ -137,7 +138,7 @@ function tickCombatRun(
         heroCombatCooldowns,
         enemyCombatCooldowns,
         lastCombatEventMessage: "Encounter cleared. Rewards are not implemented yet.",
-        lastFailureReason: "Encounter cleared. Node advancement is not implemented yet."
+        lastFailureReason: ENCOUNTER_CLEAR_HOLD_REASON
       },
       heroes,
       event: createEvent(

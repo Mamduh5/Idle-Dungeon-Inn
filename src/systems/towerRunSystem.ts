@@ -1,6 +1,7 @@
 import { enemyDefinitions } from "../data/enemyData";
 import { prototypeTowerFloors } from "../data/towerData";
 import { appendRecentEvent } from "../state/recentEvents";
+import { FLOOR_CLEAR_HOLD_REASON, TREASURE_HOLD_REASON } from "./towerNodeActionSystem";
 import type { GameState } from "../types/gameState";
 import type { EnemyId } from "../types/ids";
 import type { PartyState } from "../types/partyTypes";
@@ -160,7 +161,9 @@ function resolveReachedNode(
       run: {
         ...run,
         status: "looting",
-        nodeProgress: 1
+        nodeProgress: 1,
+        lastFailureReason: TREASURE_HOLD_REASON,
+        lastCombatEventMessage: TREASURE_HOLD_REASON
       },
       event: createEvent(
         now,
@@ -196,7 +199,8 @@ function resolveReachedNode(
         ...run,
         status: "blocked",
         nodeProgress: 1,
-        lastFailureReason: "Floor clear is not implemented yet."
+        lastFailureReason: FLOOR_CLEAR_HOLD_REASON,
+        lastCombatEventMessage: "Exit reached."
       },
       event: createEvent(
         now,
