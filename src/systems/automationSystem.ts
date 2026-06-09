@@ -9,6 +9,7 @@ import { canContinueTowerRun, continueSelectedTowerRun } from "./towerNodeAction
 
 const AUTO_DISPATCH_ID = automationDefinitions.auto_dispatch_board.automationId;
 const AUTO_DISPATCH_COOLDOWN_MS = 1500;
+const AUTO_TOWER_ACTION_READABILITY_DELAY_MS = 750;
 
 export interface AutoDispatchControlState {
   isUnlocked: boolean;
@@ -50,11 +51,19 @@ export function tickAutomation(state: GameState, now: number): GameState {
   }
 
   if (canCompleteSelectedFloor(unlockedState)) {
+    if (shouldPauseForAutoTowerAction(unlockedState, now)) {
+      return unlockedState;
+    }
+
     return completeSelectedFloor(unlockedState);
   }
 
   const run = getSelectedTowerRun(unlockedState);
   if (canContinueTowerRun(run)) {
+    if (shouldPauseForAutoTowerAction(unlockedState, now)) {
+      return unlockedState;
+    }
+
     return continueSelectedTowerRun(unlockedState);
   }
 
@@ -133,6 +142,19 @@ function unlockAutoDispatchIfReady(state: GameState, now: number): GameState {
 
 function isAutoDispatchEnabled(state: GameState): boolean {
   return getAutoDispatchControlState(state).isEnabled;
+}
+
+function shouldPauseForAutoTowerAction(state: GameState, now: number): boolean {
+  const latestEvent = state.recentEvents[0];
+  if (!latestEvent || !isAutoTowerActionHoldEvent(latestEvent)) {
+    return false;
+  }
+
+  return now - latestEvent.createdAt < AUTO_TOWER_ACTION_READABILITY_DELAY_MS;
+}
+
+function isAutoTowerActionHoldEvent(event: RecentEvent): boolean {
+  return event.type === "tower_encounter_cleared" || event.type === "tower_node_reached" || event.type === "loot_found";
 }
 
 function createAutomationEvent(
