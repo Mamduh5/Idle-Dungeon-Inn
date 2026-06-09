@@ -5,8 +5,8 @@ import { clearSavedGameState, loadSavedGameState, saveGameState } from "./saveSt
 
 const SAVE_THROTTLE_MS = 1000;
 
-let currentGameState: GameState = createStartupGameState();
 let lastSavedAt = 0;
+let currentGameState: GameState = createStartupGameState();
 let pendingSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 export function getGameState(): GameState {
