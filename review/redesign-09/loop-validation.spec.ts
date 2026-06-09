@@ -597,6 +597,7 @@ async function clearCurrentFloor(
 }
 
 async function startCurrentFloorAndCaptureHeroDamage(page: Page): Promise<number> {
+  await forceReadyForCurrentRun(page);
   await focusInnGate(page);
   await page.waitForTimeout(250);
   await clickCanvas(page, 250, 676);
@@ -686,6 +687,7 @@ async function forceDefeatedPreparingState(page: Page): Promise<void> {
           lastFailureReason: string | null;
         }>;
         automation: { lastAutoDispatchAt: number | null; autoDispatchLevel: number; enabled: Record<string, boolean> };
+        innRooms: Array<{ activeJob?: string | null; jobs?: unknown[] }>;
       };
     }).__idleDungeonInnGetState;
     const state = getState?.();
@@ -751,7 +753,56 @@ async function forceReadyPreparingState(page: Page, autoDispatchEnabled: boolean
     state.automation.autoDispatchLevel = 1;
     state.automation.enabled.auto_dispatch_board = enabled;
     state.automation.lastAutoDispatchAt = Date.now() - 5000;
+    state.innRooms.forEach((room) => {
+      room.activeJob = null;
+      room.jobs = [];
+    });
   }, autoDispatchEnabled);
+}
+
+async function forceReadyForCurrentRun(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const getState = (globalThis as typeof globalThis & {
+      __idleDungeonInnGetState?: () => {
+        heroes: Array<{ currentHp: number; status: string }>;
+        towerRuns: Array<{
+          status: string;
+          nodeIndex: number;
+          nodeProgress: number;
+          enemies: unknown[];
+          heroCombatCooldowns: Record<string, number>;
+          enemyCombatCooldowns: Record<string, number>;
+          lastCombatEventMessage: string | null;
+          combatStartedAt: number | null;
+          lastFailureReason: string | null;
+        }>;
+        innRooms: Array<{ activeJob?: string | null; jobs?: unknown[] }>;
+        automation: { enabled: Record<string, boolean>; lastAutoDispatchAt: number | null };
+      };
+    }).__idleDungeonInnGetState;
+    const state = getState?.();
+    if (!state) {
+      return;
+    }
+
+    state.heroes[0].currentHp = 120;
+    state.heroes[0].status = "ready";
+    state.towerRuns[0].status = "preparing";
+    state.towerRuns[0].nodeIndex = 0;
+    state.towerRuns[0].nodeProgress = 0;
+    state.towerRuns[0].enemies = [];
+    state.towerRuns[0].heroCombatCooldowns = {};
+    state.towerRuns[0].enemyCombatCooldowns = {};
+    state.towerRuns[0].lastCombatEventMessage = null;
+    state.towerRuns[0].combatStartedAt = null;
+    state.towerRuns[0].lastFailureReason = null;
+    state.innRooms.forEach((room) => {
+      room.activeJob = null;
+      room.jobs = [];
+    });
+    state.automation.enabled.auto_dispatch_board = false;
+    state.automation.lastAutoDispatchAt = Date.now() - 5000;
+  });
 }
 
 async function forceRestingBedJob(page: Page, currentHp: number): Promise<void> {
