@@ -124,7 +124,7 @@ export const prototypeTowerFloors: TowerFloorDefinition[] = [
       {
         id: "floor_6_combat_2",
         type: "combat",
-        enemyIds: ["moss_bat", "ember_wisp"]
+        enemyIds: ["moss_bat", "ember_wisp", "ember_wisp"]
       },
       {
         id: "floor_6_exit",

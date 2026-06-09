@@ -50,71 +50,71 @@ export const rewardDefinitions: Record<LootId, RewardDefinition> = {
   floor_4_first_clear_coins: {
     rewardId: "floor_4_first_clear_coins",
     name: "Floor 4 First Clear Coins",
-    coins: 80
+    coins: 75
   },
   floor_4_repeat_clear_coins: {
     rewardId: "floor_4_repeat_clear_coins",
     name: "Floor 4 Repeat Clear Coins",
-    coins: 32
+    coins: 30
   },
   floor_5_first_clear_coins: {
     rewardId: "floor_5_first_clear_coins",
     name: "Floor 5 First Clear Coins",
-    coins: 105
+    coins: 100
   },
   floor_5_repeat_clear_coins: {
     rewardId: "floor_5_repeat_clear_coins",
     name: "Floor 5 Repeat Clear Coins",
-    coins: 42
+    coins: 40
   },
   floor_6_first_clear_coins: {
     rewardId: "floor_6_first_clear_coins",
     name: "Floor 6 First Clear Coins",
-    coins: 130
+    coins: 125
   },
   floor_6_repeat_clear_coins: {
     rewardId: "floor_6_repeat_clear_coins",
     name: "Floor 6 Repeat Clear Coins",
-    coins: 52
+    coins: 50
   },
   floor_7_first_clear_coins: {
     rewardId: "floor_7_first_clear_coins",
     name: "Floor 7 First Clear Coins",
-    coins: 160
+    coins: 155
   },
   floor_7_repeat_clear_coins: {
     rewardId: "floor_7_repeat_clear_coins",
     name: "Floor 7 Repeat Clear Coins",
-    coins: 64
+    coins: 62
   },
   floor_8_first_clear_coins: {
     rewardId: "floor_8_first_clear_coins",
     name: "Floor 8 First Clear Coins",
-    coins: 195
+    coins: 190
   },
   floor_8_repeat_clear_coins: {
     rewardId: "floor_8_repeat_clear_coins",
     name: "Floor 8 Repeat Clear Coins",
-    coins: 78
+    coins: 76
   },
   floor_9_first_clear_coins: {
     rewardId: "floor_9_first_clear_coins",
     name: "Floor 9 First Clear Coins",
-    coins: 235
+    coins: 230
   },
   floor_9_repeat_clear_coins: {
     rewardId: "floor_9_repeat_clear_coins",
     name: "Floor 9 Repeat Clear Coins",
-    coins: 94
+    coins: 92
   },
   floor_10_first_clear_coins: {
     rewardId: "floor_10_first_clear_coins",
     name: "Floor 10 First Clear Coins",
-    coins: 280
+    coins: 275
   },
   floor_10_repeat_clear_coins: {
     rewardId: "floor_10_repeat_clear_coins",
     name: "Floor 10 Repeat Clear Coins",
-    coins: 112
+    coins: 110
   }
 };
