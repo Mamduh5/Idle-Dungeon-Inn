@@ -77,6 +77,39 @@ test("full current gameplay loop and required screenshots", async ({ page }) => 
   await page.screenshot({ path: shot("11-build-bed-upgraded.png") });
 });
 
+test("bed room return healing follows room level", async ({ page }) => {
+  await page.goto(baseUrl);
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  const initialState = await getGameStateSnapshot(page);
+  expect(initialState.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(1);
+
+  const floorOne = await clearCurrentFloor(page, false);
+  expect(floorOne.after.unlockedFloor).toBe(2);
+  expect(floorOne.after.currencies.coins).toBe(25);
+  expect(floorOne.after.heroes[0]?.status).toBe("ready");
+  expect(floorOne.after.heroes[0]?.currentHp).toBe(Math.min(120, floorOne.before.heroes[0].currentHp + 15));
+  expect(floorOne.after.recentEvents[0]?.message).toContain("recovered 15 HP at the Bed Room");
+
+  await clickCanvas(page, 341, 814);
+  await page.waitForTimeout(250);
+  await clickCanvas(page, 116, 402);
+  await page.waitForTimeout(250);
+
+  const upgradedState = await getGameStateSnapshot(page);
+  expect(upgradedState.currencies.coins).toBe(0);
+  expect(upgradedState.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(2);
+
+  await clickCanvas(page, 49, 814);
+  await page.waitForTimeout(250);
+
+  const floorTwo = await clearCurrentFloor(page, true);
+  expect(floorTwo.after.heroes[0]?.status).toBe("ready");
+  expect(floorTwo.after.heroes[0]?.currentHp).toBe(Math.min(120, floorTwo.before.heroes[0].currentHp + 25));
+  expect(floorTwo.after.recentEvents[0]?.message).toContain("recovered 25 HP at the Bed Room");
+});
+
 test("responsive readability at 360x640", async ({ browser }) => {
   const page = await browser.newPage({
     viewport: { width: 360, height: 640 },
@@ -147,13 +180,19 @@ async function getInnCameraScrollX(page: Page): Promise<number> {
 
 async function getGameStateSnapshot(page: Page): Promise<{
   currencies: { coins: number };
+  unlockedFloor: number;
+  heroes: Array<{ id: string; currentHp: number; status: string }>;
   innRooms: Array<{ roomId: string; level: number; isUnlocked: boolean }>;
+  recentEvents: Array<{ message: string }>;
 }> {
   const state = await page.evaluate(() => {
     const getState = (globalThis as typeof globalThis & {
       __idleDungeonInnGetState?: () => {
         currencies: { coins: number };
+        unlockedFloor: number;
+        heroes: Array<{ id: string; currentHp: number; status: string }>;
         innRooms: Array<{ roomId: string; level: number; isUnlocked: boolean }>;
+        recentEvents: Array<{ message: string }>;
       };
     }).__idleDungeonInnGetState;
     return getState?.();
@@ -164,6 +203,44 @@ async function getGameStateSnapshot(page: Page): Promise<{
   }
 
   return state;
+}
+
+async function clearCurrentFloor(
+  page: Page,
+  hasTreasureNode: boolean
+): Promise<{
+  before: Awaited<ReturnType<typeof getGameStateSnapshot>>;
+  after: Awaited<ReturnType<typeof getGameStateSnapshot>>;
+}> {
+  await focusInnGate(page);
+  await page.waitForTimeout(250);
+  await clickCanvas(page, 250, 676);
+  await waitForTowerStatus(page, "fighting");
+  await waitForTowerBlockedReason(page, "Encounter cleared");
+  await clickCanvas(page, 195, 652);
+
+  if (hasTreasureNode) {
+    await waitForTowerStatus(page, "looting");
+    await clickCanvas(page, 195, 652);
+  }
+
+  await waitForTowerBlockedReason(page, "Floor clear");
+  const before = await getGameStateSnapshot(page);
+  await clickCanvas(page, 195, 652);
+  await page.waitForTimeout(500);
+  const after = await getGameStateSnapshot(page);
+
+  return { before, after };
+}
+
+async function focusInnGate(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const game = (globalThis as typeof globalThis & {
+      __idleDungeonInnGame?: Phaser.Game;
+    }).__idleDungeonInnGame;
+    const scene = game?.scene.getScene("InnScene") as Phaser.Scene | undefined;
+    scene?.cameras.main.setScroll(870, 0);
+  });
 }
 
 async function waitForTowerStatus(page: Page, status: string): Promise<void> {

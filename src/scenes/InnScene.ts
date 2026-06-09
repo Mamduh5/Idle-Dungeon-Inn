@@ -10,6 +10,7 @@ import {
 import { getGameState, updateGameState } from "../state/gameStore";
 import { tickGameState } from "../systems/gameTickSystem";
 import { sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
+import { calculateReturnHealingAmount } from "../systems/roomEffectSystem";
 import type { HeroInstance } from "../types/heroTypes";
 import type { HeroStatus } from "../types/ids";
 import type { InnRoomState } from "../types/roomTypes";
@@ -48,6 +49,7 @@ export class InnScene extends Phaser.Scene {
     const run = getSelectedTowerRun(state);
     const hero = party ? getFirstPartyHero(state, party.id) : null;
     const bedRoom = getInnRoom(state, "bed_room");
+    const bedRoomHealing = calculateReturnHealingAmount(state);
     const trainingRoom = getInnRoom(state, "training_room");
     const latestEvent = state.recentEvents[0];
     const canDispatch =
@@ -60,7 +62,7 @@ export class InnScene extends Phaser.Scene {
     this.configureCamera();
     this.drawWorldBackdrop();
     this.drawInnBase();
-    this.drawBedRoom(bedRoom);
+    this.drawBedRoom(bedRoom, bedRoomHealing);
     this.drawCommonRoom(party?.name ?? "No Party", latestEvent?.message ?? "The inn is waiting for orders.", latestEvent?.severity === "warning");
     this.drawTrainingRoom(trainingRoom);
     this.drawTowerGate(targetFloor, buttonLabel, canDispatch);
@@ -185,7 +187,7 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawBedRoom(room: InnRoomState | null): void {
+  private drawBedRoom(room: InnRoomState | null, healingAmount: number): void {
     this.drawRoomShell(74, 198, 246, 362, 0x8f5935, "Bed Room", `Lv ${room?.level ?? 0}`, UI_HEX.cream);
 
     this.add.rectangle(116, 388, 144, 58, 0x3a241d, 1).setOrigin(0, 0).setStrokeStyle(2, UI_COLORS.gold);
@@ -196,6 +198,12 @@ export class InnScene extends Phaser.Scene {
     this.add.rectangle(102, 494, 182, 26, 0x4d2d22, 1).setStrokeStyle(1, 0xd39b5f);
     addCenteredLabel(this, 193, 507, "Recovery room", {
       color: UI_HEX.parchment,
+      fontSize: 11,
+      fontStyle: "700",
+      width: 150
+    });
+    addCenteredLabel(this, 193, 536, `Rest +${healingAmount} HP`, {
+      color: UI_HEX.gold,
       fontSize: 11,
       fontStyle: "700",
       width: 150

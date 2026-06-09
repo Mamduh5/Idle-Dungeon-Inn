@@ -3,6 +3,7 @@ import { roomDefinitions } from "../data/roomData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getInnRoom } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
+import { calculateBedRoomHealingForLevel } from "../systems/roomEffectSystem";
 import { getRoomUpgradePreview, purchaseRoomUpgrade, type RoomUpgradePreview } from "../systems/roomUpgradeSystem";
 import type { RoomId } from "../types/ids";
 import type { InnRoomState } from "../types/roomTypes";
@@ -71,7 +72,7 @@ export class BuildScene extends Phaser.Scene {
   ): void {
     const definition = roomDefinitions[roomId];
     const title = definition?.name ?? roomId;
-    const effect = definition?.effectType ?? "unknown";
+    const effect = getRoomEffectLabel(roomId, room);
     const isAvailable = Boolean(room?.isUnlocked);
     const isFloorUnlocked = upgrade?.isFloorUnlocked ?? false;
     const fill = isAvailable ? 0x6f3d28 : 0x3b312c;
@@ -176,4 +177,17 @@ export class BuildScene extends Phaser.Scene {
       width: 272
     });
   }
+}
+
+function getRoomEffectLabel(roomId: RoomId, room: InnRoomState | null): string {
+  if (roomId === "bed_room") {
+    const level = room?.isUnlocked ? room.level : 0;
+    return `Return heal +${calculateBedRoomHealingForLevel(level)} HP`;
+  }
+
+  if (roomId === "training_room") {
+    return "No effect yet";
+  }
+
+  return roomDefinitions[roomId]?.effectType.split("_").join(" ") ?? "unknown";
 }

@@ -3,6 +3,7 @@ import { getHeroesForParty, getSelectedParty, getSelectedTowerRun } from "../sta
 import { appendRecentEvent } from "../state/recentEvents";
 import { FLOOR_CLEAR_HOLD_REASON } from "./towerNodeActionSystem";
 import { calculateFloorCoinReward } from "./rewardSystem";
+import { applyReturnHealing, calculateReturnHealingAmount } from "./roomEffectSystem";
 import type { GameState } from "../types/gameState";
 import type { PartyState } from "../types/partyTypes";
 import type { RecentEvent } from "../types/recentEventTypes";
@@ -42,20 +43,20 @@ export function completeSelectedFloor(state: GameState): GameState {
   const currentFloor = run.floor;
   const nextFloor = currentFloor + 1;
   const coinReward = calculateFloorCoinReward(state, currentFloor);
-  const partyHeroIds = new Set(getHeroesForParty(state, party.id).map((hero) => hero.id));
+  const partyHeroIds = getHeroesForParty(state, party.id).map((hero) => hero.id);
+  const partyHeroIdSet = new Set(partyHeroIds);
+  const healingAmount = calculateReturnHealingAmount(state);
+  const healedState = applyReturnHealing(state, partyHeroIds);
   const firstClearFloorIds = state.firstClearFloorIds.includes(currentFloor)
     ? state.firstClearFloorIds
     : [...state.firstClearFloorIds, currentFloor];
-  const eventMessage =
-    coinReward > 0
-      ? `${party.name} cleared Floor ${currentFloor} and earned ${coinReward} coins.`
-      : `${party.name} cleared Floor ${currentFloor}. No coin reward was configured.`;
+  const eventMessage = createFloorClearMessage(party.name, currentFloor, coinReward, healingAmount);
 
   return {
-    ...state,
+    ...healedState,
     currencies: {
-      ...state.currencies,
-      coins: state.currencies.coins + coinReward
+      ...healedState.currencies,
+      coins: healedState.currencies.coins + coinReward
     },
     highestFloorCleared: Math.max(state.highestFloorCleared, currentFloor),
     firstClearFloorIds,
@@ -87,8 +88,8 @@ export function completeSelectedFloor(state: GameState): GameState {
           }
         : candidate
     ),
-    heroes: state.heroes.map((hero) =>
-      partyHeroIds.has(hero.id)
+    heroes: healedState.heroes.map((hero) =>
+      partyHeroIdSet.has(hero.id)
         ? {
             ...hero,
             status: hero.currentHp > 0 ? "ready" : "defeated"
@@ -101,6 +102,22 @@ export function completeSelectedFloor(state: GameState): GameState {
     ),
     lastActiveAt: now
   };
+}
+
+function createFloorClearMessage(partyName: string, floor: number, coinReward: number, healingAmount: number): string {
+  if (coinReward > 0 && healingAmount > 0) {
+    return `${partyName} cleared Floor ${floor}, earned ${coinReward} coins, and recovered ${healingAmount} HP at the Bed Room.`;
+  }
+
+  if (coinReward > 0) {
+    return `${partyName} cleared Floor ${floor} and earned ${coinReward} coins.`;
+  }
+
+  if (healingAmount > 0) {
+    return `${partyName} cleared Floor ${floor} and recovered ${healingAmount} HP at the Bed Room.`;
+  }
+
+  return `${partyName} cleared Floor ${floor}. No coin reward was configured.`;
 }
 
 function createEvent(
