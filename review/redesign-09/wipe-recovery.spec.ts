@@ -37,8 +37,9 @@ test("wiped party can return to inn and recover", async ({ page }) => {
 
   expect(innTexts).toContain("Hearth Hall");
   expect(recoveredState.towerRuns[0]?.status).toBe("preparing");
-  expect(recoveredState.heroes[0]?.status).toBe("ready");
+  expect(recoveredState.heroes[0]?.status).toBe("resting");
   expect(recoveredState.heroes[0]?.currentHp).toBeGreaterThan(0);
+  expect(recoveredState.heroes[0]?.currentHp).toBeLessThan(108);
   expect(recoveredState.recentEvents.some((event) => event.message.includes("returned to the inn after being wiped"))).toBe(true);
 });
 
@@ -69,7 +70,7 @@ test("auto dispatch does not recover wiped party automatically", async ({ page }
   expect(dispatchEvents).toHaveLength(0);
 });
 
-test("auto dispatch can send again after manual wipe recovery", async ({ page }) => {
+test("auto dispatch waits after manual wipe recovery until hero is ready", async ({ page }) => {
   await startFreshGame(page);
 
   const initialState = await getGameStateSnapshot(page);
@@ -85,8 +86,16 @@ test("auto dispatch can send again after manual wipe recovery", async ({ page })
   await page.waitForTimeout(300);
   await clickCanvas(page, 195, 652);
 
-  const recoveredState = await waitForState(page, (state) => state.towerRuns[0]?.status === "preparing" && state.heroes[0]?.status === "ready");
+  const recoveredState = await waitForState(page, (state) => state.towerRuns[0]?.status === "preparing" && state.heroes[0]?.status === "resting");
   expect(recoveredState.heroes[0]?.currentHp).toBeGreaterThan(0);
+  expect(recoveredState.heroes[0]?.currentHp).toBeLessThan(108);
+
+  await page.waitForTimeout(2500);
+  const waitingState = await getGameStateSnapshot(page);
+  expect(waitingState.towerRuns[0]?.status).toBe("preparing");
+  expect(waitingState.heroes[0]?.status).toBe("resting");
+
+  await forceHeroReadyAfterBedHealing(page);
 
   const redispatchedState = await waitForState(
     page,
@@ -261,6 +270,26 @@ async function writeSavedGameState(page: Page, state: RuntimeGameState): Promise
     ({ key, value }) => localStorage.setItem(key, JSON.stringify(value)),
     { key: saveStorageKey, value: state }
   );
+}
+
+async function forceHeroReadyAfterBedHealing(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const getState = (globalThis as typeof globalThis & {
+      __idleDungeonInnGetState?: () => RuntimeGameState;
+    }).__idleDungeonInnGetState;
+    const state = getState?.();
+    if (!state) {
+      return;
+    }
+
+    state.heroes[0].currentHp = 108;
+    state.heroes[0].status = "ready";
+    state.innRooms.forEach((room) => {
+      room.activeJob = null;
+      (room as { jobs?: unknown[] }).jobs = [];
+    });
+    state.automation.lastAutoDispatchAt = Date.now() - 5000;
+  });
 }
 
 function createWipedRunSave(

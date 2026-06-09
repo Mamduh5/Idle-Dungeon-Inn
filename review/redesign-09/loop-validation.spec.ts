@@ -86,8 +86,15 @@ test("bed room return healing follows room level", async ({ page }) => {
   expect(floorOne.after.unlockedFloor).toBe(2);
   expect(floorOne.after.currencies.coins).toBe(25);
   expect(floorOne.after.heroes[0]?.status).toBe("ready");
-  expect(floorOne.after.heroes[0]?.currentHp).toBe(Math.min(120, floorOne.before.heroes[0].currentHp + 15));
-  expect(floorOne.after.recentEvents[0]?.message).toContain("recovered 15 HP at the Bed Room");
+  expect(floorOne.after.heroes[0]?.currentHp).toBeGreaterThanOrEqual(108);
+  expect(floorOne.after.recentEvents[0]?.message).toContain("returned to the inn for readiness checks");
+
+  await forceRestingBedJob(page, 40);
+  await page.waitForTimeout(2000);
+  const levelOneHealingState = await getGameStateSnapshot(page);
+  const levelOneHealingGain = (levelOneHealingState.heroes[0]?.currentHp ?? 0) - 40;
+  expect(levelOneHealingState.heroes[0]?.status).toBe("resting");
+  expect(levelOneHealingGain).toBeGreaterThan(0);
 
   await clickCanvas(page, 341, 814);
   await page.waitForTimeout(250);
@@ -98,13 +105,12 @@ test("bed room return healing follows room level", async ({ page }) => {
   expect(upgradedState.currencies.coins).toBe(0);
   expect(upgradedState.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(2);
 
-  await clickCanvas(page, 49, 814);
-  await page.waitForTimeout(250);
-
-  const floorTwo = await clearCurrentFloor(page, true);
-  expect(floorTwo.after.heroes[0]?.status).toBe("ready");
-  expect(floorTwo.after.heroes[0]?.currentHp).toBe(Math.min(120, floorTwo.before.heroes[0].currentHp + 25));
-  expect(floorTwo.after.recentEvents.some((event) => event.message.includes("recovered 25 HP at the Bed Room"))).toBe(true);
+  await forceRestingBedJob(page, 40);
+  await page.waitForTimeout(2000);
+  const levelTwoHealingState = await getGameStateSnapshot(page);
+  const levelTwoHealingGain = (levelTwoHealingState.heroes[0]?.currentHp ?? 0) - 40;
+  expect(levelTwoHealingState.heroes[0]?.status).toBe("resting");
+  expect(levelTwoHealingGain).toBeGreaterThan(levelOneHealingGain);
 });
 
 test("training room attack bonus follows room level and affects combat", async ({ page }) => {
@@ -145,6 +151,7 @@ test("training room attack bonus follows room level and affects combat", async (
   const innTexts = await getSceneTexts(page, "InnScene");
   expect(innTexts).toContain("Train +2 ATK");
 
+  await forceReadyPreparingState(page, false);
   const trainingLevelOneDamage = await startCurrentFloorAndCaptureHeroDamage(page);
   expect(trainingLevelOneDamage).toBe(13);
   expect(trainingLevelOneDamage).toBeGreaterThan(lockedDamage);
@@ -745,6 +752,40 @@ async function forceReadyPreparingState(page: Page, autoDispatchEnabled: boolean
     state.automation.enabled.auto_dispatch_board = enabled;
     state.automation.lastAutoDispatchAt = Date.now() - 5000;
   }, autoDispatchEnabled);
+}
+
+async function forceRestingBedJob(page: Page, currentHp: number): Promise<void> {
+  await page.evaluate((hp) => {
+    const getState = (globalThis as typeof globalThis & {
+      __idleDungeonInnGetState?: () => {
+        heroes: Array<{ id: string; currentHp: number; status: string }>;
+        innRooms: Array<{ roomId: string; activeJob?: string | null; jobs?: unknown[] }>;
+      };
+    }).__idleDungeonInnGetState;
+    const state = getState?.();
+    const hero = state?.heroes[0];
+    const bedRoom = state?.innRooms.find((room) => room.roomId === "bed_room");
+    if (!state || !hero || !bedRoom) {
+      return;
+    }
+
+    const jobId = `room_job_bed_room_${hero.id}_healing`;
+    hero.currentHp = hp;
+    hero.status = "resting";
+    bedRoom.activeJob = jobId;
+    bedRoom.jobs = [
+      {
+        id: jobId,
+        roomId: "bed_room",
+        heroId: hero.id,
+        jobType: "healing",
+        status: "active",
+        progress: 0,
+        startedAt: Date.now(),
+        updatedAt: Date.now()
+      }
+    ];
+  }, currentHp);
 }
 
 function countEventsContaining(

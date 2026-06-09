@@ -6,10 +6,9 @@ import { getInnRoom } from "../state/gameSelectors";
 import { clearSavedGameStateForDev, getGameState, updateGameState } from "../state/gameStore";
 import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
 import { getFloor10BossCallout, getFloor10RoomRecommendation } from "../systems/bottleneckCalloutSystem";
-import {
-  calculateBedRoomHealingForLevel,
-  calculateTrainingRoomAttackBonusForLevel
-} from "../systems/roomEffectSystem";
+import { tickGameState } from "../systems/gameTickSystem";
+import { calculateTrainingRoomAttackBonusForLevel } from "../systems/roomEffectSystem";
+import { calculateBedRoomHealingPerSecondForLevel } from "../systems/roomJobSystem";
 import { getRoomUpgradePreview, purchaseRoomUpgrade, type RoomUpgradePreview } from "../systems/roomUpgradeSystem";
 import type { GameState } from "../types/gameState";
 import type { RoomId } from "../types/ids";
@@ -51,6 +50,11 @@ export class BuildScene extends Phaser.Scene {
     this.drawDevControls();
 
     createSceneHud(this, { title: "Build", activeLabel: "Build" });
+  }
+
+  public update(_time: number, delta: number): void {
+    const now = Date.now();
+    updateGameState((currentState) => tickGameState(currentState, delta, now));
   }
 
   private drawBackdrop(): void {
@@ -155,6 +159,14 @@ export class BuildScene extends Phaser.Scene {
       isAvailable ? "Unlocked" : isFloorUnlocked ? "Locked" : `Floor ${definition?.unlockFloor ?? "?"}`,
       isAvailable ? 0x275241 : 0x4a4038
     );
+
+    if (roomId === "bed_room") {
+      addCenteredLabel(this, x + 68, y + 164, "Safer retry pacing", {
+        color: UI_HEX.mutedCream,
+        fontSize: 9,
+        width: 112
+      });
+    }
 
     if (!isAvailable) {
       this.add.rectangle(x, y, 136, 140, 0x11100f, 0.24).setOrigin(0, 0);
@@ -294,9 +306,9 @@ export class BuildScene extends Phaser.Scene {
 }
 
 function getRoomEffectLabel(roomId: RoomId, room: InnRoomState | null): string {
-  if (roomId === "bed_room") {
-    const level = room?.isUnlocked ? room.level : 0;
-    return `Return heal +${calculateBedRoomHealingForLevel(level)} HP`;
+    if (roomId === "bed_room") {
+      const level = room?.isUnlocked ? room.level : 0;
+    return `Healing ${calculateBedRoomHealingPerSecondForLevel(level)} HP/s`;
   }
 
   if (roomId === "training_room") {

@@ -8,6 +8,7 @@ import type { GameState } from "../types/gameState";
 import type { HeroStatus } from "../types/ids";
 import type { RecentEvent } from "../types/recentEventTypes";
 import type { TowerRunStatus } from "../types/towerTypes";
+import { getHeroActiveRoomJob, getHeroReadyHpThreshold, isHeroDispatchReady } from "./roomJobSystem";
 
 interface DispatchOptions {
   now?: number;
@@ -60,6 +61,21 @@ export function getSelectedPartyDispatchBlockReason(state: GameState): string | 
 
   if (unavailableHero) {
     return `${unavailableHero.name} is ${formatStatus(unavailableHero.status)}.`;
+  }
+
+  const lowHpHero = heroes.find((hero) => hero.currentHp < getHeroReadyHpThreshold(hero));
+  if (lowHpHero) {
+    return `${lowHpHero.name} needs ${getHeroReadyHpThreshold(lowHpHero)} HP before dispatch.`;
+  }
+
+  const busyHero = heroes.find((hero) => getHeroActiveRoomJob(state, hero.id) !== null);
+  if (busyHero) {
+    return `${busyHero.name} is preparing in a room job.`;
+  }
+
+  const notReadyHero = heroes.find((hero) => !isHeroDispatchReady(state, hero));
+  if (notReadyHero) {
+    return `${notReadyHero.name} is not ready.`;
   }
 
   return null;

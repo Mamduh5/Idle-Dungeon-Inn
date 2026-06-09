@@ -86,7 +86,8 @@ export function purchaseRoomUpgrade(roomId: RoomId): (state: GameState) => GameS
       roomId: definition.roomId,
       level: wasUnlocked ? (room?.level ?? 0) + 1 : 1,
       isUnlocked: true,
-      activeJob: room?.activeJob ?? null
+      activeJob: room?.activeJob ?? null,
+      jobs: room?.jobs ?? []
     };
     const existingRoomIds = new Set(state.innRooms.map((candidate) => candidate.roomId));
     const nextRooms = existingRoomIds.has(roomId)

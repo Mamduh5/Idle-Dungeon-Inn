@@ -5,7 +5,7 @@ import { getBottleneckHintForRun } from "./bottleneckHintSystem";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
 import type { RecentEvent } from "../types/recentEventTypes";
-import { calculateReturnHealingAmount } from "./roomEffectSystem";
+import { updateHeroReadinessAfterInnReturn } from "./roomJobSystem";
 
 export function canRecoverSelectedWipedParty(state: GameState): boolean {
   const party = getSelectedParty(state);
@@ -33,22 +33,25 @@ export function recoverSelectedWipedParty(state: GameState): GameState {
   }
 
   const partyHeroIds = new Set(partyHeroes.map((hero) => hero.id));
-  const recoveryAmount = getWipeRecoveryAmount(state);
   const safeTargetFloor = Math.max(1, Math.min(party.selectedTargetFloor ?? run.floor, state.unlockedFloor));
   const bottleneckHint = getBottleneckHintForRun(run);
-
-  return {
+  const recoveredState: GameState = {
     ...state,
     heroes: state.heroes.map((hero) =>
       partyHeroIds.has(hero.id)
         ? {
             ...hero,
-            currentHp: calculateRecoveredHp(hero, recoveryAmount),
-            status: "ready"
+            currentHp: calculateRecoveredHp(hero),
+            status: "resting" as const
           }
         : hero
-    ),
-    parties: state.parties.map((candidate) =>
+    )
+  };
+  const readinessState = updateHeroReadinessAfterInnReturn(recoveredState, [...partyHeroIds], now);
+
+  return {
+    ...readinessState,
+    parties: readinessState.parties.map((candidate) =>
       candidate.id === party.id
         ? {
             ...candidate,
@@ -56,7 +59,7 @@ export function recoverSelectedWipedParty(state: GameState): GameState {
           }
         : candidate
     ),
-    towerRuns: state.towerRuns.map((candidate) =>
+    towerRuns: readinessState.towerRuns.map((candidate) =>
       candidate.partyId === party.id
         ? {
             ...candidate,
@@ -76,14 +79,14 @@ export function recoverSelectedWipedParty(state: GameState): GameState {
         : candidate
     ),
     automation: {
-      ...state.automation,
-      lastAutoDispatchAt: state.automation.autoDispatchLevel > 0 ? now : state.automation.lastAutoDispatchAt
+      ...readinessState.automation,
+      lastAutoDispatchAt: readinessState.automation.autoDispatchLevel > 0 ? now : readinessState.automation.lastAutoDispatchAt
     },
     recentEvents: appendRecentEvent(
-      state.recentEvents,
+      readinessState.recentEvents,
       createRecoveryEvent(
         now,
-        createRecoveryMessage(party.name, recoveryAmount, bottleneckHint),
+        createRecoveryMessage(party.name, bottleneckHint),
         party.id,
         run.floor
       )
@@ -92,17 +95,13 @@ export function recoverSelectedWipedParty(state: GameState): GameState {
   };
 }
 
-function getWipeRecoveryAmount(state: GameState): number {
-  return Math.max(1, calculateReturnHealingAmount(state));
+function calculateRecoveredHp(hero: HeroInstance): number {
+  const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? Math.max(1, hero.currentHp);
+  return Math.max(1, Math.min(maxHp, hero.currentHp));
 }
 
-function calculateRecoveredHp(hero: HeroInstance, recoveryAmount: number): number {
-  const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? Math.max(1, hero.currentHp, recoveryAmount);
-  return Math.max(1, Math.min(maxHp, recoveryAmount));
-}
-
-function createRecoveryMessage(partyName: string, recoveryAmount: number, bottleneckHint: string | null): string {
-  const baseMessage = `${partyName} returned to the inn after being wiped and recovered ${recoveryAmount} HP.`;
+function createRecoveryMessage(partyName: string, bottleneckHint: string | null): string {
+  const baseMessage = `${partyName} returned to the inn after being wiped. Heroes are resting until ready.`;
 
   if (!bottleneckHint) {
     return baseMessage;

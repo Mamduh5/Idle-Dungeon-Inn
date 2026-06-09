@@ -70,13 +70,15 @@ export function createInitialGameState(): GameState {
         roomId: roomDefinitions.bed_room.roomId,
         level: 1,
         isUnlocked: true,
-        activeJob: null
+        activeJob: null,
+        jobs: []
       },
       {
         roomId: roomDefinitions.training_room.roomId,
         level: 0,
         isUnlocked: false,
-        activeJob: null
+        activeJob: null,
+        jobs: []
       }
     ],
     automation: {

@@ -161,7 +161,7 @@ function createAutoFloorClearSave(baseState: RuntimeGameState, now: number): Run
     firstClearFloorIds: [1, 2],
     heroes: baseState.heroes.map((hero) => ({
       ...hero,
-      currentHp: 80,
+      currentHp: 108,
       status: "in_tower",
       highestFloorCleared: 2
     })),

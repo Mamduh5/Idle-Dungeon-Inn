@@ -11,8 +11,14 @@ import { getGameState, updateGameState } from "../state/gameStore";
 import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
 import { getFloor10BossCallout, getFloor10RoomRecommendation } from "../systems/bottleneckCalloutSystem";
 import { tickGameState } from "../systems/gameTickSystem";
-import { sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
-import { calculateReturnHealingAmount, calculateTrainingRoomAttackBonus } from "../systems/roomEffectSystem";
+import { canDispatchSelectedParty, sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
+import { calculateTrainingRoomAttackBonus } from "../systems/roomEffectSystem";
+import {
+  calculateBedRoomHealingPerSecond,
+  getHeroActiveRoomJob,
+  getHeroReadyHpThreshold,
+  getRoomJobCapacity
+} from "../systems/roomJobSystem";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
 import type { HeroStatus } from "../types/ids";
@@ -43,6 +49,7 @@ export class InnScene extends Phaser.Scene {
   private dragStartX = 0;
   private lastPointerX = 0;
   private autoDispatchRenderKey = "";
+  private readinessRenderKey = "";
 
   public constructor() {
     super("InnScene");
@@ -54,25 +61,29 @@ export class InnScene extends Phaser.Scene {
     const run = getSelectedTowerRun(state);
     const hero = party ? getFirstPartyHero(state, party.id) : null;
     const bedRoom = getInnRoom(state, "bed_room");
-    const bedRoomHealing = calculateReturnHealingAmount(state);
+    const bedRoomHealingSpeed = calculateBedRoomHealingPerSecond(state);
     const trainingRoom = getInnRoom(state, "training_room");
     const trainingRoomAttackBonus = calculateTrainingRoomAttackBonus(state);
     const latestEvent = state.recentEvents[0];
     const latestOfflineReport = getLatestOfflineReport(state);
     const floor10Callout = getFloor10BossCallout(state);
-    const canDispatch =
-      Boolean(party && hero && run) &&
-      !isRunActive(run?.status) &&
-      !isHeroUnavailable(hero?.status);
+    const canDispatch = canDispatchSelectedParty(state);
     const targetFloor = party?.selectedTargetFloor ?? run?.floor ?? state.unlockedFloor;
     const buttonLabel = isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready";
     const autoDispatchControl = getAutoDispatchControlState(state);
     this.autoDispatchRenderKey = autoDispatchControl.label;
+    this.readinessRenderKey = getReadinessRenderKey(state);
 
     this.configureCamera();
     this.drawWorldBackdrop();
     this.drawInnBase();
-    this.drawBedRoom(bedRoom, bedRoomHealing, getFloor10RoomRecommendation(state, "bed_room")?.innBadge ?? null);
+    this.drawBedRoom(
+      state,
+      bedRoom,
+      bedRoomHealingSpeed,
+      hero,
+      getFloor10RoomRecommendation(state, "bed_room")?.innBadge ?? null
+    );
     this.drawCommonRoom(
       party?.name ?? "No Party",
       latestEvent?.message ?? "The inn is waiting for orders.",
@@ -103,7 +114,10 @@ export class InnScene extends Phaser.Scene {
     const now = Date.now();
     const state = updateGameState((currentState) => tickGameState(currentState, delta, now));
 
-    if (getAutoDispatchControlState(state).label !== this.autoDispatchRenderKey) {
+    if (
+      getAutoDispatchControlState(state).label !== this.autoDispatchRenderKey ||
+      getReadinessRenderKey(state) !== this.readinessRenderKey
+    ) {
       this.scene.restart();
     }
   }
@@ -211,7 +225,13 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawBedRoom(room: InnRoomState | null, healingAmount: number, recommendationBadge: string | null): void {
+  private drawBedRoom(
+    state: GameState,
+    room: InnRoomState | null,
+    healingPerSecond: number,
+    hero: HeroInstance | null,
+    recommendationBadge: string | null
+  ): void {
     this.drawRoomShell(74, 198, 246, 362, 0x8f5935, "Bed Room", `Lv ${room?.level ?? 0}`, UI_HEX.cream);
 
     this.add.rectangle(116, 388, 144, 58, 0x3a241d, 1).setOrigin(0, 0).setStrokeStyle(2, UI_COLORS.gold);
@@ -226,12 +246,34 @@ export class InnScene extends Phaser.Scene {
       fontStyle: "700",
       width: 150
     });
-    addCenteredLabel(this, 193, 536, `Rest +${healingAmount} HP`, {
+    addCenteredLabel(this, 193, 532, `Heal ${formatNumber(healingPerSecond)} HP/s`, {
       color: UI_HEX.gold,
       fontSize: 11,
       fontStyle: "700",
       width: 150
     });
+    addCenteredLabel(this, 193, 550, `Capacity ${getRoomJobCapacity(state, "bed_room")}`, {
+      color: UI_HEX.mutedCream,
+      fontSize: 10,
+      width: 150
+    });
+
+    if (hero) {
+      const activeJob = getHeroActiveRoomJob(state, hero.id);
+      const readyHp = getHeroReadyHpThreshold(hero);
+      const isHealingHere = activeJob?.roomId === "bed_room" && activeJob.jobType === "healing";
+      addCenteredLabel(this, 193, 470, isHealingHere ? `${hero.name} resting` : `${hero.name} ${formatStatusLabel(hero.status)}`, {
+        color: isHealingHere ? UI_HEX.success : UI_HEX.parchment,
+        fontSize: 10,
+        fontStyle: "700",
+        width: 150
+      });
+      addCenteredLabel(this, 193, 486, `Ready at ${readyHp} HP`, {
+        color: UI_HEX.mutedCream,
+        fontSize: 10,
+        width: 150
+      });
+    }
 
     if (recommendationBadge) {
       this.drawRoomRecommendationBadge(98, 260, recommendationBadge);
@@ -505,10 +547,15 @@ export class InnScene extends Phaser.Scene {
       fontStyle: "700",
       width: 118
     });
-    drawHpBar(this, labelPosition.x, labelPosition.y + 34, 108, 8, hpRatio, `HP ${hero.currentHp}/${maxHp}`);
+    drawHpBar(this, labelPosition.x, labelPosition.y + 34, 108, 8, hpRatio, `HP ${formatNumber(hero.currentHp)}/${maxHp}`);
     addLabel(this, labelPosition.x, labelPosition.y + 48, formatStatusLabel(hero.status), {
       color: hero.status === "in_tower" ? UI_HEX.skyBlue : UI_HEX.gold,
       fontSize: 10,
+      width: 108
+    });
+    addLabel(this, labelPosition.x, labelPosition.y + 62, `Ready at ${getHeroReadyHpThreshold(hero)} HP`, {
+      color: UI_HEX.mutedCream,
+      fontSize: 9,
       width: 108
     });
   }
@@ -555,14 +602,15 @@ function isRunActive(status: TowerRunStatus | undefined): boolean {
   return status === "traveling" || status === "exploring" || status === "fighting" || status === "looting";
 }
 
-function isHeroUnavailable(status: HeroStatus | undefined): boolean {
-  return (
-    status === "defeated" ||
-    status === "wounded" ||
-    status === "in_tower" ||
-    status === "resting" ||
-    status === "eating" ||
-    status === "training" ||
-    status === "gearing"
-  );
+function formatNumber(value: number): string {
+  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
+}
+
+function getReadinessRenderKey(state: GameState): string {
+  return state.heroes
+    .map((hero) => {
+      const job = getHeroActiveRoomJob(state, hero.id);
+      return `${hero.id}:${Math.floor(hero.currentHp)}:${hero.status}:${job?.id ?? "none"}:${job?.status ?? "none"}`;
+    })
+    .join("|");
 }

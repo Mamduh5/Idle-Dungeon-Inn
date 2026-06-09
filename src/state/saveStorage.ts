@@ -1,7 +1,10 @@
 import { createInitialGameState } from "../game/initialState";
 import type { AutomationState } from "../types/automationTypes";
 import type { GameState } from "../types/gameState";
+import type { HeroStatus } from "../types/ids";
 import type { RecentEvent } from "../types/recentEventTypes";
+import type { InnRoomState, RoomJob, RoomJobStatus, RoomJobType } from "../types/roomTypes";
+import { heroDefinitions } from "../data/heroData";
 import { RECENT_EVENT_LIMIT, appendRecentEvent } from "./recentEvents";
 
 export const SAVE_STORAGE_KEY = "idle-dungeon-inn:save:v1";
@@ -82,23 +85,26 @@ export function normalizeLoadedGameState(raw: unknown): GameState | null {
     version: CURRENT_SAVE_VERSION,
     currencies: {
       ...defaults.currencies,
-      ...raw.currencies
+      ...raw.currencies,
+      coins: normalizeNumber(raw.currencies.coins, defaults.currencies.coins, 0)
     },
-    heroes: raw.heroes,
+    heroes: normalizeHeroes(defaults.heroes, raw.heroes),
     parties: raw.parties,
     selectedPartyId: raw.selectedPartyId,
     towerRuns: raw.towerRuns,
-    innRooms: raw.innRooms,
+    innRooms: normalizeInnRooms(defaults.innRooms, raw.innRooms),
     automation: normalizeAutomationState(defaults.automation, raw.automation),
-    unlockedFloor: raw.unlockedFloor,
-    highestFloorCleared: raw.highestFloorCleared,
-    firstClearFloorIds: raw.firstClearFloorIds,
+    unlockedFloor: normalizeNumber(raw.unlockedFloor, defaults.unlockedFloor, 1),
+    highestFloorCleared: normalizeNumber(raw.highestFloorCleared, defaults.highestFloorCleared, 0),
+    firstClearFloorIds: raw.firstClearFloorIds.filter(
+      (floor): floor is number => typeof floor === "number" && Number.isFinite(floor) && floor > 0
+    ),
     inventory: {
       ...defaults.inventory,
       ...raw.inventory
     },
     recentEvents: raw.recentEvents.slice(0, RECENT_EVENT_LIMIT),
-    lastActiveAt: raw.lastActiveAt
+    lastActiveAt: normalizeNumber(raw.lastActiveAt, Date.now(), 0)
   };
 }
 
@@ -108,16 +114,114 @@ function normalizeAutomationState(defaults: AutomationState, rawAutomation: Reco
   return {
     ...defaults,
     ...rawAutomation,
-    autoDispatchLevel: normalizeNumber(rawAutomation.autoDispatchLevel, defaults.autoDispatchLevel),
+    autoDispatchLevel: normalizeNumber(rawAutomation.autoDispatchLevel, defaults.autoDispatchLevel, 0),
     lastAutoDispatchAt:
-      typeof rawLastAutoDispatchAt === "number" || rawLastAutoDispatchAt === null ? rawLastAutoDispatchAt : null,
-    autoLootLevel: normalizeNumber(rawAutomation.autoLootLevel, defaults.autoLootLevel),
-    autoHealLevel: normalizeNumber(rawAutomation.autoHealLevel, defaults.autoHealLevel),
-    autoRepairLevel: normalizeNumber(rawAutomation.autoRepairLevel, defaults.autoRepairLevel),
-    autoSkillLevel: normalizeNumber(rawAutomation.autoSkillLevel, defaults.autoSkillLevel),
-    autoRetryLevel: normalizeNumber(rawAutomation.autoRetryLevel, defaults.autoRetryLevel),
+      typeof rawLastAutoDispatchAt === "number" && Number.isFinite(rawLastAutoDispatchAt) ? rawLastAutoDispatchAt : null,
+    autoLootLevel: normalizeNumber(rawAutomation.autoLootLevel, defaults.autoLootLevel, 0),
+    autoHealLevel: normalizeNumber(rawAutomation.autoHealLevel, defaults.autoHealLevel, 0),
+    autoRepairLevel: normalizeNumber(rawAutomation.autoRepairLevel, defaults.autoRepairLevel, 0),
+    autoSkillLevel: normalizeNumber(rawAutomation.autoSkillLevel, defaults.autoSkillLevel, 0),
+    autoRetryLevel: normalizeNumber(rawAutomation.autoRetryLevel, defaults.autoRetryLevel, 0),
     enabled: normalizeEnabledAutomation(defaults.enabled, rawAutomation.enabled)
   };
+}
+
+function normalizeHeroes(defaults: GameState["heroes"], rawHeroes: unknown[]): GameState["heroes"] {
+  if (rawHeroes.length === 0) {
+    return defaults;
+  }
+
+  return rawHeroes.filter(isRecord).map((rawHero, index) => {
+    const fallback = defaults[index] ?? defaults[0];
+    const classId = typeof rawHero.classId === "string" ? rawHero.classId : fallback.classId;
+    const maxHp = Math.max(1, heroDefinitions[classId]?.baseStats.hp ?? fallback.currentHp);
+    const currentHp = clampNumber(rawHero.currentHp, fallback.currentHp, 0, maxHp);
+
+    return {
+      ...fallback,
+      ...rawHero,
+      id: typeof rawHero.id === "string" ? rawHero.id : fallback.id,
+      classId,
+      name: typeof rawHero.name === "string" ? rawHero.name : fallback.name,
+      level: normalizeNumber(rawHero.level, fallback.level, 1),
+      xp: normalizeNumber(rawHero.xp, fallback.xp, 0),
+      currentHp,
+      status: normalizeHeroStatus(rawHero.status, currentHp <= 0 ? "defeated" : fallback.status),
+      assignedPartyId:
+        typeof rawHero.assignedPartyId === "string" || rawHero.assignedPartyId === null
+          ? rawHero.assignedPartyId
+          : fallback.assignedPartyId,
+      highestFloorCleared: normalizeNumber(rawHero.highestFloorCleared, fallback.highestFloorCleared, 0),
+      defeats: normalizeNumber(rawHero.defeats, fallback.defeats, 0),
+      traits: Array.isArray(rawHero.traits) ? rawHero.traits.filter((trait): trait is string => typeof trait === "string") : [],
+      gear: normalizeHeroGear(rawHero.gear)
+    };
+  });
+}
+
+function normalizeInnRooms(defaults: InnRoomState[], rawRooms: unknown[]): InnRoomState[] {
+  const normalizedRooms = rawRooms.filter(isRecord).map((rawRoom, index) => {
+    const fallback = defaults.find((room) => room.roomId === rawRoom.roomId) ?? defaults[index] ?? defaults[0];
+    const roomId = typeof rawRoom.roomId === "string" ? rawRoom.roomId : fallback.roomId;
+    const jobs = normalizeRoomJobs(rawRoom.jobs, roomId);
+
+    return {
+      ...fallback,
+      roomId,
+      level: normalizeNumber(rawRoom.level, fallback.level, 0),
+      isUnlocked: typeof rawRoom.isUnlocked === "boolean" ? rawRoom.isUnlocked : fallback.isUnlocked,
+      activeJob: jobs.find((job) => job.status === "active")?.id ?? null,
+      jobs
+    };
+  });
+
+  for (const defaultRoom of defaults) {
+    if (!normalizedRooms.some((room) => room.roomId === defaultRoom.roomId)) {
+      normalizedRooms.push(defaultRoom);
+    }
+  }
+
+  return normalizedRooms;
+}
+
+function normalizeHeroGear(rawGear: unknown): Record<string, string | null> {
+  if (!isRecord(rawGear)) {
+    return {};
+  }
+
+  return Object.entries(rawGear).reduce<Record<string, string | null>>((gear, [slotId, itemId]) => {
+    if (typeof itemId === "string" || itemId === null) {
+      gear[slotId] = itemId;
+    }
+
+    return gear;
+  }, {});
+}
+
+function normalizeRoomJobs(rawJobs: unknown, fallbackRoomId: string): RoomJob[] {
+  if (!Array.isArray(rawJobs)) {
+    return [];
+  }
+
+  return rawJobs.filter(isRecord).map((rawJob, index) => {
+    const roomId = typeof rawJob.roomId === "string" ? rawJob.roomId : fallbackRoomId;
+    const heroId = typeof rawJob.heroId === "string" ? rawJob.heroId : "";
+    const jobType = normalizeRoomJobType(rawJob.jobType);
+    const id = typeof rawJob.id === "string" && rawJob.id.length > 0
+      ? rawJob.id
+      : `room_job_${roomId}_${heroId || index}_${jobType}`;
+
+    return {
+      id,
+      roomId,
+      heroId,
+      jobType,
+      status: normalizeRoomJobStatus(rawJob.status),
+      progress: clampNumber(rawJob.progress, 0, 0, 1),
+      startedAt: normalizeNumber(rawJob.startedAt, Date.now(), 0),
+      updatedAt: normalizeNumber(rawJob.updatedAt, Date.now(), 0)
+    };
+  });
 }
 
 function normalizeEnabledAutomation(
@@ -168,6 +272,57 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function normalizeNumber(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+function normalizeHeroStatus(value: unknown, fallback: HeroStatus): HeroStatus {
+  const validStatuses: HeroStatus[] = [
+    "idle",
+    "assigned",
+    "resting",
+    "defeated",
+    "in_tower",
+    "wounded",
+    "ready",
+    "eating",
+    "training",
+    "gearing"
+  ];
+
+  return typeof value === "string" && validStatuses.includes(value as HeroStatus) ? (value as HeroStatus) : fallback;
+}
+
+function normalizeRoomJobType(value: unknown): RoomJobType {
+  const validTypes: RoomJobType[] = [
+    "healing",
+    "training",
+    "food_prep",
+    "gear_upgrade",
+    "morale",
+    "skill_study",
+    "alchemy",
+    "travel_prep"
+  ];
+
+  return typeof value === "string" && validTypes.includes(value as RoomJobType) ? (value as RoomJobType) : "healing";
+}
+
+function normalizeRoomJobStatus(value: unknown): RoomJobStatus {
+  const validStatuses: RoomJobStatus[] = ["active", "paused", "complete"];
+  return typeof value === "string" && validStatuses.includes(value as RoomJobStatus)
+    ? (value as RoomJobStatus)
+    : "active";
+}
+
+function normalizeNumber(value: unknown, fallback: number, min: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.max(min, value);
+}
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, value));
 }

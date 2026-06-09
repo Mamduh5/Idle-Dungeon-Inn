@@ -2,7 +2,8 @@ import Phaser from "phaser";
 import { heroDefinitions } from "../data/heroData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getHeroesForParty, getSelectedParty } from "../state/gameSelectors";
-import { getGameState } from "../state/gameStore";
+import { getGameState, updateGameState } from "../state/gameStore";
+import { tickGameState } from "../systems/gameTickSystem";
 import type { HeroInstance } from "../types/heroTypes";
 import {
   addCenteredLabel,
@@ -32,6 +33,11 @@ export class HeroesScene extends Phaser.Scene {
     this.drawPartyBench(party?.name ?? "No Party", heroes, party?.maxSize ?? 3);
 
     createSceneHud(this, { title: "Heroes", activeLabel: "Heroes" });
+  }
+
+  public update(_time: number, delta: number): void {
+    const now = Date.now();
+    updateGameState((currentState) => tickGameState(currentState, delta, now));
   }
 
   private drawBackdrop(): void {
