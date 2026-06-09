@@ -1,8 +1,11 @@
 import { automationDefinitions } from "../data/automationData";
+import { getSelectedTowerRun } from "../state/gameSelectors";
 import { appendRecentEvent } from "../state/recentEvents";
 import type { GameState } from "../types/gameState";
 import type { RecentEvent } from "../types/recentEventTypes";
+import { canCompleteSelectedFloor, completeSelectedFloor } from "./floorClearSystem";
 import { getSelectedPartyDispatchBlockReason, sendSelectedPartyToTower } from "./partyDispatchSystem";
+import { canContinueTowerRun, continueSelectedTowerRun } from "./towerNodeActionSystem";
 
 const AUTO_DISPATCH_ID = automationDefinitions.auto_dispatch_board.automationId;
 const AUTO_DISPATCH_COOLDOWN_MS = 1500;
@@ -44,6 +47,15 @@ export function tickAutomation(state: GameState, now: number): GameState {
 
   if (!isAutoDispatchEnabled(unlockedState)) {
     return unlockedState;
+  }
+
+  if (canCompleteSelectedFloor(unlockedState)) {
+    return completeSelectedFloor(unlockedState);
+  }
+
+  const run = getSelectedTowerRun(unlockedState);
+  if (canContinueTowerRun(run)) {
+    return continueSelectedTowerRun(unlockedState);
   }
 
   const lastAutoDispatchAt = unlockedState.automation.lastAutoDispatchAt;
