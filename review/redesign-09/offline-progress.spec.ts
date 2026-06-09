@@ -156,6 +156,22 @@ type RuntimeGameState = {
   lastActiveAt: number;
 };
 
+type SceneTextChild = {
+  text?: unknown;
+};
+
+type SceneWithChildren = {
+  children?: {
+    list?: SceneTextChild[];
+  };
+};
+
+type GameWithScenes = {
+  scene?: {
+    getScene?: (key: string) => SceneWithChildren | undefined;
+  };
+};
+
 async function startFreshGame(page: Page): Promise<void> {
   await page.goto(baseUrl);
   await expect(page.locator("canvas")).toBeVisible();
@@ -183,17 +199,15 @@ async function getGameStateSnapshot(page: Page): Promise<RuntimeGameState> {
 async function getSceneTexts(page: Page, sceneKey: string): Promise<string[]> {
   return page.evaluate((key) => {
     const game = (globalThis as typeof globalThis & {
-      __idleDungeonInnGame?: Phaser.Game;
+      __idleDungeonInnGame?: GameWithScenes;
     }).__idleDungeonInnGame;
-    const scene = game?.scene.getScene(key);
+    const scene = game?.scene?.getScene?.(key);
 
-    if (!scene) {
-      return [];
-    }
-
-    return scene.children.list
-      .filter((child): child is Phaser.GameObjects.Text => child instanceof Phaser.GameObjects.Text)
-      .map((child) => child.text);
+    return (
+      scene?.children?.list
+        ?.map((child) => child.text)
+        .filter((text): text is string => typeof text === "string") ?? []
+    );
   }, sceneKey);
 }
 
