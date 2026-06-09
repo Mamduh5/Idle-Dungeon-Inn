@@ -107,7 +107,7 @@ test("bed room return healing follows room level", async ({ page }) => {
   const floorTwo = await clearCurrentFloor(page, true);
   expect(floorTwo.after.heroes[0]?.status).toBe("ready");
   expect(floorTwo.after.heroes[0]?.currentHp).toBe(Math.min(120, floorTwo.before.heroes[0].currentHp + 25));
-  expect(floorTwo.after.recentEvents[0]?.message).toContain("recovered 25 HP at the Bed Room");
+  expect(floorTwo.after.recentEvents.some((event) => event.message.includes("recovered 25 HP at the Bed Room"))).toBe(true);
 });
 
 test("training room attack bonus follows room level and affects combat", async ({ page }) => {
@@ -167,6 +167,40 @@ test("training room attack bonus follows room level and affects combat", async (
   buildTexts = await getSceneTexts(page, "BuildScene");
   expect(buildTexts).toContain("Combat +4 ATK");
   expect(buildTexts).not.toContain("No effect yet");
+});
+
+test("auto dispatch unlocks and sends ready party", async ({ page }) => {
+  await page.goto(baseUrl);
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  const initialState = await getGameStateSnapshot(page);
+  expect(initialState.automation.autoDispatchLevel).toBe(0);
+  expect(initialState.automation.enabled.auto_dispatch_board).toBe(false);
+
+  await clearCurrentFloor(page, false);
+  const floorTwo = await clearCurrentFloor(page, true);
+  expect(floorTwo.after.unlockedFloor).toBe(3);
+
+  await waitForAutomationUnlocked(page);
+  const unlockedState = await getGameStateSnapshot(page);
+  expect(unlockedState.automation.autoDispatchLevel).toBe(1);
+  expect(unlockedState.automation.enabled.auto_dispatch_board).toBe(true);
+  expect(unlockedState.recentEvents.some((event) => event.message === "Auto-Dispatch Board unlocked.")).toBe(true);
+
+  await waitForAutoDispatch(page);
+  const dispatchedState = await getGameStateSnapshot(page);
+  expect(dispatchedState.heroes[0]?.status).toBe("in_tower");
+  expect(dispatchedState.towerRuns[0]?.status).not.toBe("preparing");
+  expect(dispatchedState.recentEvents.some((event) => event.message === "Auto-Dispatch sent Lantern Party to Floor 3.")).toBe(true);
+
+  const autoDispatchEventCount = countEventsContaining(dispatchedState, "Auto-Dispatch sent");
+  await forceDefeatedPreparingState(page);
+  await page.waitForTimeout(2000);
+  const defeatedState = await getGameStateSnapshot(page);
+  expect(defeatedState.heroes[0]?.status).toBe("defeated");
+  expect(defeatedState.towerRuns[0]?.status).toBe("preparing");
+  expect(countEventsContaining(defeatedState, "Auto-Dispatch sent")).toBe(autoDispatchEventCount);
 });
 
 test("responsive readability at 360x640", async ({ browser }) => {
@@ -241,8 +275,14 @@ async function getGameStateSnapshot(page: Page): Promise<{
   currencies: { coins: number };
   unlockedFloor: number;
   heroes: Array<{ id: string; currentHp: number; status: string; attack?: number }>;
+  automation: {
+    autoDispatchLevel: number;
+    lastAutoDispatchAt: number | null;
+    enabled: Record<string, boolean>;
+  };
+  towerRuns: Array<{ status: string; floor: number; lastFailureReason: string | null }>;
   innRooms: Array<{ roomId: string; level: number; isUnlocked: boolean }>;
-  recentEvents: Array<{ message: string }>;
+  recentEvents: Array<{ type: string; message: string }>;
 }> {
   const state = await page.evaluate(() => {
     const getState = (globalThis as typeof globalThis & {
@@ -250,8 +290,14 @@ async function getGameStateSnapshot(page: Page): Promise<{
         currencies: { coins: number };
         unlockedFloor: number;
         heroes: Array<{ id: string; currentHp: number; status: string; attack?: number }>;
+        automation: {
+          autoDispatchLevel: number;
+          lastAutoDispatchAt: number | null;
+          enabled: Record<string, boolean>;
+        };
+        towerRuns: Array<{ status: string; floor: number; lastFailureReason: string | null }>;
         innRooms: Array<{ roomId: string; level: number; isUnlocked: boolean }>;
-        recentEvents: Array<{ message: string }>;
+        recentEvents: Array<{ type: string; message: string }>;
       };
     }).__idleDungeonInnGetState;
     return getState?.();
@@ -343,6 +389,89 @@ async function finishCurrentFloorFromCombat(
   const after = await getGameStateSnapshot(page);
 
   return { before, after };
+}
+
+async function waitForAutomationUnlocked(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const getState = (globalThis as typeof globalThis & {
+        __idleDungeonInnGetState?: () => {
+          automation: { autoDispatchLevel: number; enabled: Record<string, boolean> };
+        };
+      }).__idleDungeonInnGetState;
+      const automation = getState?.().automation;
+      return automation?.autoDispatchLevel === 1 && automation.enabled.auto_dispatch_board === true;
+    },
+    undefined,
+    { timeout: 4000 }
+  );
+}
+
+async function waitForAutoDispatch(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const getState = (globalThis as typeof globalThis & {
+        __idleDungeonInnGetState?: () => {
+          heroes: Array<{ status: string }>;
+          towerRuns: Array<{ status: string }>;
+        };
+      }).__idleDungeonInnGetState;
+      const state = getState?.();
+      return state?.heroes[0]?.status === "in_tower" && state.towerRuns[0]?.status !== "preparing";
+    },
+    undefined,
+    { timeout: 5000 }
+  );
+}
+
+async function forceDefeatedPreparingState(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const getState = (globalThis as typeof globalThis & {
+      __idleDungeonInnGetState?: () => {
+        heroes: Array<{ currentHp: number; status: string }>;
+        towerRuns: Array<{
+          status: string;
+          floor: number;
+          nodeIndex: number;
+          nodeProgress: number;
+          enemies: unknown[];
+          heroCombatCooldowns: Record<string, number>;
+          enemyCombatCooldowns: Record<string, number>;
+          lastCombatEventMessage: string | null;
+          combatStartedAt: number | null;
+          lastFailureReason: string | null;
+        }>;
+        automation: { lastAutoDispatchAt: number | null; autoDispatchLevel: number; enabled: Record<string, boolean> };
+      };
+    }).__idleDungeonInnGetState;
+    const state = getState?.();
+    if (!state) {
+      return;
+    }
+
+    state.heroes[0].currentHp = 0;
+    state.heroes[0].status = "defeated";
+    state.towerRuns[0].status = "preparing";
+    state.towerRuns[0].floor = 3;
+    state.towerRuns[0].nodeIndex = 0;
+    state.towerRuns[0].nodeProgress = 0;
+    state.towerRuns[0].enemies = [];
+    state.towerRuns[0].heroCombatCooldowns = {};
+    state.towerRuns[0].enemyCombatCooldowns = {};
+    state.towerRuns[0].lastCombatEventMessage = null;
+    state.towerRuns[0].combatStartedAt = null;
+    state.towerRuns[0].lastFailureReason = null;
+    state.automation.autoDispatchLevel = 1;
+    state.automation.enabled.auto_dispatch_board = true;
+    state.automation.lastAutoDispatchAt = Date.now() - 5000;
+  });
+}
+
+function countEventsContaining(
+  state: Awaited<ReturnType<typeof getGameStateSnapshot>>,
+  text: string
+): number {
+  return state.recentEvents.filter((event) => event.message.includes(text)).length;
 }
 
 async function focusInnGate(page: Page): Promise<void> {

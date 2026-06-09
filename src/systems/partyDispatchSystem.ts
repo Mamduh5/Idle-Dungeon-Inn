@@ -9,6 +9,12 @@ import type { HeroStatus } from "../types/ids";
 import type { RecentEvent } from "../types/recentEventTypes";
 import type { TowerRunStatus } from "../types/towerTypes";
 
+interface DispatchOptions {
+  now?: number;
+  eventType?: RecentEvent["type"];
+  createMessage?: (partyName: string, targetFloor: number) => string;
+}
+
 const ACTIVE_TOWER_STATUSES: TowerRunStatus[] = [
   "traveling",
   "exploring",
@@ -28,39 +34,59 @@ const UNAVAILABLE_HERO_STATUSES: HeroStatus[] = [
   "gearing"
 ];
 
-export function sendSelectedPartyToTower(state: GameState): GameState {
+export function getSelectedPartyDispatchBlockReason(state: GameState): string | null {
   const party = getSelectedParty(state);
   const run = getSelectedTowerRun(state);
-  const now = Date.now();
 
   if (!party) {
-    return withEvent(state, createWarningEvent(now, "No selected party is available."));
+    return "No selected party is available.";
   }
 
   if (!run) {
-    return withEvent(state, createWarningEvent(now, `${party.name} does not have a tower run yet.`));
+    return `${party.name} does not have a tower run yet.`;
   }
 
   const heroes = getHeroesForParty(state, party.id);
 
   if (heroes.length === 0) {
-    return withEvent(state, createWarningEvent(now, `${party.name} needs at least one hero.`));
+    return `${party.name} needs at least one hero.`;
   }
 
   if (ACTIVE_TOWER_STATUSES.includes(run.status)) {
-    return withEvent(state, createWarningEvent(now, `${party.name} is already in the tower.`));
+    return `${party.name} is already in the tower.`;
   }
 
   const unavailableHero = heroes.find((hero) => UNAVAILABLE_HERO_STATUSES.includes(hero.status));
 
   if (unavailableHero) {
-    return withEvent(
-      state,
-      createWarningEvent(now, `${unavailableHero.name} is ${formatStatus(unavailableHero.status)}.`)
-    );
+    return `${unavailableHero.name} is ${formatStatus(unavailableHero.status)}.`;
+  }
+
+  return null;
+}
+
+export function canDispatchSelectedParty(state: GameState): boolean {
+  return getSelectedPartyDispatchBlockReason(state) === null;
+}
+
+export function sendSelectedPartyToTower(state: GameState, options: DispatchOptions = {}): GameState {
+  const blockReason = getSelectedPartyDispatchBlockReason(state);
+  const now = options.now ?? Date.now();
+
+  if (blockReason) {
+    return withEvent(state, createWarningEvent(now, blockReason));
+  }
+
+  const party = getSelectedParty(state);
+  const run = getSelectedTowerRun(state);
+
+  if (!party || !run) {
+    return state;
   }
 
   const targetFloor = Math.max(1, Math.min(party.selectedTargetFloor || run.floor, state.unlockedFloor));
+  const eventType = options.eventType ?? "party_dispatched";
+  const message = options.createMessage?.(party.name, targetFloor) ?? `${party.name} left for Floor ${targetFloor}.`;
 
   return {
     ...state,
@@ -94,10 +120,10 @@ export function sendSelectedPartyToTower(state: GameState): GameState {
     recentEvents: appendRecentEvent(
       state.recentEvents,
       {
-        id: `event_party_dispatched_${now}`,
-        type: "party_dispatched",
+        id: `event_${eventType}_${now}`,
+        type: eventType,
         createdAt: now,
-        message: `${party.name} left for Floor ${targetFloor}.`,
+        message,
         severity: "success",
         partyId: party.id,
         floor: targetFloor

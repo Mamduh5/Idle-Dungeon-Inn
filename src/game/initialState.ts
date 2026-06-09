@@ -81,6 +81,7 @@ export function createInitialGameState(): GameState {
     ],
     automation: {
       autoDispatchLevel: 0,
+      lastAutoDispatchAt: null,
       autoLootLevel: 0,
       autoHealLevel: 0,
       autoRepairLevel: 0,

@@ -10,6 +10,7 @@ export interface AutomationDefinition {
 
 export interface AutomationState {
   autoDispatchLevel: number;
+  lastAutoDispatchAt: number | null;
   autoLootLevel: number;
   autoHealLevel: number;
   autoRepairLevel: number;

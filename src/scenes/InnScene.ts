@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { automationDefinitions } from "../data/automationData";
 import { heroDefinitions } from "../data/heroData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import {
@@ -11,6 +12,7 @@ import { getGameState, updateGameState } from "../state/gameStore";
 import { tickGameState } from "../systems/gameTickSystem";
 import { sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
 import { calculateReturnHealingAmount, calculateTrainingRoomAttackBonus } from "../systems/roomEffectSystem";
+import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
 import type { HeroStatus } from "../types/ids";
 import type { InnRoomState } from "../types/roomTypes";
@@ -59,6 +61,7 @@ export class InnScene extends Phaser.Scene {
       !isHeroUnavailable(hero?.status);
     const targetFloor = party?.selectedTargetFloor ?? run?.floor ?? state.unlockedFloor;
     const buttonLabel = isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready";
+    const autoDispatchLabel = getAutoDispatchLabel(state);
 
     this.configureCamera();
     this.drawWorldBackdrop();
@@ -66,7 +69,7 @@ export class InnScene extends Phaser.Scene {
     this.drawBedRoom(bedRoom, bedRoomHealing);
     this.drawCommonRoom(party?.name ?? "No Party", latestEvent?.message ?? "The inn is waiting for orders.", latestEvent?.severity === "warning");
     this.drawTrainingRoom(trainingRoom, trainingRoomAttackBonus);
-    this.drawTowerGate(targetFloor, buttonLabel, canDispatch);
+    this.drawTowerGate(targetFloor, buttonLabel, canDispatch, autoDispatchLabel);
     this.drawDragHints();
 
     if (hero) {
@@ -284,7 +287,7 @@ export class InnScene extends Phaser.Scene {
     }
   }
 
-  private drawTowerGate(targetFloor: number, buttonLabel: string, canDispatch: boolean): void {
+  private drawTowerGate(targetFloor: number, buttonLabel: string, canDispatch: boolean, autoDispatchLabel: string): void {
     this.add.rectangle(1038, 212, 164, 352, 0x543526, 1).setOrigin(0, 0).setStrokeStyle(2, 0xe7ac64);
     this.add.polygon(1120, 212, [0, -58, 104, 0, -104, 0], UI_COLORS.darkTimber, 1).setStrokeStyle(2, UI_COLORS.skyBlue);
     addCenteredLabel(this, 1120, 242, `Target F${targetFloor}`, {
@@ -305,6 +308,12 @@ export class InnScene extends Phaser.Scene {
       fontSize: 12,
       fontStyle: "700",
       width: 120
+    });
+    addCenteredLabel(this, 1120, 536, autoDispatchLabel, {
+      color: autoDispatchLabel === "Auto: ON" ? UI_HEX.success : UI_HEX.mutedCream,
+      fontSize: 11,
+      fontStyle: "700",
+      width: 118
     });
 
     this.drawGateAction(1120, 676, buttonLabel, canDispatch);
@@ -451,4 +460,12 @@ function isHeroUnavailable(status: HeroStatus | undefined): boolean {
     status === "training" ||
     status === "gearing"
   );
+}
+
+function getAutoDispatchLabel(state: GameState): string {
+  if (state.automation.autoDispatchLevel <= 0) {
+    return "Auto: locked";
+  }
+
+  return state.automation.enabled[automationDefinitions.auto_dispatch_board.automationId] ? "Auto: ON" : "Auto: OFF";
 }

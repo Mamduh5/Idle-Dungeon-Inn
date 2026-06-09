@@ -6,7 +6,7 @@ export const automationDefinitions: Record<AutomationId, AutomationDefinition> =
     automationId: "auto_dispatch_board",
     name: "Auto-Dispatch Board",
     description: "Placeholder automation for sending ready parties back to the tower.",
-    unlockFloor: 1,
+    unlockFloor: 3,
     maxLevel: 5
   }
 };
