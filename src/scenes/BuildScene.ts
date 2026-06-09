@@ -95,11 +95,13 @@ export class BuildScene extends Phaser.Scene {
       fontSize: 9,
       width: 266
     });
-    addLabel(this, 62, 260, callout.recommendations.map((recommendation) => recommendation.buildWhy).join(" "), {
-      color: UI_HEX.skyBlue,
-      fontSize: 8,
-      fontStyle: "700",
-      width: 266
+    callout.recommendations.forEach((recommendation, index) => {
+      addLabel(this, 62, 258 + index * 9, recommendation.buildWhy, {
+        color: UI_HEX.skyBlue,
+        fontSize: 8,
+        fontStyle: "700",
+        width: 266
+      });
     });
   }
 
@@ -133,7 +135,7 @@ export class BuildScene extends Phaser.Scene {
     });
 
     if (recommendation) {
-      drawStatusBadge(this, x + 22, y + 58, "Recommended", 0x1f4662, UI_HEX.skyBlue);
+      drawStatusBadge(this, x + 22, y + 58, "Recommended", 0x1f4662);
     }
 
     if (title === "Bed Room") {
