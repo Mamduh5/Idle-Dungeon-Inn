@@ -3,6 +3,7 @@ import path from "node:path";
 
 const baseUrl = process.env.VALIDATION_URL ?? "http://127.0.0.1:5174";
 const screenshotDir = path.resolve("review/redesign-09/screenshots");
+const saveStorageKey = "idle-dungeon-inn:save:v1";
 const gameWidth = 390;
 const gameHeight = 844;
 
@@ -14,9 +15,7 @@ test.use({
 test.setTimeout(70000);
 
 test("full current gameplay loop and required screenshots", async ({ page }) => {
-  await page.goto(baseUrl);
-  await expect(page.locator("canvas")).toBeVisible();
-  await page.waitForTimeout(500);
+  await startFreshGame(page);
 
   await dragCanvas(page, 90, 430, 360, 430);
   await page.waitForTimeout(250);
@@ -78,9 +77,7 @@ test("full current gameplay loop and required screenshots", async ({ page }) => 
 });
 
 test("bed room return healing follows room level", async ({ page }) => {
-  await page.goto(baseUrl);
-  await expect(page.locator("canvas")).toBeVisible();
-  await page.waitForTimeout(500);
+  await startFreshGame(page);
 
   const initialState = await getGameStateSnapshot(page);
   expect(initialState.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(1);
@@ -111,9 +108,7 @@ test("bed room return healing follows room level", async ({ page }) => {
 });
 
 test("training room attack bonus follows room level and affects combat", async ({ page }) => {
-  await page.goto(baseUrl);
-  await expect(page.locator("canvas")).toBeVisible();
-  await page.waitForTimeout(500);
+  await startFreshGame(page);
 
   const initialState = await getGameStateSnapshot(page);
   const initialTrainingRoom = initialState.innRooms.find((room) => room.roomId === "training_room");
@@ -170,9 +165,7 @@ test("training room attack bonus follows room level and affects combat", async (
 });
 
 test("auto dispatch unlocks and sends ready party", async ({ page }) => {
-  await page.goto(baseUrl);
-  await expect(page.locator("canvas")).toBeVisible();
-  await page.waitForTimeout(500);
+  await startFreshGame(page);
 
   const initialState = await getGameStateSnapshot(page);
   expect(initialState.automation.autoDispatchLevel).toBe(0);
@@ -204,9 +197,7 @@ test("auto dispatch unlocks and sends ready party", async ({ page }) => {
 });
 
 test("auto dispatch can be toggled on and off", async ({ page }) => {
-  await page.goto(baseUrl);
-  await expect(page.locator("canvas")).toBeVisible();
-  await page.waitForTimeout(500);
+  await startFreshGame(page);
 
   await clickAutoDispatchControl(page);
   let state = await getGameStateSnapshot(page);
@@ -250,9 +241,7 @@ test("auto dispatch can be toggled on and off", async ({ page }) => {
 });
 
 test("build automation panel controls auto dispatch", async ({ page }) => {
-  await page.goto(baseUrl);
-  await expect(page.locator("canvas")).toBeVisible();
-  await page.waitForTimeout(500);
+  await startFreshGame(page);
 
   await clickCanvas(page, 341, 814);
   await page.waitForTimeout(250);
@@ -298,14 +287,80 @@ test("build automation panel controls auto dispatch", async ({ page }) => {
   await waitForSceneText(page, "InnScene", "Auto: ON");
 });
 
+test("local save persists room automation and floor progress", async ({ page }) => {
+  await startFreshGame(page);
+
+  const initialState = await getGameStateSnapshot(page);
+  expect(initialState.unlockedFloor).toBe(1);
+  expect(initialState.automation.autoDispatchLevel).toBe(0);
+
+  await clearCurrentFloor(page, false);
+  await clickCanvas(page, 341, 814);
+  await page.waitForTimeout(250);
+  await clickCanvas(page, 116, 402);
+  await page.waitForTimeout(250);
+
+  let state = await getGameStateSnapshot(page);
+  expect(state.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(2);
+  expect(state.currencies.coins).toBe(0);
+
+  await clickCanvas(page, 49, 814);
+  await page.waitForTimeout(250);
+  await clearCurrentFloor(page, true);
+  await waitForAutomationUnlocked(page);
+  await waitForSceneText(page, "InnScene", "Auto: ON");
+  await clickAutoDispatchControl(page);
+
+  state = await getGameStateSnapshot(page);
+  expect(state.unlockedFloor).toBe(3);
+  expect(state.highestFloorCleared).toBe(2);
+  expect(state.currencies.coins).toBe(40);
+  expect(state.automation.autoDispatchLevel).toBe(1);
+  expect(state.automation.enabled.auto_dispatch_board).toBe(false);
+  expect(state.towerRuns[0]?.status).toBe("preparing");
+
+  await waitForSaveFlush(page);
+  await page.reload();
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  const reloadedState = await getGameStateSnapshot(page);
+  expect(reloadedState.currencies.coins).toBe(40);
+  expect(reloadedState.unlockedFloor).toBe(3);
+  expect(reloadedState.highestFloorCleared).toBe(2);
+  expect(reloadedState.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(2);
+  expect(reloadedState.automation.autoDispatchLevel).toBe(1);
+  expect(reloadedState.automation.enabled.auto_dispatch_board).toBe(false);
+  expect(reloadedState.selectedPartyId).toBe("party_lantern");
+  expect(reloadedState.towerRuns[0]?.status).toBe("preparing");
+  expect(reloadedState.recentEvents.some((event) => event.message === "Save loaded.")).toBe(true);
+});
+
+test("corrupted localStorage falls back to fresh initial state", async ({ page }) => {
+  await page.goto(baseUrl);
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.evaluate((key) => localStorage.setItem(key, "{not-valid-json"), saveStorageKey);
+  await page.reload();
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  const state = await getGameStateSnapshot(page);
+  expect(state.version).toBe(1);
+  expect(state.currencies.coins).toBe(0);
+  expect(state.unlockedFloor).toBe(1);
+  expect(state.highestFloorCleared).toBe(0);
+  expect(state.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(1);
+  expect(state.automation.autoDispatchLevel).toBe(0);
+  expect(state.automation.enabled.auto_dispatch_board).toBe(false);
+  expect(state.towerRuns[0]?.status).toBe("preparing");
+});
+
 test("responsive readability at 360x640", async ({ browser }) => {
   const page = await browser.newPage({
     viewport: { width: 360, height: 640 },
     deviceScaleFactor: 1
   });
-  await page.goto(baseUrl);
-  await expect(page.locator("canvas")).toBeVisible();
-  await page.waitForTimeout(500);
+  await startFreshGame(page);
   await page.screenshot({ path: shot("responsive-360x640.png") });
   await dragCanvas(page, 330, 430, 50, 430);
   await dragCanvas(page, 330, 430, 50, 430);
@@ -318,14 +373,21 @@ test("responsive readability at 360x640", async ({ browser }) => {
 });
 
 test("responsive readability at 390x844", async ({ page }) => {
-  await page.goto(baseUrl);
-  await expect(page.locator("canvas")).toBeVisible();
-  await page.waitForTimeout(500);
+  await startFreshGame(page);
   await page.screenshot({ path: shot("responsive-390x844.png") });
 });
 
 function shot(fileName: string): string {
   return path.join(screenshotDir, fileName);
+}
+
+async function startFreshGame(page: Page): Promise<void> {
+  await page.goto(baseUrl);
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.evaluate((key) => localStorage.removeItem(key), saveStorageKey);
+  await page.reload();
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
 }
 
 async function clickCanvas(page: Page, x: number, y: number): Promise<void> {
@@ -367,8 +429,11 @@ async function getInnCameraScrollX(page: Page): Promise<number> {
 }
 
 async function getGameStateSnapshot(page: Page): Promise<{
+  version: number;
   currencies: { coins: number };
+  selectedPartyId: string;
   unlockedFloor: number;
+  highestFloorCleared: number;
   heroes: Array<{ id: string; currentHp: number; status: string; attack?: number }>;
   automation: {
     autoDispatchLevel: number;
@@ -382,8 +447,11 @@ async function getGameStateSnapshot(page: Page): Promise<{
   const state = await page.evaluate(() => {
     const getState = (globalThis as typeof globalThis & {
       __idleDungeonInnGetState?: () => {
+        version: number;
         currencies: { coins: number };
+        selectedPartyId: string;
         unlockedFloor: number;
+        highestFloorCleared: number;
         heroes: Array<{ id: string; currentHp: number; status: string; attack?: number }>;
         automation: {
           autoDispatchLevel: number;
@@ -435,6 +503,10 @@ async function waitForSceneText(page: Page, sceneKey: string, text: string): Pro
     { key: sceneKey, expectedText: text },
     { timeout: 5000 }
   );
+}
+
+async function waitForSaveFlush(page: Page): Promise<void> {
+  await page.waitForTimeout(1200);
 }
 
 async function clearCurrentFloor(
