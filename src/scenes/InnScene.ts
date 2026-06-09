@@ -15,6 +15,7 @@ import { calculateReturnHealingAmount, calculateTrainingRoomAttackBonus } from "
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
 import type { HeroStatus } from "../types/ids";
+import type { RecentEvent } from "../types/recentEventTypes";
 import type { InnRoomState } from "../types/roomTypes";
 import type { TowerRunStatus } from "../types/towerTypes";
 import {
@@ -56,6 +57,7 @@ export class InnScene extends Phaser.Scene {
     const trainingRoom = getInnRoom(state, "training_room");
     const trainingRoomAttackBonus = calculateTrainingRoomAttackBonus(state);
     const latestEvent = state.recentEvents[0];
+    const latestOfflineReport = getLatestOfflineReport(state);
     const canDispatch =
       Boolean(party && hero && run) &&
       !isRunActive(run?.status) &&
@@ -69,7 +71,12 @@ export class InnScene extends Phaser.Scene {
     this.drawWorldBackdrop();
     this.drawInnBase();
     this.drawBedRoom(bedRoom, bedRoomHealing);
-    this.drawCommonRoom(party?.name ?? "No Party", latestEvent?.message ?? "The inn is waiting for orders.", latestEvent?.severity === "warning");
+    this.drawCommonRoom(
+      party?.name ?? "No Party",
+      latestEvent?.message ?? "The inn is waiting for orders.",
+      latestEvent?.severity === "warning",
+      latestOfflineReport?.message
+    );
     this.drawTrainingRoom(trainingRoom, trainingRoomAttackBonus);
     this.drawTowerGate(targetFloor, buttonLabel, canDispatch, autoDispatchControl.label, autoDispatchControl.isUnlocked);
     this.drawDragHints();
@@ -223,10 +230,19 @@ export class InnScene extends Phaser.Scene {
     this.add.circle(292, 236, 8, 0xffecb3, 1);
   }
 
-  private drawCommonRoom(partyName: string, eventMessage: string, isWarning: boolean): void {
+  private drawCommonRoom(
+    partyName: string,
+    eventMessage: string,
+    isWarning: boolean,
+    offlineReportMessage: string | undefined
+  ): void {
     const compactPartyName = partyName === "Lantern Party" ? "Party" : partyName;
 
     this.drawRoomShell(382, 236, 286, 328, 0x6f3d28, "Hearth Hall", compactPartyName, UI_HEX.gold);
+
+    if (offlineReportMessage) {
+      this.drawAwayReport(414, 122, offlineReportMessage);
+    }
 
     this.add.circle(522, 414, 64, UI_COLORS.amber, 0.34);
     this.add.circle(522, 414, 34, UI_COLORS.gold, 0.95);
@@ -252,6 +268,21 @@ export class InnScene extends Phaser.Scene {
       fontSize: 11,
       fontStyle: "700",
       width: 140
+    });
+  }
+
+  private drawAwayReport(x: number, y: number, message: string): void {
+    drawPanel(this, x, y, 214, 92, 0x183829, UI_COLORS.gold, 0.96, 7);
+    addLabel(this, x + 14, y + 10, "Away Report", {
+      color: UI_HEX.gold,
+      fontSize: 12,
+      fontStyle: "700",
+      width: 186
+    });
+    addLabel(this, x + 14, y + 31, message, {
+      color: UI_HEX.parchment,
+      fontSize: 10,
+      width: 186
     });
   }
 
@@ -451,6 +482,10 @@ export class InnScene extends Phaser.Scene {
       maybeFixed.setScrollFactor?.(0);
     });
   }
+}
+
+function getLatestOfflineReport(state: GameState): RecentEvent | undefined {
+  return state.recentEvents.find((event) => event.type === "offline_report");
 }
 
 function getHeroPosition(status: HeroStatus): { x: number; y: number } {
