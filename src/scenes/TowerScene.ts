@@ -5,6 +5,7 @@ import { prototypeTowerFloors } from "../data/towerData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getHeroesForParty, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
+import { getBottleneckHintForRun, FLOOR_10_BOSS_SUGGESTIONS, isFloor10BossNode } from "../systems/bottleneckHintSystem";
 import { tickGameState } from "../systems/gameTickSystem";
 import { canCompleteSelectedFloor, completeSelectedFloor } from "../systems/floorClearSystem";
 import {
@@ -126,6 +127,14 @@ export class TowerScene extends Phaser.Scene {
       fontSize: 11,
       fontStyle: "700"
     });
+    if (run?.floor === 10) {
+      addLabel(this, 150, 144, "First checkpoint", {
+        color: UI_HEX.gold,
+        fontSize: 11,
+        fontStyle: "700",
+        width: 100
+      });
+    }
     drawStatusBadge(this, 246, 123, formatTowerStatus(run, node), statusColor(run));
     this.drawCompactNodeTrack(run);
   }
@@ -143,8 +152,9 @@ export class TowerScene extends Phaser.Scene {
       const isCurrent = Boolean(run && index === run.nodeIndex);
       const isPast = Boolean(run && index < run.nodeIndex);
       const fill = isCurrent ? UI_COLORS.gold : isPast ? UI_COLORS.success : 0x334155;
+      const label = node.type === "boss" ? "BOSS" : node.type;
       this.add.circle(x, y, isCurrent ? 9 : 7, fill, 1).setStrokeStyle(1, isCurrent ? UI_COLORS.parchment : UI_COLORS.towerStone);
-      addCenteredLabel(this, x, y + 14, node.type, {
+      addCenteredLabel(this, x, y + 14, label, {
         color: isCurrent ? UI_HEX.gold : UI_HEX.mutedCream,
         fontSize: 9,
         fontStyle: isCurrent ? "700" : "500",
@@ -224,11 +234,21 @@ export class TowerScene extends Phaser.Scene {
 
   private drawExploringStage(run: TowerRunState, node: TowerNodeDefinition | null, hero: HeroInstance | null): void {
     const exploreX = 170 + run.nodeProgress * 520;
+    const nodeLabel = node?.type === "boss" ? "boss gate" : node?.type ?? "node";
     this.drawArchway(250, 412, 0x172235, "side room");
-    this.drawArchway(520, 392, 0x172235, node?.type ?? "node");
+    this.drawArchway(520, 392, 0x172235, nodeLabel);
     this.drawArchway(760, 422, 0x172235, "passage");
     this.add.circle(exploreX + 26, 492, 22, UI_COLORS.gold, 0.18);
     this.add.circle(exploreX + 26, 492, 9, UI_COLORS.gold, 0.85);
+
+    if (run.floor === 10 && node?.type === "boss") {
+      addCenteredLabel(this, 520, 562, "Floor 10 checkpoint", {
+        color: UI_HEX.gold,
+        fontSize: 12,
+        fontStyle: "700",
+        width: 150
+      });
+    }
 
     if (hero) {
       this.drawHeroUnit(hero, exploreX, 528, "exploring");
@@ -236,14 +256,24 @@ export class TowerScene extends Phaser.Scene {
   }
 
   private drawCombatStage(run: TowerRunState, hero: HeroInstance | null): void {
-    this.add.rectangle(350, 314, 360, 250, 0x0f1724, 0.68).setOrigin(0, 0).setStrokeStyle(2, 0x53657e);
+    const isBoss = isFloor10BossNode(run);
+    this.add.rectangle(350, 314, 360, 250, 0x0f1724, 0.68).setOrigin(0, 0).setStrokeStyle(2, isBoss ? UI_COLORS.gold : 0x53657e);
     this.add.circle(530, 552, 178, 0x121827, 0.46);
-    addCenteredLabel(this, 530, 326, "encounter room", {
+    addCenteredLabel(this, 530, 326, isBoss ? "boss checkpoint" : "encounter room", {
       color: UI_HEX.gold,
       fontSize: 13,
       fontStyle: "700",
       width: 150
     });
+
+    if (isBoss) {
+      addCenteredLabel(this, 530, 348, "Big Cave Slime", {
+        color: UI_HEX.cream,
+        fontSize: 12,
+        fontStyle: "700",
+        width: 150
+      });
+    }
 
     if (hero) {
       this.drawHeroUnit(hero, 430, 524, "in tower");
@@ -296,8 +326,9 @@ export class TowerScene extends Phaser.Scene {
   }
 
   private drawWipedStage(run: TowerRunState, hero: HeroInstance | null): void {
-    this.add.rectangle(330, 300, 390, 286, 0x4d1824, 0.38).setOrigin(0, 0);
-    addCenteredLabel(this, 525, 328, "Party Wiped", {
+    const bottleneckHint = getBottleneckHintForRun(run);
+    this.add.rectangle(330, 300, 390, bottleneckHint ? 326 : 286, 0x4d1824, 0.38).setOrigin(0, 0);
+    addCenteredLabel(this, 525, 328, bottleneckHint ? "Checkpoint Failed" : "Party Wiped", {
       color: UI_HEX.danger,
       fontSize: 14,
       fontStyle: "700"
@@ -308,6 +339,25 @@ export class TowerScene extends Phaser.Scene {
     }
 
     this.drawEnemies(run.enemies, 650, 510);
+
+    if (bottleneckHint) {
+      drawPanel(this, 344, 358, 214, 132, 0x101722, UI_COLORS.gold, 0.96, 7);
+      addLabel(this, 358, 370, "Bottleneck", {
+        color: UI_HEX.gold,
+        fontSize: 12,
+        fontStyle: "700"
+      });
+      addLabel(this, 358, 390, bottleneckHint, {
+        color: UI_HEX.cream,
+        fontSize: 10,
+        width: 184
+      });
+      addLabel(this, 358, 450, FLOOR_10_BOSS_SUGGESTIONS.slice(0, 2).join(" "), {
+        color: UI_HEX.parchment,
+        fontSize: 10,
+        width: 184
+      });
+    }
   }
 
   private drawBlockedStage(run: TowerRunState, hero: HeroInstance | null): void {
@@ -555,11 +605,11 @@ function getTowerMessage(partyName: string, run: TowerRunState | null, node: Tow
   }
 
   if (run.status === "exploring") {
-    return `Exploring toward ${node?.type ?? "the next node"}.`;
+    return `Exploring toward ${node?.type === "boss" ? "the boss checkpoint" : node?.type ?? "the next node"}.`;
   }
 
   if (run.status === "fighting") {
-    return run.lastCombatEventMessage ?? "Combat running.";
+    return isFloor10BossNode(run) ? run.lastCombatEventMessage ?? "Boss checkpoint running." : run.lastCombatEventMessage ?? "Combat running.";
   }
 
   if (run.status === "looting") {
@@ -579,7 +629,7 @@ function getTowerMessage(partyName: string, run: TowerRunState | null, node: Tow
   }
 
   if (run.status === "wiped") {
-    return "Party wiped. Return to the inn to recover.";
+    return getBottleneckHintForRun(run) ?? "Party wiped. Return to the inn to recover.";
   }
 
   return `${partyName} status: ${formatStatusLabel(run.status)}.`;
@@ -588,6 +638,14 @@ function getTowerMessage(partyName: string, run: TowerRunState | null, node: Tow
 function formatTowerStatus(run: TowerRunState | null, node: TowerNodeDefinition | null): string {
   if (!run) {
     return "No Run";
+  }
+
+  if (run.status === "wiped" && getBottleneckHintForRun(run)) {
+    return "Boss Failed";
+  }
+
+  if (run.status === "fighting" && isFloor10BossNode(run)) {
+    return "Boss";
   }
 
   if (run.status === "blocked" && run.lastFailureReason === ENCOUNTER_CLEAR_HOLD_REASON) {
@@ -599,7 +657,7 @@ function formatTowerStatus(run: TowerRunState | null, node: TowerNodeDefinition 
   }
 
   if (run.status === "exploring" && node) {
-    return formatStatusLabel(node.type);
+    return node.type === "boss" ? "Boss Gate" : formatStatusLabel(node.type);
   }
 
   return formatStatusLabel(run.status);
@@ -611,7 +669,7 @@ function statusColor(run: TowerRunState | null): number {
   }
 
   if (run.status === "fighting" || run.status === "wiped") {
-    return 0x5c2530;
+    return run.floor === 10 ? 0x6b4724 : 0x5c2530;
   }
 
   if (run.status === "blocked") {
