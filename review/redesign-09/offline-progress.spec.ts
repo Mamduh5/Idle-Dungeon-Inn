@@ -68,6 +68,31 @@ test("offline progress respects Auto-Dispatch OFF", async ({ page }) => {
   expect(offlineReport?.message).toContain("Auto-Dispatch is OFF");
 });
 
+test("offline report is shown in inn after catch up", async ({ page }) => {
+  await startFreshGame(page);
+
+  const initialState = await getGameStateSnapshot(page);
+  const savedState = createOfflineFloorClearSave(initialState, {
+    autoDispatchEnabled: true,
+    lastActiveAt: Date.now() - 15 * 60 * 1000
+  });
+
+  await writeSavedGameState(page, savedState);
+  await page.reload();
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  const reloadedState = await getGameStateSnapshot(page);
+  const offlineReport = reloadedState.recentEvents.find((event) => event.type === "offline_report");
+  const innTexts = await getSceneTexts(page, "InnScene");
+
+  expect(offlineReport).toBeDefined();
+  expect(offlineReport?.message).toContain("While you were away");
+  expect(innTexts).toContain("Away Report");
+  expect(innTexts.some((text) => text.includes("While you were away"))).toBe(true);
+  expect(innTexts).toContain("Latest");
+});
+
 type RuntimeGameState = {
   version: number;
   currencies: { coins: number };
@@ -153,6 +178,23 @@ async function getGameStateSnapshot(page: Page): Promise<RuntimeGameState> {
   }
 
   return state;
+}
+
+async function getSceneTexts(page: Page, sceneKey: string): Promise<string[]> {
+  return page.evaluate((key) => {
+    const game = (globalThis as typeof globalThis & {
+      __idleDungeonInnGame?: Phaser.Game;
+    }).__idleDungeonInnGame;
+    const scene = game?.scene.getScene(key);
+
+    if (!scene) {
+      return [];
+    }
+
+    return scene.children.list
+      .filter((child): child is Phaser.GameObjects.Text => child instanceof Phaser.GameObjects.Text)
+      .map((child) => child.text);
+  }, sceneKey);
 }
 
 async function writeSavedGameState(page: Page, state: RuntimeGameState): Promise<void> {
