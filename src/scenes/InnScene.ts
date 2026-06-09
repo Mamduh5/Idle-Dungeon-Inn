@@ -9,6 +9,7 @@ import {
 } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
 import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
+import { getFloor10BossCallout, getFloor10RoomRecommendation } from "../systems/bottleneckCalloutSystem";
 import { tickGameState } from "../systems/gameTickSystem";
 import { sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
 import { calculateReturnHealingAmount, calculateTrainingRoomAttackBonus } from "../systems/roomEffectSystem";
@@ -58,6 +59,7 @@ export class InnScene extends Phaser.Scene {
     const trainingRoomAttackBonus = calculateTrainingRoomAttackBonus(state);
     const latestEvent = state.recentEvents[0];
     const latestOfflineReport = getLatestOfflineReport(state);
+    const floor10Callout = getFloor10BossCallout(state);
     const canDispatch =
       Boolean(party && hero && run) &&
       !isRunActive(run?.status) &&
@@ -70,14 +72,19 @@ export class InnScene extends Phaser.Scene {
     this.configureCamera();
     this.drawWorldBackdrop();
     this.drawInnBase();
-    this.drawBedRoom(bedRoom, bedRoomHealing);
+    this.drawBedRoom(bedRoom, bedRoomHealing, getFloor10RoomRecommendation(state, "bed_room")?.innBadge ?? null);
     this.drawCommonRoom(
       party?.name ?? "No Party",
       latestEvent?.message ?? "The inn is waiting for orders.",
-      latestEvent?.severity === "warning",
-      latestOfflineReport?.message
+      Boolean(floor10Callout) || latestEvent?.severity === "warning",
+      latestOfflineReport?.message,
+      floor10Callout?.buildMessage
     );
-    this.drawTrainingRoom(trainingRoom, trainingRoomAttackBonus);
+    this.drawTrainingRoom(
+      trainingRoom,
+      trainingRoomAttackBonus,
+      getFloor10RoomRecommendation(state, "training_room")?.innBadge ?? null
+    );
     this.drawTowerGate(targetFloor, buttonLabel, canDispatch, autoDispatchControl.label, autoDispatchControl.isUnlocked);
     this.drawDragHints();
 
@@ -204,7 +211,7 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawBedRoom(room: InnRoomState | null, healingAmount: number): void {
+  private drawBedRoom(room: InnRoomState | null, healingAmount: number, recommendationBadge: string | null): void {
     this.drawRoomShell(74, 198, 246, 362, 0x8f5935, "Bed Room", `Lv ${room?.level ?? 0}`, UI_HEX.cream);
 
     this.add.rectangle(116, 388, 144, 58, 0x3a241d, 1).setOrigin(0, 0).setStrokeStyle(2, UI_COLORS.gold);
@@ -226,6 +233,10 @@ export class InnScene extends Phaser.Scene {
       width: 150
     });
 
+    if (recommendationBadge) {
+      this.drawRoomRecommendationBadge(98, 260, recommendationBadge);
+    }
+
     this.add.circle(292, 236, 18, UI_COLORS.gold, 0.76);
     this.add.circle(292, 236, 8, 0xffecb3, 1);
   }
@@ -234,7 +245,8 @@ export class InnScene extends Phaser.Scene {
     partyName: string,
     eventMessage: string,
     isWarning: boolean,
-    offlineReportMessage: string | undefined
+    offlineReportMessage: string | undefined,
+    bottleneckMessage: string | undefined
   ): void {
     const compactPartyName = partyName === "Lantern Party" ? "Party" : partyName;
 
@@ -263,6 +275,20 @@ export class InnScene extends Phaser.Scene {
       width: 180
     });
 
+    if (bottleneckMessage) {
+      drawPanel(this, 414, 354, 214, 54, 0x101722, UI_COLORS.skyBlue, 0.96, 6);
+      addLabel(this, 430, 364, "Upgrade advice", {
+        color: UI_HEX.skyBlue,
+        fontSize: 11,
+        fontStyle: "700"
+      });
+      addLabel(this, 430, 382, bottleneckMessage, {
+        color: UI_HEX.cream,
+        fontSize: 10,
+        width: 184
+      });
+    }
+
     addCenteredLabel(this, 522, 536, "common hearth", {
       color: UI_HEX.parchment,
       fontSize: 11,
@@ -286,7 +312,7 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawTrainingRoom(room: InnRoomState | null, attackBonus: number): void {
+  private drawTrainingRoom(room: InnRoomState | null, attackBonus: number, recommendationBadge: string | null): void {
     const isUnlocked = Boolean(room?.isUnlocked);
     const fill = isUnlocked ? 0x76503b : 0x3a332e;
 
@@ -317,11 +343,25 @@ export class InnScene extends Phaser.Scene {
       });
     }
 
+    if (recommendationBadge) {
+      this.drawRoomRecommendationBadge(746, 260, recommendationBadge);
+    }
+
     if (!isUnlocked) {
       this.add.rectangle(724, 198, 240, 362, 0x11100f, 0.3).setOrigin(0, 0);
       drawDivider(this, 762, 270, 926, 510, UI_COLORS.mutedCream, 0.42);
       drawDivider(this, 926, 270, 762, 510, UI_COLORS.mutedCream, 0.42);
     }
+  }
+
+  private drawRoomRecommendationBadge(x: number, y: number, label: string): void {
+    drawPanel(this, x, y, 198, 38, 0x101722, UI_COLORS.skyBlue, 0.96, 7);
+    addCenteredLabel(this, x + 99, y + 19, label, {
+      color: UI_HEX.skyBlue,
+      fontSize: 10,
+      fontStyle: "700",
+      width: 178
+    });
   }
 
   private drawTowerGate(
@@ -459,7 +499,6 @@ export class InnScene extends Phaser.Scene {
       hpRatio,
       palette
     });
-
     addLabel(this, labelPosition.x, labelPosition.y, `${hero.name} Lv ${hero.level}`, {
       color: UI_HEX.cream,
       fontSize: 11,
