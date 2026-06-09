@@ -73,6 +73,10 @@ export function recoverSelectedWipedParty(state: GameState): GameState {
           }
         : candidate
     ),
+    automation: {
+      ...state.automation,
+      lastAutoDispatchAt: state.automation.autoDispatchLevel > 0 ? now : state.automation.lastAutoDispatchAt
+    },
     recentEvents: appendRecentEvent(
       state.recentEvents,
       createRecoveryEvent(
