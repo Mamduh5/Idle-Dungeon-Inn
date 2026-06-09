@@ -14,6 +14,7 @@ import {
   FLOOR_CLEAR_HOLD_REASON,
   TREASURE_HOLD_REASON
 } from "../systems/towerNodeActionSystem";
+import { canRecoverSelectedWipedParty, recoverSelectedWipedParty } from "../systems/wipeRecoverySystem";
 import type { HeroInstance } from "../types/heroTypes";
 import type { TowerNodeDefinition, TowerRunEnemyState, TowerRunState } from "../types/towerTypes";
 import {
@@ -364,6 +365,25 @@ export class TowerScene extends Phaser.Scene {
       });
       return;
     }
+
+    if (canRecoverSelectedWipedParty(state)) {
+      this.drawActionConnector(actionX, actionY, UI_COLORS.danger);
+      drawActionButton(this, {
+        x: actionX,
+        y: actionY,
+        width: 154,
+        height: 44,
+        label: "Return to Inn",
+        enabled: true,
+        fill: 0x6b2935,
+        stroke: UI_COLORS.parchment,
+        textColor: UI_HEX.cream,
+        onClick: () => {
+          updateGameState(recoverSelectedWipedParty);
+          this.scene.start("InnScene");
+        }
+      });
+    }
   }
 
   private drawActionConnector(x: number, y: number, color: number): void {
@@ -559,7 +579,7 @@ function getTowerMessage(partyName: string, run: TowerRunState | null, node: Tow
   }
 
   if (run.status === "wiped") {
-    return "Party wiped. Return/revive is not implemented yet.";
+    return "Party wiped. Return to the inn to recover.";
   }
 
   return `${partyName} status: ${formatStatusLabel(run.status)}.`;
