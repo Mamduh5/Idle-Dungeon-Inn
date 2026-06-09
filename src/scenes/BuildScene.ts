@@ -5,11 +5,13 @@ import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getInnRoom } from "../state/gameSelectors";
 import { clearSavedGameStateForDev, getGameState, updateGameState } from "../state/gameStore";
 import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
+import { getFloor10BossCallout, getFloor10RoomRecommendation } from "../systems/bottleneckCalloutSystem";
 import {
   calculateBedRoomHealingForLevel,
   calculateTrainingRoomAttackBonusForLevel
 } from "../systems/roomEffectSystem";
 import { getRoomUpgradePreview, purchaseRoomUpgrade, type RoomUpgradePreview } from "../systems/roomUpgradeSystem";
+import type { GameState } from "../types/gameState";
 import type { RoomId } from "../types/ids";
 import type { InnRoomState } from "../types/roomTypes";
 import {
@@ -36,13 +38,15 @@ export class BuildScene extends Phaser.Scene {
     const trainingRoom = getInnRoom(state, "training_room");
     const bedUpgrade = getRoomUpgradePreview(state, "bed_room");
     const trainingUpgrade = getRoomUpgradePreview(state, "training_room");
+    const bottleneckCallout = getFloor10BossCallout(state);
 
     this.drawBackdrop();
     this.drawPlanTable();
-    this.drawRoomPlan(48, 218, "bed_room", bedRoom, bedUpgrade);
-    this.drawRoomPlan(206, 218, "training_room", trainingRoom, trainingUpgrade);
-    this.drawAutomationPanel(state);
-    this.drawFuturePlans();
+    this.drawBottleneckCallout(state);
+    this.drawRoomPlan(48, 230, "bed_room", bedRoom, bedUpgrade, state);
+    this.drawRoomPlan(206, 230, "training_room", trainingRoom, trainingUpgrade, state);
+    this.drawAutomationPanel(state, bottleneckCallout ? 468 : 442);
+    this.drawFuturePlans(bottleneckCallout ? 594 : 572);
     this.drawDevControls();
 
     createSceneHud(this, { title: "Build", activeLabel: "Build" });
@@ -72,20 +76,42 @@ export class BuildScene extends Phaser.Scene {
     });
   }
 
+  private drawBottleneckCallout(state: GameState): void {
+    const callout = getFloor10BossCallout(state);
+    if (!callout) {
+      return;
+    }
+
+    drawPanel(this, 48, 206, 294, 50, 0x5a3524, UI_COLORS.gold, 0.98, 7);
+    addLabel(this, 62, 214, callout.title, {
+      color: UI_HEX.gold,
+      fontSize: 11,
+      fontStyle: "700",
+      width: 120
+    });
+    addLabel(this, 62, 232, callout.buildMessage, {
+      color: UI_HEX.cream,
+      fontSize: 10,
+      width: 266
+    });
+  }
+
   private drawRoomPlan(
     x: number,
     y: number,
     roomId: RoomId,
     room: InnRoomState | null,
-    upgrade: RoomUpgradePreview | null
+    upgrade: RoomUpgradePreview | null,
+    state: GameState
   ): void {
     const definition = roomDefinitions[roomId];
     const title = definition?.name ?? roomId;
     const effect = getRoomEffectLabel(roomId, room);
     const isAvailable = Boolean(room?.isUnlocked);
     const isFloorUnlocked = upgrade?.isFloorUnlocked ?? false;
-    const fill = isAvailable ? 0x6f3d28 : 0x3b312c;
-    const stroke = isAvailable ? UI_COLORS.gold : 0x8a7a69;
+    const recommendation = getFloor10RoomRecommendation(state, roomId);
+    const fill = recommendation ? 0x7a432d : isAvailable ? 0x6f3d28 : 0x3b312c;
+    const stroke = recommendation ? UI_COLORS.skyBlue : isAvailable ? UI_COLORS.gold : 0x8a7a69;
     drawPanel(this, x, y, 136, 214, fill, stroke, 0.98, 7);
     addLabel(this, x + 12, y + 14, title, {
       color: isAvailable ? UI_HEX.cream : UI_HEX.mutedCream,
@@ -94,10 +120,14 @@ export class BuildScene extends Phaser.Scene {
       width: 112
     });
     addLabel(this, x + 12, y + 36, `Lv ${room?.level ?? 0}`, {
-      color: isAvailable ? UI_HEX.gold : UI_HEX.mutedCream,
+      color: recommendation ? UI_HEX.skyBlue : isAvailable ? UI_HEX.gold : UI_HEX.mutedCream,
       fontSize: 12,
       fontStyle: "700"
     });
+
+    if (recommendation) {
+      drawStatusBadge(this, x + 22, y + 58, "Recommended", 0x1f4662, UI_HEX.skyBlue);
+    }
 
     if (title === "Bed Room") {
       this.add.rectangle(x + 22, y + 88, 78, 42, 0x3a241d, 1).setOrigin(0, 0).setStrokeStyle(2, UI_COLORS.gold);
@@ -128,6 +158,15 @@ export class BuildScene extends Phaser.Scene {
       width: 112
     });
 
+    if (recommendation) {
+      addLabel(this, x + 12, y + 160, recommendation.buildWhy, {
+        color: UI_HEX.skyBlue,
+        fontSize: 9,
+        fontStyle: "700",
+        width: 112
+      });
+    }
+
     if (upgrade) {
       drawActionButton(this, {
         x: x + 68,
@@ -136,7 +175,7 @@ export class BuildScene extends Phaser.Scene {
         height: 36,
         label: upgrade.canPurchase ? upgrade.label : upgrade.reason ?? upgrade.label,
         enabled: upgrade.canPurchase,
-        fill: UI_COLORS.amber,
+        fill: recommendation ? UI_COLORS.skyBlue : UI_COLORS.amber,
         stroke: UI_COLORS.gold,
         onClick: () => {
           updateGameState(purchaseRoomUpgrade(roomId));
@@ -146,10 +185,9 @@ export class BuildScene extends Phaser.Scene {
     }
   }
 
-  private drawAutomationPanel(state: ReturnType<typeof getGameState>): void {
+  private drawAutomationPanel(state: ReturnType<typeof getGameState>, panelY: number): void {
     const control = getAutoDispatchControlState(state);
     const definition = automationDefinitions.auto_dispatch_board;
-    const panelY = 442;
 
     drawPanel(this, 48, panelY, 294, 108, 0x2f241d, control.isUnlocked ? UI_COLORS.gold : 0x8a7a69, 0.98, 7);
     addLabel(this, 66, panelY + 16, definition.name, {
@@ -202,14 +240,14 @@ export class BuildScene extends Phaser.Scene {
     }
   }
 
-  private drawFuturePlans(): void {
-    drawPanel(this, 48, 572, 294, 104, 0x2f241d, 0xb57745, 0.98, 7);
-    addLabel(this, 66, 588, "Future Wings", {
+  private drawFuturePlans(panelY: number): void {
+    drawPanel(this, 48, panelY, 294, 104, 0x2f241d, 0xb57745, 0.98, 7);
+    addLabel(this, 66, panelY + 16, "Future Wings", {
       color: UI_HEX.cream,
       fontSize: 14,
       fontStyle: "700"
     });
-    addLabel(this, 66, 612, "Planned spaces stay visible, but no unavailable system is clickable.", {
+    addLabel(this, 66, panelY + 40, "Planned spaces stay visible, but no unavailable system is clickable.", {
       color: UI_HEX.mutedCream,
       fontSize: 12,
       width: 252
@@ -222,9 +260,9 @@ export class BuildScene extends Phaser.Scene {
     ];
 
     plans.forEach((plan, index) => {
-      const x = 66 + index * 88;
-      this.add.rectangle(x, 642, 70, 30, 0x45352b, 1).setStrokeStyle(1, 0x7f6757).setOrigin(0, 0);
-      addCenteredLabel(this, x + 35, 654, plan.label, {
+      const optionX = 66 + index * 88;
+      this.add.rectangle(optionX, panelY + 70, 70, 30, 0x45352b, 1).setStrokeStyle(1, 0x7f6757).setOrigin(0, 0);
+      addCenteredLabel(this, optionX + 35, panelY + 82, plan.label, {
         color: UI_HEX.mutedCream,
         fontSize: 10,
         fontStyle: "700",
