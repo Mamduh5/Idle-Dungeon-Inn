@@ -1,6 +1,7 @@
 import { enemyDefinitions } from "../data/enemyData";
 import { prototypeTowerFloors } from "../data/towerData";
 import { appendRecentEvent } from "../state/recentEvents";
+import { createFloor10BossEncounterMessage } from "./bottleneckHintSystem";
 import { FLOOR_CLEAR_HOLD_REASON, TREASURE_HOLD_REASON } from "./towerNodeActionSystem";
 import type { GameState } from "../types/gameState";
 import type { EnemyId } from "../types/ids";
@@ -134,6 +135,10 @@ function resolveReachedNode(
 ): { run: TowerRunState; event: RecentEvent | null } {
   if (node.type === "combat" || node.type === "elite" || node.type === "boss") {
     const enemyIds = getNodeEnemyIds(node);
+    const isBoss = node.type === "boss";
+    const encounterMessage = isBoss
+      ? createFloor10BossEncounterMessage(partyName(party))
+      : `${partyName(party)} encountered enemies on Floor ${run.floor}.`;
 
     return {
       run: {
@@ -143,16 +148,10 @@ function resolveReachedNode(
         enemies: enemyIds.map(createEnemyState),
         heroCombatCooldowns: {},
         enemyCombatCooldowns: {},
-        lastCombatEventMessage: "Combat started.",
+        lastCombatEventMessage: isBoss ? "Boss checkpoint started." : "Combat started.",
         combatStartedAt: null
       },
-      event: createEvent(
-        now,
-        "tower_encounter_started",
-        `${partyName(party)} encountered enemies on Floor ${run.floor}.`,
-        "warning",
-        run
-      )
+      event: createEvent(now, "tower_encounter_started", encounterMessage, isBoss ? "danger" : "warning", run)
     };
   }
 
