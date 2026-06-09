@@ -48,7 +48,14 @@ function createStartupGameState(): GameState {
     return createInitialGameState();
   }
 
-  return applyOfflineProgress(savedState, Date.now());
+  const offlineState = applyOfflineProgress(savedState, Date.now());
+
+  if (offlineState !== savedState) {
+    saveGameState(offlineState);
+    lastSavedAt = Date.now();
+  }
+
+  return offlineState;
 }
 
 function persistNow(state: GameState): void {
