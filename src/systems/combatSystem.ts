@@ -1,7 +1,7 @@
 import { enemyDefinitions } from "../data/enemyData";
 import { heroDefinitions } from "../data/heroData";
 import { appendRecentEvent } from "../state/recentEvents";
-import { calculateTrainingRoomAttackBonus } from "./roomEffectSystem";
+import { createHeroCombatStats } from "./combatStatSystem";
 import { ENCOUNTER_CLEAR_HOLD_REASON } from "./towerNodeActionSystem";
 import type { CombatStats } from "../types/combatTypes";
 import type { GameState } from "../types/gameState";
@@ -19,7 +19,6 @@ export function tickCombat(state: GameState, deltaMs: number, now: number): Game
   let heroes = state.heroes;
   let recentEvents = state.recentEvents;
   let changed = false;
-  const trainingRoomAttackBonus = calculateTrainingRoomAttackBonus(state);
 
   const towerRuns = state.towerRuns.map((run) => {
     if (run.status !== "fighting") {
@@ -27,7 +26,7 @@ export function tickCombat(state: GameState, deltaMs: number, now: number): Game
     }
 
     const party = state.parties.find((candidate) => candidate.id === run.partyId);
-    const result = tickCombatRun(run, party, heroes, deltaMs, now, trainingRoomAttackBonus);
+    const result = tickCombatRun(state, run, party, heroes, deltaMs, now);
 
     if (result.run !== run) {
       changed = true;
@@ -60,12 +59,12 @@ export function tickCombat(state: GameState, deltaMs: number, now: number): Game
 }
 
 function tickCombatRun(
+  state: GameState,
   run: TowerRunState,
   party: PartyState | undefined,
   allHeroes: HeroInstance[],
   deltaMs: number,
-  now: number,
-  trainingRoomAttackBonus: number
+  now: number
 ): { run: TowerRunState; heroes: HeroInstance[]; event: RecentEvent | null } {
   if (!party) {
     return { run, heroes: allHeroes, event: null };
@@ -100,7 +99,7 @@ function tickCombatRun(
       continue;
     }
 
-    const heroStats = createHeroAttackerStats(heroDefinitions[hero.classId]?.baseStats, trainingRoomAttackBonus);
+    const heroStats = createHeroCombatStats(state, hero);
     const targetIndex = enemies.findIndex(isEnemyAlive);
 
     if (!heroStats || targetIndex < 0) {
@@ -266,17 +265,6 @@ function getAttackIntervalMs(attackSpeed: number): number {
 
 function calculateDamage(attacker: CombatStats, defender: CombatStats): number {
   return Math.max(1, Math.floor(attacker.attack - defender.defense * 0.5));
-}
-
-function createHeroAttackerStats(baseStats: CombatStats | undefined, attackBonus: number): CombatStats | null {
-  if (!baseStats) {
-    return null;
-  }
-
-  return {
-    ...baseStats,
-    attack: Math.max(0, baseStats.attack + attackBonus)
-  };
 }
 
 function getEnemyRuntimeKey(enemy: TowerRunEnemyState, enemies: TowerRunEnemyState[]): string {
