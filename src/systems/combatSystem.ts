@@ -2,6 +2,11 @@ import { enemyDefinitions } from "../data/enemyData";
 import { heroDefinitions } from "../data/heroData";
 import { appendRecentEvent } from "../state/recentEvents";
 import { createHeroCombatStats } from "./combatStatSystem";
+import {
+  createFloor10BossFailureEventMessage,
+  createFloor10BossFailureReason,
+  isFloor10BossNode
+} from "./bottleneckHintSystem";
 import { ENCOUNTER_CLEAR_HOLD_REASON } from "./towerNodeActionSystem";
 import type { CombatStats } from "../types/combatTypes";
 import type { GameState } from "../types/gameState";
@@ -197,15 +202,27 @@ function tickCombatRun(
   }
 
   if (!heroes.some((hero) => partyHeroIds.has(hero.id) && isHeroAlive(hero))) {
+    const failedRun = {
+      ...run,
+      enemies,
+      heroCombatCooldowns,
+      enemyCombatCooldowns
+    };
+    const floor10BossWipe = isFloor10BossNode(failedRun);
+    const lastFailureReason = floor10BossWipe ? createFloor10BossFailureReason(failedRun) : "Party wiped.";
+    const lastCombatMessage = floor10BossWipe
+      ? "Floor 10 checkpoint failed. Return to the inn, recover, then improve Bed Room or Training Room."
+      : "Party wiped. Return/revive is not implemented yet.";
+    const eventMessage = floor10BossWipe
+      ? createFloor10BossFailureEventMessage()
+      : `${party.name} was wiped on Floor ${run.floor}.`;
+
     return {
       run: {
-        ...run,
+        ...failedRun,
         status: "wiped",
-        enemies,
-        heroCombatCooldowns,
-        enemyCombatCooldowns,
-        lastCombatEventMessage: "Party wiped. Return/revive is not implemented yet.",
-        lastFailureReason: "Party wiped."
+        lastCombatEventMessage: lastCombatMessage,
+        lastFailureReason
       },
       heroes: heroes.map((hero) =>
         partyHeroIds.has(hero.id)
@@ -216,7 +233,7 @@ function tickCombatRun(
             }
           : hero
       ),
-      event: createEvent(now, "party_wiped", `${party.name} was wiped on Floor ${run.floor}.`, "danger", party.id, run.floor)
+      event: createEvent(now, "party_wiped", eventMessage, "danger", party.id, run.floor)
     };
   }
 
