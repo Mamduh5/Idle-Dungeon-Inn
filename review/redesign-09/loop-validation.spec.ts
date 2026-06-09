@@ -110,6 +110,65 @@ test("bed room return healing follows room level", async ({ page }) => {
   expect(floorTwo.after.recentEvents[0]?.message).toContain("recovered 25 HP at the Bed Room");
 });
 
+test("training room attack bonus follows room level and affects combat", async ({ page }) => {
+  await page.goto(baseUrl);
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  const initialState = await getGameStateSnapshot(page);
+  const initialTrainingRoom = initialState.innRooms.find((room) => room.roomId === "training_room");
+  expect(initialTrainingRoom?.isUnlocked).toBe(false);
+  expect(initialTrainingRoom?.level).toBe(0);
+  expect(Object.prototype.hasOwnProperty.call(initialState.heroes[0], "attack")).toBe(false);
+
+  const lockedDamage = await startCurrentFloorAndCaptureHeroDamage(page);
+  expect(lockedDamage).toBe(11);
+  const floorOne = await finishCurrentFloorFromCombat(page, []);
+  expect(floorOne.after.currencies.coins).toBe(25);
+
+  const floorTwo = await clearCurrentFloor(page, true);
+  expect(floorTwo.after.currencies.coins).toBe(65);
+
+  await clickCanvas(page, 341, 814);
+  await page.waitForTimeout(250);
+  let buildTexts = await getSceneTexts(page, "BuildScene");
+  expect(buildTexts).toContain("Combat +0 ATK");
+  expect(buildTexts).not.toContain("No effect yet");
+
+  await clickCanvas(page, 274, 402);
+  await page.waitForTimeout(250);
+  const trainingLevelOneState = await getGameStateSnapshot(page);
+  expect(trainingLevelOneState.currencies.coins).toBe(5);
+  expect(trainingLevelOneState.innRooms.find((room) => room.roomId === "training_room")?.level).toBe(1);
+  expect(Object.prototype.hasOwnProperty.call(trainingLevelOneState.heroes[0], "attack")).toBe(false);
+  buildTexts = await getSceneTexts(page, "BuildScene");
+  expect(buildTexts).toContain("Combat +2 ATK");
+  expect(buildTexts).not.toContain("No effect yet");
+
+  await clickCanvas(page, 49, 814);
+  await page.waitForTimeout(250);
+  const innTexts = await getSceneTexts(page, "InnScene");
+  expect(innTexts).toContain("Train +2 ATK");
+
+  const trainingLevelOneDamage = await startCurrentFloorAndCaptureHeroDamage(page);
+  expect(trainingLevelOneDamage).toBe(13);
+  expect(trainingLevelOneDamage).toBeGreaterThan(lockedDamage);
+  const floorThree = await finishCurrentFloorFromCombat(page, ["combat"]);
+  expect(floorThree.after.currencies.coins).toBe(65);
+
+  await clickCanvas(page, 341, 814);
+  await page.waitForTimeout(250);
+  await clickCanvas(page, 274, 402);
+  await page.waitForTimeout(250);
+  const trainingLevelTwoState = await getGameStateSnapshot(page);
+  expect(trainingLevelTwoState.currencies.coins).toBe(5);
+  expect(trainingLevelTwoState.innRooms.find((room) => room.roomId === "training_room")?.level).toBe(2);
+  expect(Object.prototype.hasOwnProperty.call(trainingLevelTwoState.heroes[0], "attack")).toBe(false);
+  buildTexts = await getSceneTexts(page, "BuildScene");
+  expect(buildTexts).toContain("Combat +4 ATK");
+  expect(buildTexts).not.toContain("No effect yet");
+});
+
 test("responsive readability at 360x640", async ({ browser }) => {
   const page = await browser.newPage({
     viewport: { width: 360, height: 640 },
@@ -181,7 +240,7 @@ async function getInnCameraScrollX(page: Page): Promise<number> {
 async function getGameStateSnapshot(page: Page): Promise<{
   currencies: { coins: number };
   unlockedFloor: number;
-  heroes: Array<{ id: string; currentHp: number; status: string }>;
+  heroes: Array<{ id: string; currentHp: number; status: string; attack?: number }>;
   innRooms: Array<{ roomId: string; level: number; isUnlocked: boolean }>;
   recentEvents: Array<{ message: string }>;
 }> {
@@ -190,7 +249,7 @@ async function getGameStateSnapshot(page: Page): Promise<{
       __idleDungeonInnGetState?: () => {
         currencies: { coins: number };
         unlockedFloor: number;
-        heroes: Array<{ id: string; currentHp: number; status: string }>;
+        heroes: Array<{ id: string; currentHp: number; status: string; attack?: number }>;
         innRooms: Array<{ roomId: string; level: number; isUnlocked: boolean }>;
         recentEvents: Array<{ message: string }>;
       };
@@ -203,6 +262,20 @@ async function getGameStateSnapshot(page: Page): Promise<{
   }
 
   return state;
+}
+
+async function getSceneTexts(page: Page, sceneKey: string): Promise<string[]> {
+  return page.evaluate((key) => {
+    const game = (globalThis as typeof globalThis & {
+      __idleDungeonInnGame?: Phaser.Game;
+    }).__idleDungeonInnGame;
+    const scene = game?.scene.getScene(key) as Phaser.Scene | undefined;
+    return (
+      scene?.children.list
+        .map((child) => (child as { text?: unknown }).text)
+        .filter((text): text is string => typeof text === "string") ?? []
+    );
+  }, sceneKey);
 }
 
 async function clearCurrentFloor(
@@ -233,6 +306,45 @@ async function clearCurrentFloor(
   return { before, after };
 }
 
+async function startCurrentFloorAndCaptureHeroDamage(page: Page): Promise<number> {
+  await focusInnGate(page);
+  await page.waitForTimeout(250);
+  await clickCanvas(page, 250, 676);
+  await waitForTowerStatus(page, "fighting");
+  return waitForHeroHitDamage(page);
+}
+
+async function finishCurrentFloorFromCombat(
+  page: Page,
+  remainingNodes: Array<"combat" | "treasure">
+): Promise<{
+  before: Awaited<ReturnType<typeof getGameStateSnapshot>>;
+  after: Awaited<ReturnType<typeof getGameStateSnapshot>>;
+}> {
+  await waitForTowerBlockedReason(page, "Encounter cleared");
+  await clickCanvas(page, 195, 652);
+
+  for (const nodeType of remainingNodes) {
+    if (nodeType === "treasure") {
+      await waitForTowerStatus(page, "looting");
+      await clickCanvas(page, 195, 652);
+      continue;
+    }
+
+    await waitForTowerStatus(page, "fighting");
+    await waitForTowerBlockedReason(page, "Encounter cleared");
+    await clickCanvas(page, 195, 652);
+  }
+
+  await waitForTowerBlockedReason(page, "Floor clear");
+  const before = await getGameStateSnapshot(page);
+  await clickCanvas(page, 195, 652);
+  await page.waitForTimeout(500);
+  const after = await getGameStateSnapshot(page);
+
+  return { before, after };
+}
+
 async function focusInnGate(page: Page): Promise<void> {
   await page.evaluate(() => {
     const game = (globalThis as typeof globalThis & {
@@ -241,6 +353,30 @@ async function focusInnGate(page: Page): Promise<void> {
     const scene = game?.scene.getScene("InnScene") as Phaser.Scene | undefined;
     scene?.cameras.main.setScroll(870, 0);
   });
+}
+
+async function waitForHeroHitDamage(page: Page): Promise<number> {
+  const damage = await page.waitForFunction(
+    () => {
+      const getState = (globalThis as typeof globalThis & {
+        __idleDungeonInnGetState?: () => {
+          towerRuns: Array<{ lastCombatEventMessage: string | null }>;
+        };
+      }).__idleDungeonInnGetState;
+      const message = getState?.().towerRuns[0]?.lastCombatEventMessage ?? "";
+      const match = message.match(/^Mira hit .+ for (\d+)\.$/);
+      return match ? Number(match[1]) : null;
+    },
+    undefined,
+    { timeout: 14000 }
+  );
+
+  const value = await damage.jsonValue();
+  if (typeof value !== "number") {
+    throw new Error("Hero hit damage was not available.");
+  }
+
+  return value;
 }
 
 async function waitForTowerStatus(page: Page, status: string): Promise<void> {

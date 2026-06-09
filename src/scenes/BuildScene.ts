@@ -3,7 +3,10 @@ import { roomDefinitions } from "../data/roomData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getInnRoom } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
-import { calculateBedRoomHealingForLevel } from "../systems/roomEffectSystem";
+import {
+  calculateBedRoomHealingForLevel,
+  calculateTrainingRoomAttackBonusForLevel
+} from "../systems/roomEffectSystem";
 import { getRoomUpgradePreview, purchaseRoomUpgrade, type RoomUpgradePreview } from "../systems/roomUpgradeSystem";
 import type { RoomId } from "../types/ids";
 import type { InnRoomState } from "../types/roomTypes";
@@ -186,7 +189,8 @@ function getRoomEffectLabel(roomId: RoomId, room: InnRoomState | null): string {
   }
 
   if (roomId === "training_room") {
-    return "No effect yet";
+    const level = room?.isUnlocked ? room.level : 0;
+    return `Combat +${calculateTrainingRoomAttackBonusForLevel(level)} ATK`;
   }
 
   return roomDefinitions[roomId]?.effectType.split("_").join(" ") ?? "unknown";

@@ -22,6 +22,25 @@ export function calculateReturnHealingAmount(state: GameState): number {
   return calculateBedRoomHealingForLevel(getBedRoomLevel(state));
 }
 
+export function getTrainingRoomLevel(state: GameState): number {
+  const trainingRoom = getInnRoom(state, "training_room");
+
+  if (!trainingRoom?.isUnlocked) {
+    return 0;
+  }
+
+  return Math.max(0, Math.floor(trainingRoom.level));
+}
+
+export function calculateTrainingRoomAttackBonusForLevel(level: number): number {
+  const trainingLevel = Math.max(0, Math.floor(level));
+  return trainingLevel * 2;
+}
+
+export function calculateTrainingRoomAttackBonus(state: GameState): number {
+  return calculateTrainingRoomAttackBonusForLevel(getTrainingRoomLevel(state));
+}
+
 export function applyReturnHealing(state: GameState, heroIds: HeroId[]): GameState {
   const healingAmount = calculateReturnHealingAmount(state);
 

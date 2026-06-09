@@ -10,7 +10,7 @@ import {
 import { getGameState, updateGameState } from "../state/gameStore";
 import { tickGameState } from "../systems/gameTickSystem";
 import { sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
-import { calculateReturnHealingAmount } from "../systems/roomEffectSystem";
+import { calculateReturnHealingAmount, calculateTrainingRoomAttackBonus } from "../systems/roomEffectSystem";
 import type { HeroInstance } from "../types/heroTypes";
 import type { HeroStatus } from "../types/ids";
 import type { InnRoomState } from "../types/roomTypes";
@@ -51,6 +51,7 @@ export class InnScene extends Phaser.Scene {
     const bedRoom = getInnRoom(state, "bed_room");
     const bedRoomHealing = calculateReturnHealingAmount(state);
     const trainingRoom = getInnRoom(state, "training_room");
+    const trainingRoomAttackBonus = calculateTrainingRoomAttackBonus(state);
     const latestEvent = state.recentEvents[0];
     const canDispatch =
       Boolean(party && hero && run) &&
@@ -64,7 +65,7 @@ export class InnScene extends Phaser.Scene {
     this.drawInnBase();
     this.drawBedRoom(bedRoom, bedRoomHealing);
     this.drawCommonRoom(party?.name ?? "No Party", latestEvent?.message ?? "The inn is waiting for orders.", latestEvent?.severity === "warning");
-    this.drawTrainingRoom(trainingRoom);
+    this.drawTrainingRoom(trainingRoom, trainingRoomAttackBonus);
     this.drawTowerGate(targetFloor, buttonLabel, canDispatch);
     this.drawDragHints();
 
@@ -245,7 +246,7 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawTrainingRoom(room: InnRoomState | null): void {
+  private drawTrainingRoom(room: InnRoomState | null, attackBonus: number): void {
     const isUnlocked = Boolean(room?.isUnlocked);
     const fill = isUnlocked ? 0x76503b : 0x3a332e;
 
@@ -266,6 +267,15 @@ export class InnScene extends Phaser.Scene {
     this.add.rectangle(794, 488, 102, 12, isUnlocked ? 0xb07742 : 0x6d5a49, 1);
     drawDivider(this, 778, 432, 812, 388, isUnlocked ? UI_COLORS.gold : UI_COLORS.mutedCream, 0.7);
     drawDivider(this, 910, 432, 876, 388, isUnlocked ? UI_COLORS.gold : UI_COLORS.mutedCream, 0.7);
+
+    if (isUnlocked) {
+      addCenteredLabel(this, 844, 536, `Train +${attackBonus} ATK`, {
+        color: UI_HEX.gold,
+        fontSize: 11,
+        fontStyle: "700",
+        width: 142
+      });
+    }
 
     if (!isUnlocked) {
       this.add.rectangle(724, 198, 240, 362, 0x11100f, 0.3).setOrigin(0, 0);
