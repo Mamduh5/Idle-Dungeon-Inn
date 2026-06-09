@@ -38,7 +38,7 @@ export function createFloor10BossFailureReason(run: TowerRunState): string {
 }
 
 export function createFloor10BossFailureEventMessage(): string {
-  return `${FLOOR_10_BOSS_HINT} Fix: ${FLOOR_10_BOSS_SUGGESTIONS[0]} ${FLOOR_10_BOSS_SUGGESTIONS[1]}`;
+  return `${FLOOR_10_BOSS_HINT} Fix: ${FLOOR_10_BOSS_SUGGESTIONS.join(" ")}`;
 }
 
 export function getBottleneckHintForRun(run: TowerRunState | null): string | null {
