@@ -7,6 +7,34 @@ import { getSelectedPartyDispatchBlockReason, sendSelectedPartyToTower } from ".
 const AUTO_DISPATCH_ID = automationDefinitions.auto_dispatch_board.automationId;
 const AUTO_DISPATCH_COOLDOWN_MS = 1500;
 
+export interface AutoDispatchControlState {
+  isUnlocked: boolean;
+  isEnabled: boolean;
+  label: "Auto: locked" | "Auto: ON" | "Auto: OFF";
+  statusLabel: "Locked" | "ON" | "OFF";
+}
+
+export function getAutoDispatchControlState(state: GameState): AutoDispatchControlState {
+  const isUnlocked = state.automation.autoDispatchLevel > 0;
+  const isEnabled = isUnlocked && state.automation.enabled[AUTO_DISPATCH_ID] === true;
+
+  if (!isUnlocked) {
+    return {
+      isUnlocked,
+      isEnabled: false,
+      label: "Auto: locked",
+      statusLabel: "Locked"
+    };
+  }
+
+  return {
+    isUnlocked,
+    isEnabled,
+    label: isEnabled ? "Auto: ON" : "Auto: OFF",
+    statusLabel: isEnabled ? "ON" : "OFF"
+  };
+}
+
 export function tickAutomation(state: GameState, now: number): GameState {
   const unlockedState = unlockAutoDispatchIfReady(state, now);
 
@@ -92,7 +120,7 @@ function unlockAutoDispatchIfReady(state: GameState, now: number): GameState {
 }
 
 function isAutoDispatchEnabled(state: GameState): boolean {
-  return state.automation.autoDispatchLevel > 0 && state.automation.enabled[AUTO_DISPATCH_ID] === true;
+  return getAutoDispatchControlState(state).isEnabled;
 }
 
 function createAutomationEvent(

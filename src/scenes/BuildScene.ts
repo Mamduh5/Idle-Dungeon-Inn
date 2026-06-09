@@ -1,8 +1,10 @@
 import Phaser from "phaser";
+import { automationDefinitions } from "../data/automationData";
 import { roomDefinitions } from "../data/roomData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getInnRoom } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
+import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
 import {
   calculateBedRoomHealingForLevel,
   calculateTrainingRoomAttackBonusForLevel
@@ -37,6 +39,7 @@ export class BuildScene extends Phaser.Scene {
     this.drawPlanTable();
     this.drawRoomPlan(48, 218, "bed_room", bedRoom, bedUpgrade);
     this.drawRoomPlan(206, 218, "training_room", trainingRoom, trainingUpgrade);
+    this.drawAutomationPanel(state);
     this.drawFuturePlans();
 
     createSceneHud(this, { title: "Build", activeLabel: "Build" });
@@ -140,14 +143,70 @@ export class BuildScene extends Phaser.Scene {
     }
   }
 
+  private drawAutomationPanel(state: ReturnType<typeof getGameState>): void {
+    const control = getAutoDispatchControlState(state);
+    const definition = automationDefinitions.auto_dispatch_board;
+    const panelY = 442;
+
+    drawPanel(this, 48, panelY, 294, 108, 0x2f241d, control.isUnlocked ? UI_COLORS.gold : 0x8a7a69, 0.98, 7);
+    addLabel(this, 66, panelY + 16, definition.name, {
+      color: control.isUnlocked ? UI_HEX.cream : UI_HEX.mutedCream,
+      fontSize: 14,
+      fontStyle: "700",
+      width: 178
+    });
+    drawStatusBadge(
+      this,
+      246,
+      panelY + 12,
+      control.statusLabel,
+      control.isEnabled ? 0x275241 : control.isUnlocked ? 0x4a4038 : 0x3b312c,
+    );
+    addLabel(this, 66, panelY + 42, "Sends ready party back to tower.", {
+      color: UI_HEX.mutedCream,
+      fontSize: 12,
+      width: 174
+    });
+
+    if (control.isUnlocked) {
+      addLabel(this, 66, panelY + 68, `Status: ${control.statusLabel}`, {
+        color: control.isEnabled ? UI_HEX.success : UI_HEX.mutedCream,
+        fontSize: 11,
+        fontStyle: "700",
+        width: 112
+      });
+      drawActionButton(this, {
+        x: 278,
+        y: panelY + 76,
+        width: 104,
+        height: 34,
+        label: control.isEnabled ? "Turn OFF" : "Turn ON",
+        enabled: true,
+        fill: control.isEnabled ? 0x5d5249 : UI_COLORS.amber,
+        stroke: UI_COLORS.gold,
+        onClick: () => {
+          updateGameState(toggleAutoDispatch);
+          this.scene.restart();
+        }
+      });
+    } else {
+      addCenteredLabel(this, 256, panelY + 76, `Unlocks at Floor ${definition.unlockFloor}`, {
+        color: UI_HEX.gold,
+        fontSize: 11,
+        fontStyle: "700",
+        width: 126
+      });
+    }
+  }
+
   private drawFuturePlans(): void {
-    drawPanel(this, 48, 442, 294, 146, 0x2f241d, 0xb57745, 0.98, 7);
-    addLabel(this, 66, 460, "Future Wings", {
+    drawPanel(this, 48, 572, 294, 104, 0x2f241d, 0xb57745, 0.98, 7);
+    addLabel(this, 66, 588, "Future Wings", {
       color: UI_HEX.cream,
       fontSize: 14,
       fontStyle: "700"
     });
-    addLabel(this, 66, 484, "Planned spaces stay visible, but no unavailable system is clickable.", {
+    addLabel(this, 66, 612, "Planned spaces stay visible, but no unavailable system is clickable.", {
       color: UI_HEX.mutedCream,
       fontSize: 12,
       width: 252
@@ -161,23 +220,13 @@ export class BuildScene extends Phaser.Scene {
 
     plans.forEach((plan, index) => {
       const x = 66 + index * 88;
-      this.add.rectangle(x, 530, 70, 42, 0x45352b, 1).setStrokeStyle(1, 0x7f6757).setOrigin(0, 0);
-      addCenteredLabel(this, x + 35, 544, plan.label, {
+      this.add.rectangle(x, 642, 70, 30, 0x45352b, 1).setStrokeStyle(1, 0x7f6757).setOrigin(0, 0);
+      addCenteredLabel(this, x + 35, 654, plan.label, {
         color: UI_HEX.mutedCream,
         fontSize: 10,
         fontStyle: "700",
         width: 60
       });
-      addCenteredLabel(this, x + 35, 564, plan.status, {
-        color: UI_HEX.gold,
-        fontSize: 9
-      });
-    });
-
-    addCenteredLabel(this, GAME_WIDTH / 2, 640, "More rooms will become purchasable as systems come online.", {
-      color: UI_HEX.mutedCream,
-      fontSize: 11,
-      width: 272
     });
   }
 }

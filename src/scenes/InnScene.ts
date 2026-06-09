@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import { automationDefinitions } from "../data/automationData";
 import { heroDefinitions } from "../data/heroData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import {
@@ -9,7 +8,7 @@ import {
   getSelectedTowerRun
 } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
-import { toggleAutoDispatch } from "../systems/automationSystem";
+import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
 import { tickGameState } from "../systems/gameTickSystem";
 import { sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
 import { calculateReturnHealingAmount, calculateTrainingRoomAttackBonus } from "../systems/roomEffectSystem";
@@ -63,8 +62,8 @@ export class InnScene extends Phaser.Scene {
       !isHeroUnavailable(hero?.status);
     const targetFloor = party?.selectedTargetFloor ?? run?.floor ?? state.unlockedFloor;
     const buttonLabel = isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready";
-    const autoDispatchLabel = getAutoDispatchLabel(state);
-    this.autoDispatchRenderKey = autoDispatchLabel;
+    const autoDispatchControl = getAutoDispatchControlState(state);
+    this.autoDispatchRenderKey = autoDispatchControl.label;
 
     this.configureCamera();
     this.drawWorldBackdrop();
@@ -72,7 +71,7 @@ export class InnScene extends Phaser.Scene {
     this.drawBedRoom(bedRoom, bedRoomHealing);
     this.drawCommonRoom(party?.name ?? "No Party", latestEvent?.message ?? "The inn is waiting for orders.", latestEvent?.severity === "warning");
     this.drawTrainingRoom(trainingRoom, trainingRoomAttackBonus);
-    this.drawTowerGate(targetFloor, buttonLabel, canDispatch, autoDispatchLabel, state.automation.autoDispatchLevel > 0);
+    this.drawTowerGate(targetFloor, buttonLabel, canDispatch, autoDispatchControl.label, autoDispatchControl.isUnlocked);
     this.drawDragHints();
 
     if (hero) {
@@ -90,7 +89,7 @@ export class InnScene extends Phaser.Scene {
     const now = Date.now();
     const state = updateGameState((currentState) => tickGameState(currentState, delta, now));
 
-    if (getAutoDispatchLabel(state) !== this.autoDispatchRenderKey) {
+    if (getAutoDispatchControlState(state).label !== this.autoDispatchRenderKey) {
       this.scene.restart();
     }
   }
@@ -492,12 +491,4 @@ function isHeroUnavailable(status: HeroStatus | undefined): boolean {
     status === "training" ||
     status === "gearing"
   );
-}
-
-function getAutoDispatchLabel(state: GameState): string {
-  if (state.automation.autoDispatchLevel <= 0) {
-    return "Auto: locked";
-  }
-
-  return state.automation.enabled[automationDefinitions.auto_dispatch_board.automationId] ? "Auto: ON" : "Auto: OFF";
 }

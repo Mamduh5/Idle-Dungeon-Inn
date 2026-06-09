@@ -249,6 +249,55 @@ test("auto dispatch can be toggled on and off", async ({ page }) => {
   expect(state.recentEvents.some((event) => event.message === "Auto-Dispatch sent Lantern Party to Floor 3.")).toBe(true);
 });
 
+test("build automation panel controls auto dispatch", async ({ page }) => {
+  await page.goto(baseUrl);
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  await clickCanvas(page, 341, 814);
+  await page.waitForTimeout(250);
+  let buildTexts = await getSceneTexts(page, "BuildScene");
+  expect(buildTexts).toContain("Auto-Dispatch Board");
+  expect(buildTexts).toContain("Locked");
+  expect(buildTexts).toContain("Unlocks at Floor 3");
+
+  await clickCanvas(page, 49, 814);
+  await page.waitForTimeout(250);
+  await clearCurrentFloor(page, false);
+  await clearCurrentFloor(page, true);
+  await waitForAutomationUnlocked(page);
+
+  await clickCanvas(page, 341, 814);
+  await page.waitForTimeout(250);
+  buildTexts = await getSceneTexts(page, "BuildScene");
+  expect(buildTexts).toContain("Status: ON");
+  expect(buildTexts).toContain("Turn OFF");
+
+  await clickBuildAutomationToggle(page);
+  let state = await getGameStateSnapshot(page);
+  expect(state.automation.enabled.auto_dispatch_board).toBe(false);
+  expect(state.recentEvents.some((event) => event.message === "Auto-Dispatch turned OFF.")).toBe(true);
+  buildTexts = await getSceneTexts(page, "BuildScene");
+  expect(buildTexts).toContain("Status: OFF");
+  expect(buildTexts).toContain("Turn ON");
+
+  await clickCanvas(page, 49, 814);
+  await waitForSceneText(page, "InnScene", "Auto: OFF");
+
+  await clickCanvas(page, 341, 814);
+  await page.waitForTimeout(250);
+  await clickBuildAutomationToggle(page);
+  state = await getGameStateSnapshot(page);
+  expect(state.automation.enabled.auto_dispatch_board).toBe(true);
+  expect(state.recentEvents.some((event) => event.message === "Auto-Dispatch turned ON.")).toBe(true);
+  buildTexts = await getSceneTexts(page, "BuildScene");
+  expect(buildTexts).toContain("Status: ON");
+  expect(buildTexts).toContain("Turn OFF");
+
+  await clickCanvas(page, 49, 814);
+  await waitForSceneText(page, "InnScene", "Auto: ON");
+});
+
 test("responsive readability at 360x640", async ({ browser }) => {
   const page = await browser.newPage({
     viewport: { width: 360, height: 640 },
@@ -595,6 +644,11 @@ async function clickAutoDispatchControl(page: Page): Promise<void> {
   await focusInnGate(page);
   await page.waitForTimeout(150);
   await clickCanvas(page, 250, 536);
+  await page.waitForTimeout(250);
+}
+
+async function clickBuildAutomationToggle(page: Page): Promise<void> {
+  await clickCanvas(page, 278, 518);
   await page.waitForTimeout(250);
 }
 
