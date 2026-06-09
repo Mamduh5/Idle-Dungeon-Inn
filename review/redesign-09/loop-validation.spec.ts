@@ -355,6 +355,51 @@ test("corrupted localStorage falls back to fresh initial state", async ({ page }
   expect(state.towerRuns[0]?.status).toBe("preparing");
 });
 
+test("dev clear save control resets local state", async ({ page }) => {
+  await startFreshGame(page);
+
+  await clearCurrentFloor(page, false);
+  await clickCanvas(page, 341, 814);
+  await page.waitForTimeout(250);
+  await clickCanvas(page, 116, 402);
+  await page.waitForTimeout(250);
+  await waitForSaveFlush(page);
+
+  let state = await getGameStateSnapshot(page);
+  expect(state.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(2);
+  expect(state.unlockedFloor).toBe(2);
+
+  const savedBeforeClear = await getSavedGameState(page);
+  expect(savedBeforeClear?.unlockedFloor).toBe(2);
+
+  let buildTexts = await getSceneTexts(page, "BuildScene");
+  expect(buildTexts).toContain("DEV: Clear Save");
+
+  await clickDevClearSave(page);
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  state = await getGameStateSnapshot(page);
+  expect(state.currencies.coins).toBe(0);
+  expect(state.unlockedFloor).toBe(1);
+  expect(state.automation.autoDispatchLevel).toBe(0);
+  expect(state.automation.enabled.auto_dispatch_board).toBe(false);
+  expect(state.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(1);
+  expect(state.innRooms.find((room) => room.roomId === "training_room")?.level).toBe(0);
+  expect(state.innRooms.find((room) => room.roomId === "training_room")?.isUnlocked).toBe(false);
+
+  const savedAfterClear = await getSavedGameState(page);
+  expect(savedAfterClear).toBeNull();
+  await page.reload();
+  await expect(page.locator("canvas")).toBeVisible();
+  await page.waitForTimeout(500);
+
+  state = await getGameStateSnapshot(page);
+  expect(state.currencies.coins).toBe(0);
+  expect(state.unlockedFloor).toBe(1);
+  expect(state.innRooms.find((room) => room.roomId === "bed_room")?.level).toBe(1);
+});
+
 test("responsive readability at 360x640", async ({ browser }) => {
   const page = await browser.newPage({
     viewport: { width: 360, height: 640 },
@@ -485,6 +530,13 @@ async function getSceneTexts(page: Page, sceneKey: string): Promise<string[]> {
         .filter((text): text is string => typeof text === "string") ?? []
     );
   }, sceneKey);
+}
+
+async function getSavedGameState(page: Page): Promise<{ unlockedFloor: number } | null> {
+  return page.evaluate((key) => {
+    const saved = localStorage.getItem(key);
+    return saved ? (JSON.parse(saved) as { unlockedFloor: number }) : null;
+  }, saveStorageKey);
 }
 
 async function waitForSceneText(page: Page, sceneKey: string, text: string): Promise<void> {
@@ -722,6 +774,10 @@ async function clickAutoDispatchControl(page: Page): Promise<void> {
 async function clickBuildAutomationToggle(page: Page): Promise<void> {
   await clickCanvas(page, 278, 518);
   await page.waitForTimeout(250);
+}
+
+async function clickDevClearSave(page: Page): Promise<void> {
+  await clickCanvas(page, 195, 704);
 }
 
 async function waitForHeroHitDamage(page: Page): Promise<number> {

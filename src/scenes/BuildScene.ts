@@ -3,7 +3,7 @@ import { automationDefinitions } from "../data/automationData";
 import { roomDefinitions } from "../data/roomData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getInnRoom } from "../state/gameSelectors";
-import { getGameState, updateGameState } from "../state/gameStore";
+import { clearSavedGameStateForDev, getGameState, updateGameState } from "../state/gameStore";
 import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
 import {
   calculateBedRoomHealingForLevel,
@@ -23,6 +23,8 @@ import {
 import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
 
+const isDevBuild = (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV === true;
+
 export class BuildScene extends Phaser.Scene {
   public constructor() {
     super("BuildScene");
@@ -41,6 +43,7 @@ export class BuildScene extends Phaser.Scene {
     this.drawRoomPlan(206, 218, "training_room", trainingRoom, trainingUpgrade);
     this.drawAutomationPanel(state);
     this.drawFuturePlans();
+    this.drawDevControls();
 
     createSceneHud(this, { title: "Build", activeLabel: "Build" });
   }
@@ -160,7 +163,7 @@ export class BuildScene extends Phaser.Scene {
       246,
       panelY + 12,
       control.statusLabel,
-      control.isEnabled ? 0x275241 : control.isUnlocked ? 0x4a4038 : 0x3b312c,
+      control.isEnabled ? 0x275241 : control.isUnlocked ? 0x4a4038 : 0x3b312c
     );
     addLabel(this, 66, panelY + 42, "Sends ready party back to tower.", {
       color: UI_HEX.mutedCream,
@@ -227,6 +230,27 @@ export class BuildScene extends Phaser.Scene {
         fontStyle: "700",
         width: 60
       });
+    });
+  }
+
+  private drawDevControls(): void {
+    if (!isDevBuild) {
+      return;
+    }
+
+    drawActionButton(this, {
+      x: GAME_WIDTH / 2,
+      y: 704,
+      width: 142,
+      height: 32,
+      label: "DEV: Clear Save",
+      enabled: true,
+      fill: 0x5d5249,
+      stroke: UI_COLORS.gold,
+      onClick: () => {
+        clearSavedGameStateForDev();
+        this.scene.start("InnScene");
+      }
     });
   }
 }
