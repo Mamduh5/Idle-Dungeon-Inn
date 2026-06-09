@@ -1,10 +1,11 @@
 import { createInitialGameState } from "../game/initialState";
+import { applyOfflineProgress } from "../systems/offlineProgressSystem";
 import type { GameState } from "../types/gameState";
 import { clearSavedGameState, loadSavedGameState, saveGameState } from "./saveStorage";
 
 const SAVE_THROTTLE_MS = 1000;
 
-let currentGameState: GameState = loadSavedGameState() ?? createInitialGameState();
+let currentGameState: GameState = createStartupGameState();
 let lastSavedAt = 0;
 let pendingSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -38,6 +39,16 @@ export function clearSavedGameStateForDev(): GameState {
   clearSavedGameState();
   currentGameState = createInitialGameState();
   return currentGameState;
+}
+
+function createStartupGameState(): GameState {
+  const savedState = loadSavedGameState();
+
+  if (!savedState) {
+    return createInitialGameState();
+  }
+
+  return applyOfflineProgress(savedState, Date.now());
 }
 
 function persistNow(state: GameState): void {
