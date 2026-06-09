@@ -1,6 +1,7 @@
 import { heroDefinitions } from "../data/heroData";
 import { getHeroesForParty, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
 import { appendRecentEvent } from "../state/recentEvents";
+import { getBottleneckHintForRun } from "./bottleneckHintSystem";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
 import type { RecentEvent } from "../types/recentEventTypes";
@@ -34,6 +35,7 @@ export function recoverSelectedWipedParty(state: GameState): GameState {
   const partyHeroIds = new Set(partyHeroes.map((hero) => hero.id));
   const recoveryAmount = getWipeRecoveryAmount(state);
   const safeTargetFloor = Math.max(1, Math.min(party.selectedTargetFloor ?? run.floor, state.unlockedFloor));
+  const bottleneckHint = getBottleneckHintForRun(run);
 
   return {
     ...state,
@@ -68,7 +70,7 @@ export function recoverSelectedWipedParty(state: GameState): GameState {
             lastCombatEventMessage: "Party returned to the inn after a wipe.",
             combatStartedAt: null,
             lootBag: [],
-            lastFailureReason: null,
+            lastFailureReason: bottleneckHint,
             startedAt: now
           }
         : candidate
@@ -81,7 +83,7 @@ export function recoverSelectedWipedParty(state: GameState): GameState {
       state.recentEvents,
       createRecoveryEvent(
         now,
-        `${party.name} returned to the inn after being wiped and recovered ${recoveryAmount} HP.`,
+        createRecoveryMessage(party.name, recoveryAmount, bottleneckHint),
         party.id,
         run.floor
       )
@@ -97,6 +99,16 @@ function getWipeRecoveryAmount(state: GameState): number {
 function calculateRecoveredHp(hero: HeroInstance, recoveryAmount: number): number {
   const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? Math.max(1, hero.currentHp, recoveryAmount);
   return Math.max(1, Math.min(maxHp, recoveryAmount));
+}
+
+function createRecoveryMessage(partyName: string, recoveryAmount: number, bottleneckHint: string | null): string {
+  const baseMessage = `${partyName} returned to the inn after being wiped and recovered ${recoveryAmount} HP.`;
+
+  if (!bottleneckHint) {
+    return baseMessage;
+  }
+
+  return `${baseMessage} ${bottleneckHint}`;
 }
 
 function createRecoveryEvent(createdAt: number, message: string, partyId: string, floor: number): RecentEvent {
