@@ -39,14 +39,15 @@ export class BuildScene extends Phaser.Scene {
     const bedUpgrade = getRoomUpgradePreview(state, "bed_room");
     const trainingUpgrade = getRoomUpgradePreview(state, "training_room");
     const bottleneckCallout = getFloor10BossCallout(state);
+    const hasBottleneckCallout = Boolean(bottleneckCallout);
 
     this.drawBackdrop();
     this.drawPlanTable();
     this.drawBottleneckCallout(state);
-    this.drawRoomPlan(48, 230, "bed_room", bedRoom, bedUpgrade, state);
-    this.drawRoomPlan(206, 230, "training_room", trainingRoom, trainingUpgrade, state);
-    this.drawAutomationPanel(state, bottleneckCallout ? 468 : 442);
-    this.drawFuturePlans(bottleneckCallout ? 594 : 572);
+    this.drawRoomPlan(48, hasBottleneckCallout ? 284 : 218, "bed_room", bedRoom, bedUpgrade, state);
+    this.drawRoomPlan(206, hasBottleneckCallout ? 284 : 218, "training_room", trainingRoom, trainingUpgrade, state);
+    this.drawAutomationPanel(state, hasBottleneckCallout ? 514 : 442);
+    this.drawFuturePlans(hasBottleneckCallout ? 628 : 572);
     this.drawDevControls();
 
     createSceneHud(this, { title: "Build", activeLabel: "Build" });
@@ -82,16 +83,22 @@ export class BuildScene extends Phaser.Scene {
       return;
     }
 
-    drawPanel(this, 48, 206, 294, 50, 0x5a3524, UI_COLORS.gold, 0.98, 7);
-    addLabel(this, 62, 214, callout.title, {
+    drawPanel(this, 48, 216, 294, 60, 0x5a3524, UI_COLORS.gold, 0.98, 7);
+    addLabel(this, 62, 224, callout.title, {
       color: UI_HEX.gold,
       fontSize: 11,
       fontStyle: "700",
       width: 120
     });
-    addLabel(this, 62, 232, callout.buildMessage, {
+    addLabel(this, 62, 240, callout.buildMessage, {
       color: UI_HEX.cream,
-      fontSize: 10,
+      fontSize: 9,
+      width: 266
+    });
+    addLabel(this, 62, 260, callout.recommendations.map((recommendation) => recommendation.buildWhy).join(" "), {
+      color: UI_HEX.skyBlue,
+      fontSize: 8,
+      fontStyle: "700",
       width: 266
     });
   }
@@ -157,15 +164,6 @@ export class BuildScene extends Phaser.Scene {
       fontSize: 10,
       width: 112
     });
-
-    if (recommendation) {
-      addLabel(this, x + 12, y + 160, recommendation.buildWhy, {
-        color: UI_HEX.skyBlue,
-        fontSize: 9,
-        fontStyle: "700",
-        width: 112
-      });
-    }
 
     if (upgrade) {
       drawActionButton(this, {
@@ -241,15 +239,15 @@ export class BuildScene extends Phaser.Scene {
   }
 
   private drawFuturePlans(panelY: number): void {
-    drawPanel(this, 48, panelY, 294, 104, 0x2f241d, 0xb57745, 0.98, 7);
-    addLabel(this, 66, panelY + 16, "Future Wings", {
+    drawPanel(this, 48, panelY, 294, 74, 0x2f241d, 0xb57745, 0.98, 7);
+    addLabel(this, 66, panelY + 12, "Future Wings", {
       color: UI_HEX.cream,
-      fontSize: 14,
+      fontSize: 13,
       fontStyle: "700"
     });
-    addLabel(this, 66, panelY + 40, "Planned spaces stay visible, but no unavailable system is clickable.", {
+    addLabel(this, 66, panelY + 34, "Later systems stay visible, but not clickable.", {
       color: UI_HEX.mutedCream,
-      fontSize: 12,
+      fontSize: 10,
       width: 252
     });
 
@@ -261,10 +259,10 @@ export class BuildScene extends Phaser.Scene {
 
     plans.forEach((plan, index) => {
       const optionX = 66 + index * 88;
-      this.add.rectangle(optionX, panelY + 70, 70, 30, 0x45352b, 1).setStrokeStyle(1, 0x7f6757).setOrigin(0, 0);
-      addCenteredLabel(this, optionX + 35, panelY + 82, plan.label, {
+      this.add.rectangle(optionX, panelY + 52, 70, 18, 0x45352b, 1).setStrokeStyle(1, 0x7f6757).setOrigin(0, 0);
+      addCenteredLabel(this, optionX + 35, panelY + 61, plan.label, {
         color: UI_HEX.mutedCream,
-        fontSize: 10,
+        fontSize: 9,
         fontStyle: "700",
         width: 60
       });
@@ -278,7 +276,7 @@ export class BuildScene extends Phaser.Scene {
 
     drawActionButton(this, {
       x: GAME_WIDTH / 2,
-      y: 704,
+      y: 730,
       width: 142,
       height: 32,
       label: "DEV: Clear Save",
