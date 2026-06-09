@@ -9,6 +9,7 @@ import {
   getSelectedTowerRun
 } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
+import { toggleAutoDispatch } from "../systems/automationSystem";
 import { tickGameState } from "../systems/gameTickSystem";
 import { sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
 import { calculateReturnHealingAmount, calculateTrainingRoomAttackBonus } from "../systems/roomEffectSystem";
@@ -40,6 +41,7 @@ export class InnScene extends Phaser.Scene {
   private didDragWorld = false;
   private dragStartX = 0;
   private lastPointerX = 0;
+  private autoDispatchRenderKey = "";
 
   public constructor() {
     super("InnScene");
@@ -62,6 +64,7 @@ export class InnScene extends Phaser.Scene {
     const targetFloor = party?.selectedTargetFloor ?? run?.floor ?? state.unlockedFloor;
     const buttonLabel = isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready";
     const autoDispatchLabel = getAutoDispatchLabel(state);
+    this.autoDispatchRenderKey = autoDispatchLabel;
 
     this.configureCamera();
     this.drawWorldBackdrop();
@@ -69,7 +72,7 @@ export class InnScene extends Phaser.Scene {
     this.drawBedRoom(bedRoom, bedRoomHealing);
     this.drawCommonRoom(party?.name ?? "No Party", latestEvent?.message ?? "The inn is waiting for orders.", latestEvent?.severity === "warning");
     this.drawTrainingRoom(trainingRoom, trainingRoomAttackBonus);
-    this.drawTowerGate(targetFloor, buttonLabel, canDispatch, autoDispatchLabel);
+    this.drawTowerGate(targetFloor, buttonLabel, canDispatch, autoDispatchLabel, state.automation.autoDispatchLevel > 0);
     this.drawDragHints();
 
     if (hero) {
@@ -85,7 +88,11 @@ export class InnScene extends Phaser.Scene {
 
   public update(_time: number, delta: number): void {
     const now = Date.now();
-    updateGameState((currentState) => tickGameState(currentState, delta, now));
+    const state = updateGameState((currentState) => tickGameState(currentState, delta, now));
+
+    if (getAutoDispatchLabel(state) !== this.autoDispatchRenderKey) {
+      this.scene.restart();
+    }
   }
 
   private configureCamera(): void {
@@ -287,7 +294,13 @@ export class InnScene extends Phaser.Scene {
     }
   }
 
-  private drawTowerGate(targetFloor: number, buttonLabel: string, canDispatch: boolean, autoDispatchLabel: string): void {
+  private drawTowerGate(
+    targetFloor: number,
+    buttonLabel: string,
+    canDispatch: boolean,
+    autoDispatchLabel: string,
+    canToggleAutoDispatch: boolean
+  ): void {
     this.add.rectangle(1038, 212, 164, 352, 0x543526, 1).setOrigin(0, 0).setStrokeStyle(2, 0xe7ac64);
     this.add.polygon(1120, 212, [0, -58, 104, 0, -104, 0], UI_COLORS.darkTimber, 1).setStrokeStyle(2, UI_COLORS.skyBlue);
     addCenteredLabel(this, 1120, 242, `Target F${targetFloor}`, {
@@ -309,14 +322,33 @@ export class InnScene extends Phaser.Scene {
       fontStyle: "700",
       width: 120
     });
-    addCenteredLabel(this, 1120, 536, autoDispatchLabel, {
-      color: autoDispatchLabel === "Auto: ON" ? UI_HEX.success : UI_HEX.mutedCream,
-      fontSize: 11,
-      fontStyle: "700",
-      width: 118
-    });
+    this.drawAutoDispatchToggle(1120, 536, autoDispatchLabel, canToggleAutoDispatch);
 
     this.drawGateAction(1120, 676, buttonLabel, canDispatch);
+  }
+
+  private drawAutoDispatchToggle(x: number, y: number, label: string, enabled: boolean): void {
+    const isOn = label === "Auto: ON";
+    drawPanel(this, x - 58, y - 16, 116, 32, enabled ? 0x183829 : 0x3a332e, enabled ? UI_COLORS.gold : 0x8a7a69, 0.94, 7);
+    addCenteredLabel(this, x, y, label, {
+      color: isOn ? UI_HEX.success : UI_HEX.mutedCream,
+      fontSize: 11,
+      fontStyle: "700",
+      width: 102
+    });
+
+    const zone = this.add.zone(x, y, 116, 32).setOrigin(0.5);
+    if (enabled) {
+      zone.setInteractive({ useHandCursor: true });
+      zone.on("pointerup", () => {
+        if (this.didDragWorld) {
+          return;
+        }
+
+        updateGameState(toggleAutoDispatch);
+        this.scene.restart();
+      });
+    }
   }
 
   private drawGateAction(x: number, y: number, label: string, enabled: boolean): void {

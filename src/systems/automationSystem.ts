@@ -42,6 +42,31 @@ export function tickAutomation(state: GameState, now: number): GameState {
   };
 }
 
+export function toggleAutoDispatch(state: GameState): GameState {
+  if (state.automation.autoDispatchLevel <= 0) {
+    return state;
+  }
+
+  const now = Date.now();
+  const nextEnabled = !state.automation.enabled[AUTO_DISPATCH_ID];
+
+  return {
+    ...state,
+    automation: {
+      ...state.automation,
+      enabled: {
+        ...state.automation.enabled,
+        [AUTO_DISPATCH_ID]: nextEnabled
+      }
+    },
+    recentEvents: appendRecentEvent(
+      state.recentEvents,
+      createAutomationEvent(now, `Auto-Dispatch turned ${nextEnabled ? "ON" : "OFF"}.`, "info")
+    ),
+    lastActiveAt: now
+  };
+}
+
 function unlockAutoDispatchIfReady(state: GameState, now: number): GameState {
   if (state.automation.autoDispatchLevel > 0 || state.unlockedFloor < automationDefinitions.auto_dispatch_board.unlockFloor) {
     return state;
@@ -60,7 +85,7 @@ function unlockAutoDispatchIfReady(state: GameState, now: number): GameState {
     },
     recentEvents: appendRecentEvent(
       state.recentEvents,
-      createAutomationEvent(now, "Auto-Dispatch Board unlocked.")
+      createAutomationEvent(now, "Auto-Dispatch Board unlocked.", "success")
     ),
     lastActiveAt: now
   };
@@ -70,12 +95,16 @@ function isAutoDispatchEnabled(state: GameState): boolean {
   return state.automation.autoDispatchLevel > 0 && state.automation.enabled[AUTO_DISPATCH_ID] === true;
 }
 
-function createAutomationEvent(createdAt: number, message: string): RecentEvent {
+function createAutomationEvent(
+  createdAt: number,
+  message: string,
+  severity: RecentEvent["severity"]
+): RecentEvent {
   return {
     id: `event_automation_triggered_${createdAt}`,
     type: "automation_triggered",
     createdAt,
     message,
-    severity: "success"
+    severity
   };
 }
