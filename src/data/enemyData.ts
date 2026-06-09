@@ -148,7 +148,7 @@ export const enemyDefinitions: Record<EnemyId, EnemyDefinition> = {
   },
   floor_10_gatekeeper: {
     enemyId: "floor_10_gatekeeper",
-    name: "Floor 10 Gatekeeper",
+    name: "Big Cave Slime",
     baseStats: {
       hp: 128,
       attack: 13,
