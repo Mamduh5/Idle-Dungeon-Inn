@@ -11,6 +11,12 @@ export interface HeroDefinition {
   startingSkillIds: SkillId[];
 }
 
+export interface HeroTrainingState {
+  attackTrainingXp: number;
+  attackTrainingLevel: number;
+  totalTrainingSeconds: number;
+}
+
 export interface HeroInstance {
   id: HeroId;
   classId: HeroClassId;
@@ -24,4 +30,5 @@ export interface HeroInstance {
   defeats: number;
   traits: string[];
   gear: Record<string, LootId | null>;
+  training: HeroTrainingState;
 }

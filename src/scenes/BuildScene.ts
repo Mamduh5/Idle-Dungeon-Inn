@@ -7,8 +7,10 @@ import { clearSavedGameStateForDev, getGameState, updateGameState } from "../sta
 import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
 import { getFloor10BossCallout, getFloor10RoomRecommendation } from "../systems/bottleneckCalloutSystem";
 import { tickGameState } from "../systems/gameTickSystem";
-import { calculateTrainingRoomAttackBonusForLevel } from "../systems/roomEffectSystem";
-import { calculateBedRoomHealingPerSecondForLevel } from "../systems/roomJobSystem";
+import {
+  calculateBedRoomHealingPerSecondForLevel,
+  calculateTrainingRoomXpPerSecondForLevel
+} from "../systems/roomJobSystem";
 import { getRoomUpgradePreview, purchaseRoomUpgrade, type RoomUpgradePreview } from "../systems/roomUpgradeSystem";
 import type { GameState } from "../types/gameState";
 import type { RoomId } from "../types/ids";
@@ -306,14 +308,14 @@ export class BuildScene extends Phaser.Scene {
 }
 
 function getRoomEffectLabel(roomId: RoomId, room: InnRoomState | null): string {
-    if (roomId === "bed_room") {
-      const level = room?.isUnlocked ? room.level : 0;
+  if (roomId === "bed_room") {
+    const level = room?.isUnlocked ? room.level : 0;
     return `Healing ${calculateBedRoomHealingPerSecondForLevel(level)} HP/s`;
   }
 
   if (roomId === "training_room") {
     const level = room?.isUnlocked ? room.level : 0;
-    return `Combat +${calculateTrainingRoomAttackBonusForLevel(level)} ATK`;
+    return `Training ${calculateTrainingRoomXpPerSecondForLevel(level)} XP/s`;
   }
 
   return roomDefinitions[roomId]?.effectType.split("_").join(" ") ?? "unknown";

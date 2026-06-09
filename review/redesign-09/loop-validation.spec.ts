@@ -133,7 +133,7 @@ test("training room attack bonus follows room level and affects combat", async (
   await clickCanvas(page, 341, 814);
   await page.waitForTimeout(250);
   let buildTexts = await getSceneTexts(page, "BuildScene");
-  expect(buildTexts).toContain("Combat +0 ATK");
+  expect(buildTexts).toContain("Training 0 XP/s");
   expect(buildTexts).not.toContain("No effect yet");
 
   await clickCanvas(page, 274, 402);
@@ -143,17 +143,19 @@ test("training room attack bonus follows room level and affects combat", async (
   expect(trainingLevelOneState.innRooms.find((room) => room.roomId === "training_room")?.level).toBe(1);
   expect(Object.prototype.hasOwnProperty.call(trainingLevelOneState.heroes[0], "attack")).toBe(false);
   buildTexts = await getSceneTexts(page, "BuildScene");
-  expect(buildTexts).toContain("Combat +2 ATK");
+  expect(buildTexts).toContain("Training 1 XP/s");
   expect(buildTexts).not.toContain("No effect yet");
 
   await clickCanvas(page, 49, 814);
   await page.waitForTimeout(250);
   const innTexts = await getSceneTexts(page, "InnScene");
-  expect(innTexts).toContain("Train +2 ATK");
+  expect(innTexts).toContain("Train 1 XP/s");
+  expect(innTexts).toContain("Mira +0 ATK");
 
+  await forceHeroTrainingLevel(page, 1);
   await forceReadyPreparingState(page, false);
   const trainingLevelOneDamage = await startCurrentFloorAndCaptureHeroDamage(page);
-  expect(trainingLevelOneDamage).toBe(13);
+  expect(trainingLevelOneDamage).toBe(12);
   expect(trainingLevelOneDamage).toBeGreaterThan(lockedDamage);
   const floorThree = await finishCurrentFloorFromCombat(page, ["combat"]);
   expect(floorThree.after.currencies.coins).toBe(65);
@@ -167,7 +169,7 @@ test("training room attack bonus follows room level and affects combat", async (
   expect(trainingLevelTwoState.innRooms.find((room) => room.roomId === "training_room")?.level).toBe(2);
   expect(Object.prototype.hasOwnProperty.call(trainingLevelTwoState.heroes[0], "attack")).toBe(false);
   buildTexts = await getSceneTexts(page, "BuildScene");
-  expect(buildTexts).toContain("Combat +4 ATK");
+  expect(buildTexts).toContain("Training 1.5 XP/s");
   expect(buildTexts).not.toContain("No effect yet");
 });
 
@@ -758,6 +760,32 @@ async function forceReadyPreparingState(page: Page, autoDispatchEnabled: boolean
       room.jobs = [];
     });
   }, autoDispatchEnabled);
+}
+
+async function forceHeroTrainingLevel(page: Page, attackTrainingLevel: number): Promise<void> {
+  await page.evaluate((level) => {
+    const getState = (globalThis as typeof globalThis & {
+      __idleDungeonInnGetState?: () => {
+        heroes: Array<{
+          training?: {
+            attackTrainingXp: number;
+            attackTrainingLevel: number;
+            totalTrainingSeconds: number;
+          };
+        }>;
+      };
+    }).__idleDungeonInnGetState;
+    const state = getState?.();
+    if (!state?.heroes[0]) {
+      return;
+    }
+
+    state.heroes[0].training = {
+      attackTrainingXp: 0,
+      attackTrainingLevel: level,
+      totalTrainingSeconds: level * 60
+    };
+  }, attackTrainingLevel);
 }
 
 async function forceReadyForCurrentRun(page: Page): Promise<void> {

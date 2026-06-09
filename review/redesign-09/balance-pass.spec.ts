@@ -4,11 +4,15 @@ import { prototypeTowerFloors } from "../../src/data/towerData";
 import { createInitialGameState } from "../../src/game/initialState";
 import type { GameState } from "../../src/types/gameState";
 import { completeSelectedFloor } from "../../src/systems/floorClearSystem";
-import { calculateTrainingRoomAttackBonusForLevel } from "../../src/systems/roomEffectSystem";
 import { getRoomUpgradeCost, purchaseRoomUpgrade } from "../../src/systems/roomUpgradeSystem";
 import { tickCombat } from "../../src/systems/combatSystem";
 import { getSelectedPartyDispatchBlockReason, sendSelectedPartyToTower } from "../../src/systems/partyDispatchSystem";
-import { getHeroReadyHpThreshold, tickRoomJobs } from "../../src/systems/roomJobSystem";
+import {
+  assignHeroToTrainingRoom,
+  getHeroReadyHpThreshold,
+  getHeroTrainingAttackBonus,
+  tickRoomJobs
+} from "../../src/systems/roomJobSystem";
 import { continueSelectedTowerRun } from "../../src/systems/towerNodeActionSystem";
 import { tickTowerRuns } from "../../src/systems/towerRunSystem";
 import { recoverSelectedWipedParty } from "../../src/systems/wipeRecoverySystem";
@@ -67,10 +71,16 @@ test("floor 6 wipe recovers and training investment lets the hero make progress 
   state = purchaseRoomUpgrade("training_room")(state);
   state = purchaseRoomUpgrade("training_room")(state);
   state = purchaseRoomUpgrade("training_room")(state);
+  state = preparePartyForDispatch(state);
 
   const trainingRoom = state.innRooms.find((room) => room.roomId === "training_room");
   expect(trainingRoom?.level).toBe(3);
-  expect(calculateTrainingRoomAttackBonusForLevel(trainingRoom?.level ?? 0)).toBe(6);
+
+  for (let drill = 0; drill < 3; drill += 1) {
+    state = assignHeroToTrainingRoom(state, state.heroes[0].id);
+    state = tickRoomJobs(state, 30_000, Date.now() + drill * 30_000);
+  }
+  expect(getHeroTrainingAttackBonus(state.heroes[0])).toBe(3);
 
   const retry = runUntilFirstFloor6EncounterResult(state);
   expect(retry.state.towerRuns[0]?.status).toBe("blocked");

@@ -25,7 +25,12 @@ export function createInitialGameState(): GameState {
     highestFloorCleared: 0,
     defeats: 0,
     traits: [],
-    gear: {}
+    gear: {},
+    training: {
+      attackTrainingXp: 0,
+      attackTrainingLevel: 0,
+      totalTrainingSeconds: 0
+    }
   };
 
   const starterParty: PartyState = {

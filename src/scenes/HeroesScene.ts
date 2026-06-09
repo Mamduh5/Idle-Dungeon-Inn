@@ -4,6 +4,7 @@ import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getHeroesForParty, getSelectedParty } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
 import { tickGameState } from "../systems/gameTickSystem";
+import { getHeroTrainingAttackBonus } from "../systems/roomJobSystem";
 import type { HeroInstance } from "../types/heroTypes";
 import {
   addCenteredLabel,
@@ -96,6 +97,11 @@ export class HeroesScene extends Phaser.Scene {
       addLabel(this, 154, y - 14, definition?.name ?? hero.classId, {
         color: UI_HEX.mutedCream,
         fontSize: 12,
+        width: 160
+      });
+      addLabel(this, 154, y + 2, `Training +${getHeroTrainingAttackBonus(hero)} ATK`, {
+        color: UI_HEX.gold,
+        fontSize: 10,
         width: 160
       });
       drawHpBar(this, 154, y + 20, 150, 8, hpRatio, `HP ${hero.currentHp}/${maxHp}`, UI_COLORS.success);

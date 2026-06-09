@@ -1,5 +1,5 @@
 import { heroDefinitions } from "../data/heroData";
-import { calculateTrainingRoomAttackBonus } from "./roomEffectSystem";
+import { getHeroTrainingAttackBonus } from "./roomJobSystem";
 import type { CombatStats } from "../types/combatTypes";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
@@ -40,10 +40,10 @@ export function createHeroCombatStats(state: GameState, hero: HeroInstance): Com
   };
 }
 
-export function createHeroCombatBonuses(state: GameState, _hero: HeroInstance): CombatStatBonuses {
+export function createHeroCombatBonuses(_state: GameState, hero: HeroInstance): CombatStatBonuses {
   return {
     ...createEmptyCombatStatBonuses(),
-    attack: calculateTrainingRoomAttackBonus(state)
+    attack: getHeroTrainingAttackBonus(hero)
   };
 }
 

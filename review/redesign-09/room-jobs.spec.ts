@@ -41,6 +41,11 @@ test("generic room job state normalizes old saves without wiping progress", () =
   expect(normalized?.currencies.coins).toBe(0);
   expect(normalized?.heroes[0]?.currentHp).toBe(120);
   expect(normalized?.heroes[0]?.status).toBe("ready");
+  expect(normalized?.heroes[0]?.training).toEqual({
+    attackTrainingXp: 0,
+    attackTrainingLevel: 0,
+    totalTrainingSeconds: 0
+  });
   expect(normalized?.innRooms.every((room) => Array.isArray(room.jobs))).toBe(true);
   expect(normalized?.innRooms.every((room) => room.activeJob === null)).toBe(true);
 });

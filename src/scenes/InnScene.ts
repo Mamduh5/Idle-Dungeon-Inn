@@ -12,11 +12,12 @@ import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/auto
 import { getFloor10BossCallout, getFloor10RoomRecommendation } from "../systems/bottleneckCalloutSystem";
 import { tickGameState } from "../systems/gameTickSystem";
 import { canDispatchSelectedParty, sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
-import { calculateTrainingRoomAttackBonus } from "../systems/roomEffectSystem";
 import {
   calculateBedRoomHealingPerSecond,
+  calculateTrainingRoomXpPerSecond,
   getHeroActiveRoomJob,
   getHeroReadyHpThreshold,
+  getHeroTrainingAttackBonus,
   getRoomJobCapacity
 } from "../systems/roomJobSystem";
 import type { GameState } from "../types/gameState";
@@ -63,7 +64,7 @@ export class InnScene extends Phaser.Scene {
     const bedRoom = getInnRoom(state, "bed_room");
     const bedRoomHealingSpeed = calculateBedRoomHealingPerSecond(state);
     const trainingRoom = getInnRoom(state, "training_room");
-    const trainingRoomAttackBonus = calculateTrainingRoomAttackBonus(state);
+    const trainingRoomSpeed = calculateTrainingRoomXpPerSecond(state);
     const latestEvent = state.recentEvents[0];
     const latestOfflineReport = getLatestOfflineReport(state);
     const floor10Callout = getFloor10BossCallout(state);
@@ -92,8 +93,10 @@ export class InnScene extends Phaser.Scene {
       floor10Callout?.buildMessage
     );
     this.drawTrainingRoom(
+      state,
       trainingRoom,
-      trainingRoomAttackBonus,
+      trainingRoomSpeed,
+      hero,
       getFloor10RoomRecommendation(state, "training_room")?.innBadge ?? null
     );
     this.drawTowerGate(targetFloor, buttonLabel, canDispatch, autoDispatchControl.label, autoDispatchControl.isUnlocked);
@@ -354,7 +357,13 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawTrainingRoom(room: InnRoomState | null, attackBonus: number, recommendationBadge: string | null): void {
+  private drawTrainingRoom(
+    state: GameState,
+    room: InnRoomState | null,
+    trainingXpPerSecond: number,
+    hero: HeroInstance | null,
+    recommendationBadge: string | null
+  ): void {
     const isUnlocked = Boolean(room?.isUnlocked);
     const fill = isUnlocked ? 0x76503b : 0x3a332e;
 
@@ -377,10 +386,24 @@ export class InnScene extends Phaser.Scene {
     drawDivider(this, 910, 432, 876, 388, isUnlocked ? UI_COLORS.gold : UI_COLORS.mutedCream, 0.7);
 
     if (isUnlocked) {
-      addCenteredLabel(this, 844, 536, `Train +${attackBonus} ATK`, {
+      const activeJob = hero ? getHeroActiveRoomJob(state, hero.id) : null;
+      const isTrainingHere = activeJob?.roomId === "training_room" && activeJob.jobType === "training";
+      const progress = Math.round((activeJob?.progress ?? 0) * 100);
+      addCenteredLabel(this, 844, 524, `Train ${formatNumber(trainingXpPerSecond)} XP/s`, {
         color: UI_HEX.gold,
         fontSize: 11,
         fontStyle: "700",
+        width: 142
+      });
+      addCenteredLabel(this, 844, 540, hero ? `${hero.name} +${getHeroTrainingAttackBonus(hero)} ATK` : "Personal ATK", {
+        color: UI_HEX.parchment,
+        fontSize: 10,
+        fontStyle: "700",
+        width: 142
+      });
+      addCenteredLabel(this, 844, 556, isTrainingHere ? `Drill ${progress}%` : "No drill active", {
+        color: isTrainingHere ? UI_HEX.success : UI_HEX.mutedCream,
+        fontSize: 10,
         width: 142
       });
     }

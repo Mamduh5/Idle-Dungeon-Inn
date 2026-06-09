@@ -6,6 +6,7 @@ import type { HeroId, RoomId } from "../types/ids";
 import type { InnRoomState, RoomJob, RoomJobType } from "../types/roomTypes";
 
 export const HERO_READY_HP_RATIO = 0.9;
+export const TRAINING_XP_PER_ATTACK_LEVEL = 60;
 
 export function getHeroMaxHp(hero: HeroInstance): number {
   return Math.max(1, heroDefinitions[hero.classId]?.baseStats.hp ?? hero.currentHp, 1);
@@ -169,6 +170,10 @@ export function tickRoomJobs(state: GameState, deltaMs: number, now: number): Ga
       if (job.jobType === "healing") {
         nextState = tickHealingJob(nextState, room.roomId, job, deltaMs, now);
       }
+
+      if (job.jobType === "training") {
+        nextState = tickTrainingJob(nextState, room.roomId, job, deltaMs, now);
+      }
     }
   }
 
@@ -237,6 +242,51 @@ export function calculateBedRoomHealingPerSecond(state: GameState): number {
   return room?.isUnlocked ? calculateBedRoomHealingPerSecondForLevel(room.level) : 0;
 }
 
+export function calculateTrainingRoomXpPerSecondForLevel(level: number): number {
+  const trainingLevel = Math.max(0, Math.floor(level));
+
+  if (trainingLevel <= 0) {
+    return 0;
+  }
+
+  return 1 + (trainingLevel - 1) * 0.5;
+}
+
+export function calculateTrainingRoomXpPerSecond(state: GameState): number {
+  const room = getInnRoom(state, "training_room");
+  return room?.isUnlocked ? calculateTrainingRoomXpPerSecondForLevel(room.level) : 0;
+}
+
+export function getHeroTrainingAttackBonus(hero: HeroInstance): number {
+  return Math.max(0, Math.floor(hero.training.attackTrainingLevel));
+}
+
+export function assignHeroToTrainingRoom(state: GameState, heroId: HeroId, now = Date.now()): GameState {
+  const hero = state.heroes.find((candidate) => candidate.id === heroId);
+
+  if (!hero || hero.status === "in_tower" || hero.status === "defeated") {
+    return state;
+  }
+
+  if (!canAssignHeroToRoomJob(state, heroId, "training_room", "training")) {
+    return state;
+  }
+
+  const trainingState = {
+    ...state,
+    heroes: state.heroes.map((candidate) =>
+      candidate.id === heroId
+        ? {
+            ...candidate,
+            status: "training" as const
+          }
+        : candidate
+    )
+  };
+
+  return assignHeroToRoomJob(trainingState, heroId, "training_room", "training", now);
+}
+
 function tickHealingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs: number, now: number): GameState {
   const room = getInnRoom(state, roomId);
   const healingPerSecond = room?.isUnlocked ? calculateBedRoomHealingPerSecondForLevel(room.level) : 0;
@@ -287,6 +337,69 @@ function tickHealingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs:
   };
 
   if (isReady) {
+    nextState = completeRoomJob(nextState, job.id, now);
+  }
+
+  return nextState;
+}
+
+function tickTrainingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs: number, now: number): GameState {
+  const room = getInnRoom(state, roomId);
+  const xpPerSecond = room?.isUnlocked ? calculateTrainingRoomXpPerSecondForLevel(room.level) : 0;
+
+  if (xpPerSecond <= 0) {
+    return state;
+  }
+
+  const hero = state.heroes.find((candidate) => candidate.id === job.heroId);
+  if (!hero) {
+    return completeRoomJob(state, job.id, now);
+  }
+
+  const addedSeconds = deltaMs / 1000;
+  const gainedXp = xpPerSecond * addedSeconds;
+  const totalXp = hero.training.attackTrainingXp + gainedXp;
+  const gainedLevels = Math.floor(totalXp / TRAINING_XP_PER_ATTACK_LEVEL);
+  const nextXp = totalXp % TRAINING_XP_PER_ATTACK_LEVEL;
+  const nextTraining = {
+    attackTrainingXp: gainedLevels > 0 ? nextXp : totalXp,
+    attackTrainingLevel: hero.training.attackTrainingLevel + gainedLevels,
+    totalTrainingSeconds: hero.training.totalTrainingSeconds + addedSeconds
+  };
+  const progress = Math.min(1, nextTraining.attackTrainingXp / TRAINING_XP_PER_ATTACK_LEVEL);
+  const shouldComplete = gainedLevels > 0;
+
+  let nextState: GameState = {
+    ...state,
+    heroes: state.heroes.map((candidate) =>
+      candidate.id === hero.id
+        ? {
+            ...candidate,
+            status: shouldComplete ? (isHeroHpReady(candidate) ? "ready" : "resting") : "training",
+            training: nextTraining
+          }
+        : candidate
+    ),
+    innRooms: state.innRooms.map((candidate) =>
+      candidate.roomId === roomId
+        ? {
+            ...candidate,
+            jobs: candidate.jobs.map((candidateJob) =>
+              candidateJob.id === job.id
+                ? {
+                    ...candidateJob,
+                    progress,
+                    updatedAt: now
+                  }
+                : candidateJob
+            )
+          }
+        : candidate
+    ),
+    lastActiveAt: now
+  };
+
+  if (shouldComplete) {
     nextState = completeRoomJob(nextState, job.id, now);
   }
 

@@ -1,6 +1,7 @@
 import { createInitialGameState } from "../game/initialState";
 import type { AutomationState } from "../types/automationTypes";
 import type { GameState } from "../types/gameState";
+import type { HeroTrainingState } from "../types/heroTypes";
 import type { HeroStatus } from "../types/ids";
 import type { RecentEvent } from "../types/recentEventTypes";
 import type { InnRoomState, RoomJob, RoomJobStatus, RoomJobType } from "../types/roomTypes";
@@ -154,9 +155,22 @@ function normalizeHeroes(defaults: GameState["heroes"], rawHeroes: unknown[]): G
       highestFloorCleared: normalizeNumber(rawHero.highestFloorCleared, fallback.highestFloorCleared, 0),
       defeats: normalizeNumber(rawHero.defeats, fallback.defeats, 0),
       traits: Array.isArray(rawHero.traits) ? rawHero.traits.filter((trait): trait is string => typeof trait === "string") : [],
-      gear: normalizeHeroGear(rawHero.gear)
+      gear: normalizeHeroGear(rawHero.gear),
+      training: normalizeHeroTraining(rawHero.training, fallback.training)
     };
   });
+}
+
+function normalizeHeroTraining(rawTraining: unknown, fallback: HeroTrainingState): HeroTrainingState {
+  if (!isRecord(rawTraining)) {
+    return fallback;
+  }
+
+  return {
+    attackTrainingXp: normalizeNumber(rawTraining.attackTrainingXp, fallback.attackTrainingXp, 0),
+    attackTrainingLevel: Math.floor(normalizeNumber(rawTraining.attackTrainingLevel, fallback.attackTrainingLevel, 0)),
+    totalTrainingSeconds: normalizeNumber(rawTraining.totalTrainingSeconds, fallback.totalTrainingSeconds, 0)
+  };
 }
 
 function normalizeInnRooms(defaults: InnRoomState[], rawRooms: unknown[]): InnRoomState[] {
