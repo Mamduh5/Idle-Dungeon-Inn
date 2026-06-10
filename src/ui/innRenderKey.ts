@@ -1,13 +1,15 @@
-import { getHeroActiveRoomJob } from "../systems/roomJobSystem";
 import type { GameState } from "../types/gameState";
 
 export function getInnReadinessRenderKey(state: GameState): string {
-  return state.heroes
-    .map((hero) => {
-      const job = getHeroActiveRoomJob(state, hero.id);
-      return `${hero.id}:${Math.floor(hero.currentHp)}:${hero.status}:${hero.training.attackTrainingLevel}:${
-        job?.id ?? "none"
-      }:${job?.status ?? "none"}`;
-    })
+  const heroRosterKey = state.heroes
+    .map((hero) => `${hero.id}:${hero.assignedPartyId ?? "none"}`)
     .join("|");
+  const unlockedRoomKey = state.innRooms
+    .map((room) => `${room.roomId}:${room.isUnlocked ? 1 : 0}:${room.level}`)
+    .join("|");
+  const partyKey = state.parties
+    .map((party) => `${party.id}:${party.isUnlocked ? 1 : 0}:${party.heroIds.join(",")}`)
+    .join("|");
+
+  return `${heroRosterKey}::${unlockedRoomKey}::${partyKey}`;
 }
