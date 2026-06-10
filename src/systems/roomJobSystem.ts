@@ -183,50 +183,46 @@ export function tickRoomJobs(state: GameState, deltaMs: number, now: number): Ga
     }
   }
 
-  return nextState;
+  return assignNextWaitingHeroToBed(nextState, now);
 }
 
 export function assignHeroToBedHealingIfNeeded(state: GameState, heroId: HeroId, now = Date.now()): GameState {
   const hero = state.heroes.find((candidate) => candidate.id === heroId);
 
-  if (!hero || hero.currentHp <= 0 || isHeroHpReady(hero)) {
+  if (!hero || isHeroHpReady({ ...hero, currentHp: Math.max(1, hero.currentHp) })) {
     return state;
   }
 
-  const restingState = {
-    ...state,
-    heroes: state.heroes.map((candidate) =>
-      candidate.id === heroId
-        ? {
-            ...candidate,
-            status: "resting" as const
-          }
-        : candidate
-    )
-  };
-
+  const restingState = prepareReturnedHeroForInnRecovery(state, heroId, now);
   return assignHeroToRoomJob(restingState, heroId, "bed_room", "healing", now);
+}
+
+export function prepareReturnedHeroForInnRecovery(state: GameState, heroId: HeroId, now = Date.now()): GameState {
+  let changed = false;
+  const heroes = state.heroes.map((hero) => {
+    if (hero.id !== heroId) {
+      return hero;
+    }
+
+    const safeHp = hero.currentHp <= 0 ? 1 : hero.currentHp;
+    const nextStatus = safeHp >= getHeroReadyHpThreshold({ ...hero, currentHp: safeHp }) ? "ready" : "resting";
+    changed = changed || safeHp !== hero.currentHp || hero.status !== nextStatus;
+
+    return {
+      ...hero,
+      currentHp: safeHp,
+      status: nextStatus
+    };
+  });
+
+  return changed ? { ...state, heroes, lastActiveAt: now } : state;
 }
 
 export function updateHeroReadinessAfterInnReturn(state: GameState, heroIds: HeroId[], now = Date.now()): GameState {
   let nextState = state;
-  const targetHeroIds = new Set(heroIds);
-
-  nextState = {
-    ...nextState,
-    heroes: nextState.heroes.map((hero) => {
-      if (!targetHeroIds.has(hero.id)) {
-        return hero;
-      }
-
-      return {
-        ...hero,
-        status: isHeroHpReady(hero) ? "ready" : "resting"
-      };
-    })
-  };
 
   for (const heroId of heroIds) {
+    nextState = prepareReturnedHeroForInnRecovery(nextState, heroId, now);
     nextState = assignHeroToBedHealingIfNeeded(nextState, heroId, now);
   }
 
@@ -280,6 +276,7 @@ export function assignHeroToTrainingRoom(state: GameState, heroId: HeroId, now =
 
   const trainingState = {
     ...state,
+    selectedTrainingHeroId: heroId,
     heroes: state.heroes.map((candidate) =>
       candidate.id === heroId
         ? {
@@ -346,15 +343,31 @@ export function getEligibleTrainingHeroes(state: GameState): HeroInstance[] {
   return orderedHeroes.filter((hero) => getTrainingRoomAssignmentBlockReason(state, hero.id) === null);
 }
 
+export function getTrainingHeroSelectionOptions(state: GameState): HeroInstance[] {
+  const party = getSelectedParty(state);
+  const partyHeroes = party ? getHeroesForParty(state, party.id) : [];
+  const partyHeroIds = new Set(partyHeroes.map((hero) => hero.id));
+  const orderedHeroes = [...partyHeroes, ...state.heroes.filter((hero) => !partyHeroIds.has(hero.id))];
+
+  return orderedHeroes.filter((hero) => {
+    const activeJob = getHeroActiveRoomJob(state, hero.id);
+    if (activeJob?.roomId === "training_room" && activeJob.jobType === "training") {
+      return true;
+    }
+
+    return getTrainingRoomAssignmentBlockReason(state, hero.id) === null;
+  });
+}
+
 export function getDefaultTrainingHero(state: GameState, preferredHeroId: HeroId | null = null): HeroInstance | null {
   if (preferredHeroId) {
     const preferredHero = state.heroes.find((hero) => hero.id === preferredHeroId) ?? null;
-    if (preferredHero && getTrainingRoomAssignmentBlockReason(state, preferredHero.id) === null) {
+    if (preferredHero && getTrainingHeroSelectionOptions(state).some((hero) => hero.id === preferredHero.id)) {
       return preferredHero;
     }
   }
 
-  return getEligibleTrainingHeroes(state)[0] ?? null;
+  return getTrainingHeroSelectionOptions(state)[0] ?? null;
 }
 
 export function startHeroTrainingDrill(state: GameState, heroId: HeroId, now = Date.now()): GameState {
@@ -381,7 +394,7 @@ export function startHeroTrainingDrill(state: GameState, heroId: HeroId, now = D
     id: `event_training_started_${heroId}_${now}`,
     type: "room_job_started",
     createdAt: now,
-    message: `${hero.name} started a training drill.`,
+    message: `${hero.name} started training until canceled.`,
     severity: "success",
     heroId
   });
@@ -398,6 +411,7 @@ export function cancelHeroTrainingDrill(state: GameState, heroId: HeroId, now = 
   const nextHeroStatus = hero.currentHp <= 0 ? "defeated" : isHeroHpReady(hero) ? "ready" : "resting";
   const nextState: GameState = {
     ...state,
+    selectedTrainingHeroId: heroId,
     heroes: state.heroes.map((candidate) =>
       candidate.id === heroId
         ? {
@@ -445,8 +459,9 @@ function tickHealingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs:
   }
 
   const maxHp = getHeroMaxHp(hero);
+  const safeCurrentHp = Math.max(1, hero.currentHp);
   const healingAmount = healingPerSecond * (deltaMs / 1000);
-  const nextHp = Math.min(maxHp, hero.currentHp + healingAmount);
+  const nextHp = Math.min(maxHp, safeCurrentHp + healingAmount);
   const progress = Math.min(1, nextHp / getHeroReadyHpThreshold(hero));
   const isReady = nextHp >= getHeroReadyHpThreshold(hero);
 
@@ -495,10 +510,10 @@ function assignNextWaitingHeroToBed(state: GameState, now: number): GameState {
 
   const nextHero = state.heroes.find(
     (hero) =>
-      hero.currentHp > 0 &&
-      !isHeroHpReady(hero) &&
+      hero.status !== "in_tower" &&
+      !isHeroHpReady({ ...hero, currentHp: Math.max(1, hero.currentHp) }) &&
       getHeroActiveRoomJob(state, hero.id) === null &&
-      (hero.status === "resting" || hero.status === "wounded")
+      (hero.status === "resting" || hero.status === "wounded" || hero.status === "defeated")
   );
 
   return nextHero ? assignHeroToBedHealingIfNeeded(state, nextHero.id, now) : state;
@@ -527,15 +542,15 @@ function tickTrainingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs
   const currentTrainingSeconds = clampNumber(hero.training.totalTrainingSeconds, 0, 0, MAX_TRAINING_TOTAL_SECONDS);
   const totalXp = currentTrainingXp + gainedXp;
   const gainedLevels = Math.floor(totalXp / TRAINING_XP_PER_ATTACK_LEVEL);
-  const nextXp = totalXp % TRAINING_XP_PER_ATTACK_LEVEL;
   const nextTrainingLevel = Math.min(MAX_TRAINING_ATTACK_LEVEL, currentTrainingLevel + gainedLevels);
+  const reachedMax = nextTrainingLevel >= MAX_TRAINING_ATTACK_LEVEL;
+  const nextTrainingXp = reachedMax ? 0 : totalXp % TRAINING_XP_PER_ATTACK_LEVEL;
   const nextTraining = {
-    attackTrainingXp: nextTrainingLevel >= MAX_TRAINING_ATTACK_LEVEL ? 0 : gainedLevels > 0 ? nextXp : totalXp,
+    attackTrainingXp: nextTrainingXp,
     attackTrainingLevel: nextTrainingLevel,
     totalTrainingSeconds: Math.min(MAX_TRAINING_TOTAL_SECONDS, currentTrainingSeconds + addedSeconds)
   };
-  const progress = Math.min(1, nextTraining.attackTrainingXp / TRAINING_XP_PER_ATTACK_LEVEL);
-  const shouldComplete = gainedLevels > 0 || nextTrainingLevel >= MAX_TRAINING_ATTACK_LEVEL;
+  const progress = reachedMax ? 1 : Math.min(1, nextTraining.attackTrainingXp / TRAINING_XP_PER_ATTACK_LEVEL);
 
   let nextState: GameState = {
     ...state,
@@ -543,7 +558,7 @@ function tickTrainingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs
       candidate.id === hero.id
         ? {
             ...candidate,
-            status: shouldComplete ? (isHeroHpReady(candidate) ? "ready" : "resting") : "training",
+            status: reachedMax ? (isHeroHpReady(candidate) ? "ready" : "resting") : "training",
             training: nextTraining
           }
         : candidate
@@ -567,7 +582,7 @@ function tickTrainingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs
     lastActiveAt: now
   };
 
-  if (shouldComplete) {
+  if (reachedMax) {
     nextState = completeRoomJob(nextState, job.id, now);
   }
 
