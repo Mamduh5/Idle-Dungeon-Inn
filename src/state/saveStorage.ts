@@ -2,9 +2,12 @@ import { createInitialGameState } from "../game/initialState";
 import type { AutomationState } from "../types/automationTypes";
 import type { GameState } from "../types/gameState";
 import type { HeroTrainingState } from "../types/heroTypes";
-import type { HeroStatus } from "../types/ids";
-import type { RecentEvent } from "../types/recentEventTypes";
+import type { HeroStatus, PartyMode } from "../types/ids";
+import type { LootStack } from "../types/lootTypes";
+import type { PartyState } from "../types/partyTypes";
+import type { RecentEvent, RecentEventSeverity, RecentEventType } from "../types/recentEventTypes";
 import type { InnRoomState, RoomJob, RoomJobStatus, RoomJobType } from "../types/roomTypes";
+import type { TowerRunEnemyState, TowerRunState, TowerRunStatus } from "../types/towerTypes";
 import { heroDefinitions } from "../data/heroData";
 import { RECENT_EVENT_LIMIT, appendRecentEvent } from "./recentEvents";
 
@@ -83,6 +86,9 @@ export function normalizeLoadedGameState(raw: unknown): GameState | null {
   }
 
   const defaults = createInitialGameState();
+  const heroes = normalizeHeroes(defaults.heroes, raw.heroes);
+  const parties = normalizeParties(defaults.parties, raw.parties, new Set(heroes.map((hero) => hero.id)));
+  const selectedPartyId = normalizeSelectedPartyId(raw.selectedPartyId, parties, defaults.selectedPartyId);
 
   return {
     ...defaults,
@@ -92,10 +98,10 @@ export function normalizeLoadedGameState(raw: unknown): GameState | null {
       ...raw.currencies,
       coins: normalizeNumber(raw.currencies.coins, defaults.currencies.coins, 0)
     },
-    heroes: normalizeHeroes(defaults.heroes, raw.heroes),
-    parties: raw.parties,
-    selectedPartyId: raw.selectedPartyId,
-    towerRuns: raw.towerRuns,
+    heroes,
+    parties,
+    selectedPartyId,
+    towerRuns: normalizeTowerRuns(defaults.towerRuns, raw.towerRuns, parties),
     innRooms: normalizeInnRooms(defaults.innRooms, raw.innRooms),
     automation: normalizeAutomationState(defaults.automation, raw.automation),
     unlockedFloor: normalizeNumber(raw.unlockedFloor, defaults.unlockedFloor, 1),
@@ -103,11 +109,8 @@ export function normalizeLoadedGameState(raw: unknown): GameState | null {
     firstClearFloorIds: raw.firstClearFloorIds.filter(
       (floor): floor is number => typeof floor === "number" && Number.isFinite(floor) && floor > 0
     ),
-    inventory: {
-      ...defaults.inventory,
-      ...raw.inventory
-    },
-    recentEvents: raw.recentEvents.slice(0, RECENT_EVENT_LIMIT),
+    inventory: normalizeInventory(defaults.inventory, raw.inventory),
+    recentEvents: normalizeRecentEvents(raw.recentEvents),
     lastActiveAt: normalizeNumber(raw.lastActiveAt, Date.now(), 0)
   };
 }
@@ -208,6 +211,162 @@ function normalizeInnRooms(defaults: InnRoomState[], rawRooms: unknown[]): InnRo
   return normalizedRooms;
 }
 
+function normalizeParties(defaults: PartyState[], rawParties: unknown[], knownHeroIds: Set<string>): PartyState[] {
+  const normalizedParties = rawParties.filter(isRecord).map((rawParty, index) => {
+    const fallback = defaults[index] ?? defaults[0];
+    const maxSize = Math.floor(clampNumber(rawParty.maxSize, fallback.maxSize, 1, 6));
+    const heroIds = Array.isArray(rawParty.heroIds)
+      ? uniqueStrings(rawParty.heroIds).filter((heroId) => knownHeroIds.has(heroId)).slice(0, maxSize)
+      : fallback.heroIds.filter((heroId) => knownHeroIds.has(heroId)).slice(0, maxSize);
+
+    return {
+      ...fallback,
+      id: typeof rawParty.id === "string" && rawParty.id.length > 0 ? rawParty.id : fallback.id,
+      name: typeof rawParty.name === "string" && rawParty.name.length > 0 ? rawParty.name : fallback.name,
+      heroIds,
+      maxSize,
+      mode: normalizePartyMode(rawParty.mode, fallback.mode),
+      selectedTargetFloor: Math.floor(normalizeNumber(rawParty.selectedTargetFloor, fallback.selectedTargetFloor, 1)),
+      selectedMaterialId:
+        typeof rawParty.selectedMaterialId === "string" || rawParty.selectedMaterialId === null
+          ? rawParty.selectedMaterialId
+          : fallback.selectedMaterialId,
+      retreatHpPercent: Math.floor(clampNumber(rawParty.retreatHpPercent, fallback.retreatHpPercent, 1, 100)),
+      isUnlocked: typeof rawParty.isUnlocked === "boolean" ? rawParty.isUnlocked : fallback.isUnlocked
+    };
+  });
+
+  for (const defaultParty of defaults) {
+    if (!normalizedParties.some((party) => party.id === defaultParty.id)) {
+      normalizedParties.push({
+        ...defaultParty,
+        heroIds: defaultParty.heroIds.filter((heroId) => knownHeroIds.has(heroId))
+      });
+    }
+  }
+
+  return normalizedParties.length > 0 ? normalizedParties : defaults;
+}
+
+function normalizeSelectedPartyId(rawSelectedPartyId: unknown, parties: PartyState[], fallback: string): string {
+  const selectedParty = typeof rawSelectedPartyId === "string"
+    ? parties.find((party) => party.id === rawSelectedPartyId && party.isUnlocked)
+    : null;
+
+  return selectedParty?.id ?? parties.find((party) => party.isUnlocked)?.id ?? fallback;
+}
+
+function normalizeTowerRuns(
+  defaults: TowerRunState[],
+  rawTowerRuns: unknown[],
+  parties: PartyState[]
+): TowerRunState[] {
+  const knownPartyIds = new Set(parties.map((party) => party.id));
+  const normalizedRuns = rawTowerRuns.filter(isRecord).map((rawRun, index) => {
+    const fallback = defaults[index] ?? defaults[0];
+    const partyId = typeof rawRun.partyId === "string" && knownPartyIds.has(rawRun.partyId)
+      ? rawRun.partyId
+      : fallback.partyId;
+
+    return {
+      ...fallback,
+      partyId,
+      status: normalizeTowerRunStatus(rawRun.status, fallback.status),
+      floor: Math.floor(normalizeNumber(rawRun.floor, fallback.floor, 1)),
+      nodeIndex: Math.floor(normalizeNumber(rawRun.nodeIndex, fallback.nodeIndex, 0)),
+      nodeProgress: clampNumber(rawRun.nodeProgress, fallback.nodeProgress, 0, 1),
+      enemies: normalizeTowerEnemies(rawRun.enemies),
+      heroCombatCooldowns: normalizeNumberRecord(rawRun.heroCombatCooldowns),
+      enemyCombatCooldowns: normalizeNumberRecord(rawRun.enemyCombatCooldowns),
+      lastCombatEventMessage:
+        typeof rawRun.lastCombatEventMessage === "string" || rawRun.lastCombatEventMessage === null
+          ? rawRun.lastCombatEventMessage
+          : fallback.lastCombatEventMessage,
+      combatStartedAt:
+        typeof rawRun.combatStartedAt === "number" && Number.isFinite(rawRun.combatStartedAt)
+          ? Math.max(0, rawRun.combatStartedAt)
+          : null,
+      lootBag: normalizeLootStacks(rawRun.lootBag),
+      lastFailureReason:
+        typeof rawRun.lastFailureReason === "string" || rawRun.lastFailureReason === null
+          ? rawRun.lastFailureReason
+          : fallback.lastFailureReason,
+      startedAt: normalizeNumber(rawRun.startedAt, fallback.startedAt, 0)
+    };
+  });
+
+  for (const defaultRun of defaults) {
+    if (!normalizedRuns.some((run) => run.partyId === defaultRun.partyId)) {
+      normalizedRuns.push(defaultRun);
+    }
+  }
+
+  return normalizedRuns;
+}
+
+function normalizeTowerEnemies(rawEnemies: unknown): TowerRunEnemyState[] {
+  if (!Array.isArray(rawEnemies)) {
+    return [];
+  }
+
+  return rawEnemies.filter(isRecord).map((rawEnemy) => ({
+    enemyId: typeof rawEnemy.enemyId === "string" ? rawEnemy.enemyId : "",
+    currentHp:
+      typeof rawEnemy.currentHp === "number" && Number.isFinite(rawEnemy.currentHp)
+        ? Math.max(0, rawEnemy.currentHp)
+        : null,
+    status: normalizeTowerEnemyStatus(rawEnemy.status)
+  }));
+}
+
+function normalizeInventory(defaults: GameState["inventory"], rawInventory: Record<string, unknown>): GameState["inventory"] {
+  return {
+    ...defaults,
+    itemStacks: normalizeLootStacks(rawInventory.itemStacks)
+  };
+}
+
+function normalizeLootStacks(rawLootStacks: unknown): LootStack[] {
+  if (!Array.isArray(rawLootStacks)) {
+    return [];
+  }
+
+  return rawLootStacks.filter(isRecord).reduce<LootStack[]>((stacks, rawStack) => {
+    if (typeof rawStack.lootId !== "string") {
+      return stacks;
+    }
+
+    const quantity = Math.floor(normalizeNumber(rawStack.quantity, 0, 0));
+    if (quantity <= 0) {
+      return stacks;
+    }
+
+    stacks.push({
+      lootId: rawStack.lootId,
+      quantity
+    });
+    return stacks;
+  }, []);
+}
+
+function normalizeRecentEvents(rawEvents: unknown[]): RecentEvent[] {
+  return rawEvents
+    .filter(isRecord)
+    .map((rawEvent, index): RecentEvent => ({
+      id: typeof rawEvent.id === "string" && rawEvent.id.length > 0 ? rawEvent.id : `event_normalized_${index}`,
+      type: normalizeRecentEventType(rawEvent.type),
+      createdAt: normalizeNumber(rawEvent.createdAt, 0, 0),
+      message: typeof rawEvent.message === "string" ? rawEvent.message : "",
+      severity: normalizeRecentEventSeverity(rawEvent.severity),
+      partyId: typeof rawEvent.partyId === "string" ? rawEvent.partyId : undefined,
+      heroId: typeof rawEvent.heroId === "string" ? rawEvent.heroId : undefined,
+      floor: typeof rawEvent.floor === "number" && Number.isFinite(rawEvent.floor) && rawEvent.floor > 0
+        ? Math.floor(rawEvent.floor)
+        : undefined
+    }))
+    .slice(0, RECENT_EVENT_LIMIT);
+}
+
 function normalizeHeroGear(rawGear: unknown): Record<string, string | null> {
   if (!isRecord(rawGear)) {
     return {};
@@ -268,6 +427,10 @@ function normalizeEnabledAutomation(
   );
 }
 
+function uniqueStrings(values: unknown[]): string[] {
+  return [...new Set(values.filter((value): value is string => typeof value === "string" && value.length > 0))];
+}
+
 function withSaveLoadedEvent(state: GameState): GameState {
   const now = Date.now();
   const event: RecentEvent = {
@@ -313,6 +476,76 @@ function normalizeHeroStatus(value: unknown, fallback: HeroStatus): HeroStatus {
   return typeof value === "string" && validStatuses.includes(value as HeroStatus) ? (value as HeroStatus) : fallback;
 }
 
+function normalizePartyMode(value: unknown, fallback: PartyMode): PartyMode {
+  const validModes: PartyMode[] = ["push", "safe_farm", "material_hunt", "boss_attempt"];
+  return typeof value === "string" && validModes.includes(value as PartyMode) ? (value as PartyMode) : fallback;
+}
+
+function normalizeTowerRunStatus(value: unknown, fallback: TowerRunStatus): TowerRunStatus {
+  const validStatuses: TowerRunStatus[] = [
+    "preparing",
+    "traveling",
+    "exploring",
+    "fighting",
+    "looting",
+    "retreating",
+    "wiped",
+    "resting",
+    "blocked",
+    "boss_ready"
+  ];
+
+  return typeof value === "string" && validStatuses.includes(value as TowerRunStatus)
+    ? (value as TowerRunStatus)
+    : fallback;
+}
+
+function normalizeTowerEnemyStatus(value: unknown): TowerRunEnemyState["status"] {
+  const validStatuses: Array<TowerRunEnemyState["status"]> = ["pending", "active", "defeated"];
+  return typeof value === "string" && validStatuses.includes(value as TowerRunEnemyState["status"])
+    ? (value as TowerRunEnemyState["status"])
+    : "pending";
+}
+
+function normalizeRecentEventType(value: unknown): RecentEventType {
+  const validTypes: RecentEventType[] = [
+    "party_dispatched",
+    "party_dispatch_blocked",
+    "tower_floor_entered",
+    "tower_node_reached",
+    "tower_node_continued",
+    "tower_node_continue_blocked",
+    "tower_encounter_started",
+    "tower_encounter_cleared",
+    "floor_cleared",
+    "floor_clear_blocked",
+    "party_floor_reached",
+    "party_wiped",
+    "hero_defeated",
+    "loot_found",
+    "room_job_started",
+    "room_job_blocked",
+    "room_job_cancelled",
+    "room_job_completed",
+    "automation_triggered",
+    "boss_unlocked",
+    "upgrade_purchased",
+    "save_loaded",
+    "offline_report"
+  ];
+
+  return typeof value === "string" && validTypes.includes(value as RecentEventType)
+    ? (value as RecentEventType)
+    : "save_loaded";
+}
+
+function normalizeRecentEventSeverity(value: unknown): RecentEventSeverity {
+  const validSeverities: RecentEventSeverity[] = ["info", "success", "warning", "danger"];
+  return typeof value === "string" && validSeverities.includes(value as RecentEventSeverity)
+    ? (value as RecentEventSeverity)
+    : "info";
+}
+
 function normalizeRoomJobType(value: unknown): RoomJobType {
   const validTypes: RoomJobType[] = [
     "healing",
@@ -349,4 +582,18 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
   }
 
   return Math.min(max, Math.max(min, value));
+}
+
+function normalizeNumberRecord(rawRecord: unknown): Record<string, number> {
+  if (!isRecord(rawRecord)) {
+    return {};
+  }
+
+  return Object.entries(rawRecord).reduce<Record<string, number>>((record, [key, value]) => {
+    if (typeof value === "number" && Number.isFinite(value)) {
+      record[key] = Math.max(0, value);
+    }
+
+    return record;
+  }, {});
 }
