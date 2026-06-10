@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { assignHeroToParty } from "../application/partyCommands";
+import { assignHeroToParty, selectParty } from "../application/partyCommands";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getGameState, updateGameState } from "../state/gameStore";
 import { tickGameState } from "../systems/gameTickSystem";
@@ -20,6 +20,7 @@ import {
   type HeroPartySlotViewModel,
   type HeroRosterCardViewModel
 } from "../viewModels/heroesViewModel";
+import type { PartyOptionViewModel } from "../viewModels/partyViewModel";
 
 export class HeroesScene extends Phaser.Scene {
   public constructor() {
@@ -31,7 +32,12 @@ export class HeroesScene extends Phaser.Scene {
 
     this.drawBackdrop();
     this.drawRosterHall(viewModel.roster, viewModel.selectedPartyId, viewModel.summaryLabel);
-    this.drawPartyBench(viewModel.partyName, viewModel.partySlots, `${viewModel.party.selectedModeLabel} / ${viewModel.party.targetFloorLabel}`);
+    this.drawPartyBench(
+      viewModel.partyName,
+      viewModel.partySlots,
+      `${viewModel.party.selectedModeLabel} / ${viewModel.party.targetFloorLabel}`,
+      viewModel.party.parties
+    );
 
     createSceneHud(this, { title: "Heroes", activeLabel: "Heroes" });
   }
@@ -142,7 +148,12 @@ export class HeroesScene extends Phaser.Scene {
     });
   }
 
-  private drawPartyBench(partyName: string, slots: HeroPartySlotViewModel[], partyStatusLabel: string): void {
+  private drawPartyBench(
+    partyName: string,
+    slots: HeroPartySlotViewModel[],
+    partyStatusLabel: string,
+    parties: PartyOptionViewModel[]
+  ): void {
     drawPanel(this, 38, 492, 314, 172, 0x233832, 0x7fd3a6, 0.96, 7);
     addLabel(this, 56, 510, partyName, {
       color: UI_HEX.cream,
@@ -176,10 +187,37 @@ export class HeroesScene extends Phaser.Scene {
       });
     });
 
-    addCenteredLabel(this, GAME_WIDTH / 2, 684, "Additional party actions are not implemented.", {
-      color: UI_HEX.mutedCream,
-      fontSize: 11,
-      width: 260
+    this.drawPartySelector(parties);
+  }
+
+  private drawPartySelector(parties: PartyOptionViewModel[]): void {
+    parties.slice(0, 2).forEach((party, index) => {
+      const x = 58 + index * 142;
+      const y = 646;
+      const fill = party.isSelected ? 0x1f4662 : party.isUnlocked ? 0x263f38 : 0x2f332f;
+      const stroke = party.isSelected ? UI_COLORS.skyBlue : party.isUnlocked ? UI_COLORS.gold : 0x5f7770;
+      const label = party.isUnlocked ? party.selectorLabel : `${party.name} Locked`;
+
+      drawPanel(this, x, y, 132, 34, fill, stroke, 0.96, 7);
+      addCenteredLabel(this, x + 66, y + 11, label, {
+        color: party.isSelected ? UI_HEX.skyBlue : party.isUnlocked ? UI_HEX.cream : UI_HEX.mutedCream,
+        fontSize: 9,
+        fontStyle: "700",
+        width: 120
+      });
+      addCenteredLabel(this, x + 66, y + 25, party.heroCountLabel, {
+        color: party.isUnlocked ? UI_HEX.gold : UI_HEX.mutedCream,
+        fontSize: 8,
+        fontStyle: "700",
+        width: 120
+      });
+
+      if (party.isUnlocked && !party.isSelected) {
+        this.add.zone(x + 66, y + 17, 132, 34).setInteractive({ useHandCursor: true }).on("pointerup", () => {
+          updateGameState((currentState) => selectParty(currentState, party.id));
+          this.scene.restart();
+        });
+      }
     });
   }
 }

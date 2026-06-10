@@ -215,11 +215,12 @@ export class BuildScene extends Phaser.Scene {
     });
 
     if (card.command) {
-      addLabel(this, x + 10, y + 88, card.recommendationBadge ?? card.costLabel, {
-        color: card.recommendationBadge ? UI_HEX.skyBlue : UI_HEX.mutedCream,
-        fontSize: 8,
+      const metaLabel = getChoiceMetaLabel(card);
+      addLabel(this, x + 10, y + 87, metaLabel, {
+        color: card.recommendationBadge ? UI_HEX.skyBlue : card.blockedReason ? UI_HEX.gold : UI_HEX.mutedCream,
+        fontSize: card.blockedReason ? 7 : 8,
         fontStyle: "700",
-        width: 48
+        width: 54
       });
       drawActionButton(this, {
         x: x + 96,
@@ -385,4 +386,8 @@ function getChoiceActionLabel(card: BuildChoiceCardViewModel): string {
   }
 
   return card.isUnlocked ? "Upgrade" : "Unlock";
+}
+
+function getChoiceMetaLabel(card: BuildChoiceCardViewModel): string {
+  return card.recommendationBadge ?? card.blockedReason ?? card.costLabel;
 }

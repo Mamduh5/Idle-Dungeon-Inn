@@ -1,7 +1,7 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 11 - More Rooms v0
+Phase 13 - Final Validation / Stabilization
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
@@ -15,6 +15,8 @@ Phase 11 - More Rooms v0
 - Phase 8 - Build Choice View v1: added grouped strategic Build choice cards for Sustain, Training, Automation, and locked future categories; BuildScene now renders the grouped choices while purchases/toggles still flow through application commands.
 - Phase 9 - Offline Room Progress v1: added conservative offline room-job catch-up for preparing/waiting states, room-work report summaries, elapsed cap reporting, and focused pure offline room tests.
 - Phase 10 - Party B + Safe Farm Mode: added locked default Party B with its own tower run, Floor 20 progress unlock normalization, Tower party selector, safe-farm floor-clear semantics, and multi-party/backend safety tests.
+- Phase 11 - More Rooms v0: added Kitchen, Forge, Tavern, Library, and Gate Room foundations, old-save normalization, pure Library/Gate room effects, Build choice exposure, and focused room-effect coverage.
+- Phase 12 - UI Polish / Redesign Pass: added a Heroes party selector, tightened compact Build card blocked-reason text, preserved passive Inn tick behavior, and added focused final UI/source coverage.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -64,8 +66,14 @@ Phase 11 - More Rooms v0
 - Completed.
 
 ### Phase 11 - More Rooms v0
-- Add Kitchen, Forge, Tavern, Library, and Gate Room room data/state foundations.
-- Add at least two simple backend effects through pure systems/view models without scene-owned formulas.
+- Completed.
+
+### Phase 12 - UI Polish / Redesign Pass
+- Completed.
+
+### Phase 13 - Final Validation / Stabilization
+- Run the broad validation set that is practical in this environment.
+- Fix regressions caused by this prompt and record any environment-blocked commands honestly.
 
 ## Changed files by phase
 ### Phase 0
@@ -171,6 +179,23 @@ Phase 11 - More Rooms v0
 - review/redesign-10/party-b-safe-farm.spec.ts
 - review/redesign-10/party-system-v1.spec.ts
 
+### Phase 11
+- src/data/roomData.ts
+- src/game/initialState.ts
+- src/systems/automationSystem.ts
+- src/systems/roomEffectSystem.ts
+- src/systems/towerRunSystem.ts
+- src/viewModels/buildViewModel.ts
+- src/scenes/BuildScene.ts
+- review/redesign-10/more-rooms-v0.spec.ts
+- review/redesign-10/backend-boundary-v1.spec.ts
+- review/redesign-10/build-choice-view-v1.spec.ts
+
+### Phase 12
+- src/scenes/HeroesScene.ts
+- src/scenes/BuildScene.ts
+- review/redesign-10/ui-polish-final.spec.ts
+
 ## Commands run
 ### Phase 0
 - `git status --short`: clean before ledger creation.
@@ -250,6 +275,19 @@ Phase 11 - More Rooms v0
 - `npm run test -- review/redesign-10/party-system-v1.spec.ts`: initially failed because its temporary Party B helper appended behind the new locked default Party B; updated the helper to unlock the default Party B, then passed, 5 tests.
 - `git diff --check`: passed.
 
+### Phase 11
+- `npm run build`: passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/more-rooms-v0.spec.ts`: passed, 6 tests.
+- `npm run test -- review/redesign-10/build-choice-view-v1.spec.ts`: passed, 5 tests.
+- `npm run test -- review/redesign-10/backend-boundary-v1.spec.ts`: passed, 8 tests.
+- `git diff --check`: passed with line-ending warnings only.
+
+### Phase 12
+- `npm run build`: passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/ui-polish-final.spec.ts`: passed, 6 tests.
+- `npm run test -- review/redesign-09/inn-drag-scroll.spec.ts`: passed, 5 tests.
+- `git diff --check`: passed with line-ending warnings only.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
@@ -262,6 +300,8 @@ Phase 11 - More Rooms v0
 - Phase 8: no browser/manual visual checks were run; validation was build plus focused view-model/source tests.
 - Phase 9: `npm run test -- review/redesign-09/offline-progress.spec.ts` could not be validated because the required dev server on port 5174 could not be started in this sandbox session.
 - Phase 10: no browser/manual visual checks were run; validation was build plus focused backend/view-model/source tests.
+- Phase 11: no browser/manual visual checks were run; validation was build plus focused pure/backend/view-model tests.
+- Phase 12: no screenshot or browser manual visual pass was run; validation was build plus focused view-model/source tests.
 
 ## Known risks
 - The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.
