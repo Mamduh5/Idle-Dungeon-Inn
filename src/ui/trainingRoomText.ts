@@ -6,8 +6,10 @@ import {
   calculateTrainingRoomXpPerSecond,
   getActiveRoomJobs,
   getDefaultTrainingHero,
+  getEligibleTrainingHeroes,
   getHeroActiveRoomJob,
   getHeroTrainingAttackBonus,
+  getTrainingHeroSelectionOptions,
   getTrainingRoomAssignmentBlockReason,
   TRAINING_XP_PER_ATTACK_LEVEL
 } from "../systems/roomJobSystem";
@@ -19,10 +21,11 @@ export const TRAINING_ROOM_BUILD_COPY = [
   "No global attack aura."
 ];
 
-export { getDefaultTrainingHero, getEligibleTrainingHeroes } from "../systems/roomJobSystem";
+export { getDefaultTrainingHero, getEligibleTrainingHeroes, getTrainingHeroSelectionOptions } from "../systems/roomJobSystem";
 
 export interface TrainingRoomInnText {
   speedLabel: string;
+  selectorLabel: string;
   assignmentLabel: string;
   bonusLabel: string;
   progressLabel: string;
@@ -33,6 +36,9 @@ export interface TrainingRoomInnText {
   activeTrainingJob: RoomJob | null;
   activeTrainingHero: HeroInstance | null;
   targetHero: HeroInstance | null;
+  selectedHero: HeroInstance | null;
+  canSelectPrevious: boolean;
+  canSelectNext: boolean;
 }
 
 export interface HeroTrainingRosterText {
@@ -48,14 +54,22 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
   const activeTrainingHero = activeTrainingJob
     ? state.heroes.find((hero) => hero.id === activeTrainingJob.heroId) ?? null
     : null;
-  const targetHero = activeTrainingHero ?? getDefaultTrainingHero(state, selectedHero?.id ?? null);
+  const selectionOptions = getTrainingHeroSelectionOptions(state);
+  const selectedFromState = state.selectedTrainingHeroId
+    ? state.heroes.find((hero) => hero.id === state.selectedTrainingHeroId) ?? null
+    : null;
+  const selectedTrainingHero = getDefaultTrainingHero(state, selectedFromState?.id ?? selectedHero?.id ?? null);
+  const targetHero = activeTrainingHero ?? selectedTrainingHero;
   const displayHero = activeTrainingHero ?? targetHero ?? selectedHero;
   const isUnlocked = Boolean(room?.isUnlocked && room.level > 0);
   const blockedReason = targetHero && !activeTrainingJob ? getTrainingRoomAssignmentBlockReason(state, targetHero.id) : null;
+  const selectorLabel = selectedTrainingHero ? `Target: ${selectedTrainingHero.name}` : "Target: none";
+  const canSelect = selectionOptions.length > 1 && !activeTrainingJob;
 
   if (!isUnlocked) {
     return {
       speedLabel: "Train 0 XP/s",
+      selectorLabel,
       assignmentLabel: "Training Room locked",
       bonusLabel: displayHero ? `${displayHero.name} training: +${getHeroTrainingAttackBonus(displayHero)} ATK` : "No hero selected",
       progressLabel: blockedReason ?? "Unlock at Floor 2",
@@ -65,13 +79,17 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
       isCancelAction: false,
       activeTrainingJob,
       activeTrainingHero,
-      targetHero
+      targetHero,
+      selectedHero: selectedTrainingHero,
+      canSelectPrevious: false,
+      canSelectNext: false
     };
   }
 
   if (!targetHero && !activeTrainingHero) {
     return {
       speedLabel: `Train ${formatNumber(calculateTrainingRoomXpPerSecond(state))} XP/s`,
+      selectorLabel,
       assignmentLabel: "Training Room idle",
       bonusLabel: "No hero selected",
       progressLabel: "No eligible hero",
@@ -81,13 +99,17 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
       isCancelAction: false,
       activeTrainingJob,
       activeTrainingHero,
-      targetHero
+      targetHero,
+      selectedHero: selectedTrainingHero,
+      canSelectPrevious: false,
+      canSelectNext: false
     };
   }
 
   if (activeTrainingJob && activeTrainingHero) {
     return {
       speedLabel: `Train ${formatNumber(calculateTrainingRoomXpPerSecond(state))} XP/s`,
+      selectorLabel: `Target: ${activeTrainingHero.name}`,
       assignmentLabel: `${activeTrainingHero.name} training`,
       bonusLabel: `${activeTrainingHero.name} training: +${getHeroTrainingAttackBonus(activeTrainingHero)} ATK`,
       progressLabel: `Next +ATK ${formatNumber(activeTrainingHero.training.attackTrainingXp)}/${TRAINING_XP_PER_ATTACK_LEVEL} XP`,
@@ -97,13 +119,17 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
       isCancelAction: true,
       activeTrainingJob,
       activeTrainingHero,
-      targetHero: activeTrainingHero
+      targetHero: activeTrainingHero,
+      selectedHero: activeTrainingHero,
+      canSelectPrevious: false,
+      canSelectNext: false
     };
   }
 
   if (!displayHero) {
     return {
       speedLabel: `Train ${formatNumber(calculateTrainingRoomXpPerSecond(state))} XP/s`,
+      selectorLabel,
       assignmentLabel: "Training Room idle",
       bonusLabel: "No hero selected",
       progressLabel: "Choose a hero first",
@@ -113,22 +139,29 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
       isCancelAction: false,
       activeTrainingJob,
       activeTrainingHero,
-      targetHero
+      targetHero,
+      selectedHero: selectedTrainingHero,
+      canSelectPrevious: false,
+      canSelectNext: false
     };
   }
 
   return {
     speedLabel: `Train ${formatNumber(calculateTrainingRoomXpPerSecond(state))} XP/s`,
+    selectorLabel,
     assignmentLabel: "Training Room idle",
     bonusLabel: `${displayHero.name} training: +${getHeroTrainingAttackBonus(displayHero)} ATK`,
-    progressLabel: blockedReason ?? "Short drill to next +ATK",
+    progressLabel: blockedReason ?? "Training until canceled",
     actionLabel: `Train ${displayHero.name}`,
     actionEnabled: blockedReason === null,
     blockedReason,
     isCancelAction: false,
     activeTrainingJob,
     activeTrainingHero,
-    targetHero
+    targetHero,
+    selectedHero: selectedTrainingHero,
+    canSelectPrevious: canSelect,
+    canSelectNext: canSelect
   };
 }
 
