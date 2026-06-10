@@ -81,7 +81,7 @@ test("Training job remains active and wraps XP after gaining one +ATK", () => {
 
 test("Combat does not wipe a two-hero party while one hero remains alive", () => {
   const state = createTwoHeroCombatState();
-  const tickedState = tickCombat(state, 1_000, 2_000);
+  const tickedState = tickCombat(state, 2_000, 3_000);
 
   expect(tickedState.heroes.find((hero) => hero.id === MIRA_ID)?.currentHp).toBe(0);
   expect(tickedState.heroes.find((hero) => hero.id === MIRA_ID)?.status).toBe("defeated");
@@ -180,8 +180,8 @@ function createTwoHeroCombatState(): GameState {
             status: "fighting" as const,
             enemies: [
               {
-                enemyId: "cave_slime",
-                currentHp: 45,
+                enemyId: "floor_10_gatekeeper",
+                currentHp: 128,
                 status: "active" as const
               }
             ],
