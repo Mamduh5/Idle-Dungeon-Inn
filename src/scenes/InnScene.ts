@@ -1,5 +1,7 @@
 import Phaser from "phaser";
 import {
+  handleInnSelectNextTrainingHero,
+  handleInnSelectPreviousTrainingHero,
   handleInnSendSelectedParty,
   handleInnToggleAutoDispatch,
   handleInnTrainingAction
@@ -13,6 +15,7 @@ import {
   type InnBedRoomViewModel,
   type InnGateViewModel,
   type InnHeroViewModel,
+  type InnRoomCardViewModel,
   type InnTrainingRoomViewModel
 } from "../viewModels/innViewModel";
 import { getInnCameraScrollForCreate } from "../ui/innCameraScroll";
@@ -28,7 +31,7 @@ import {
 import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
 
-const INN_WORLD_WIDTH = 1260;
+const INN_WORLD_WIDTH = 1480;
 const INN_INITIAL_SCROLL_X = 330;
 const WORLD_DRAG_TOP = 108;
 const WORLD_DRAG_BOTTOM = GAME_HEIGHT - 92;
@@ -64,6 +67,7 @@ export class InnScene extends Phaser.Scene {
       viewModel.bottleneckMessage
     );
     this.drawTrainingRoom(viewModel.trainingRoom);
+    this.drawExtraRoomCards(viewModel.extraRooms);
     this.drawTowerGate(viewModel.gate, viewModel.autoDispatch.label, viewModel.autoDispatch.isUnlocked);
     this.drawDragHints();
 
@@ -146,7 +150,8 @@ export class InnScene extends Phaser.Scene {
       { x: 120, width: 260, height: 112 },
       { x: 410, width: 340, height: 138 },
       { x: 770, width: 290, height: 104 },
-      { x: 1090, width: 350, height: 148 }
+      { x: 1090, width: 350, height: 148 },
+      { x: 1360, width: 240, height: 118 }
     ]) {
       this.add.ellipse(hill.x, 318, hill.width, hill.height, 0x171d29, 0.88);
     }
@@ -157,16 +162,17 @@ export class InnScene extends Phaser.Scene {
   }
 
   private drawInnBase(): void {
-    this.add.rectangle(56, 560, 970, 50, 0x3a241d, 1).setOrigin(0, 0).setStrokeStyle(2, 0xb57745);
-    this.add.rectangle(90, 602, 896, 26, 0x251611, 1).setOrigin(0, 0);
+    this.add.rectangle(56, 560, 1138, 50, 0x3a241d, 1).setOrigin(0, 0).setStrokeStyle(2, 0xb57745);
+    this.add.rectangle(90, 602, 1070, 26, 0x251611, 1).setOrigin(0, 0);
 
-    for (const x of [106, 310, 392, 650, 728, 944]) {
+    for (const x of [106, 310, 392, 650, 728, 944, 1218, 1390]) {
       this.add.rectangle(x, 194, 12, 384, UI_COLORS.darkTimber, 1).setStrokeStyle(1, 0xe7ac64);
     }
 
     drawDivider(this, 260, 628, 420, 628, UI_COLORS.gold, 0.55);
     drawDivider(this, 650, 628, 754, 628, UI_COLORS.gold, 0.55);
     drawDivider(this, 956, 628, 1088, 628, UI_COLORS.skyBlue, 0.55);
+    drawDivider(this, 1160, 628, 1396, 628, UI_COLORS.gold, 0.38);
 
     addLabel(this, 480, 714, "Drag to inspect inn", {
       color: UI_HEX.mutedCream,
@@ -180,11 +186,11 @@ export class InnScene extends Phaser.Scene {
       fontStyle: "700",
       width: 70
     });
-    addCenteredLabel(this, 705, 716, "Gate >", {
+    addCenteredLabel(this, 705, 716, "Rooms >", {
       color: UI_HEX.skyBlue,
       fontSize: 12,
       fontStyle: "700",
-      width: 80
+      width: 100
     });
   }
 
@@ -328,32 +334,40 @@ export class InnScene extends Phaser.Scene {
     drawDivider(this, 910, 432, 876, 388, room.isUnlocked ? UI_COLORS.gold : UI_COLORS.mutedCream, 0.7);
 
     if (room.isUnlocked) {
-      addCenteredLabel(this, 844, 512, room.speedLabel, {
+      addCenteredLabel(this, 844, 508, room.speedLabel, {
         color: UI_HEX.gold,
         fontSize: 11,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 528, room.assignmentLabel, {
+      addCenteredLabel(this, 844, 524, room.selectorLabel, {
+        color: UI_HEX.skyBlue,
+        fontSize: 10,
+        fontStyle: "700",
+        width: 142
+      });
+      this.drawTrainingSelectorButton(800, 552, "Prev", room.canSelectPrevious, handleInnSelectPreviousTrainingHero);
+      this.drawTrainingSelectorButton(888, 552, "Next", room.canSelectNext, handleInnSelectNextTrainingHero);
+      addCenteredLabel(this, 844, 578, room.assignmentLabel, {
         color: room.hasActiveTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
         fontSize: 10,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 544, room.bonusLabel, {
+      addCenteredLabel(this, 844, 594, room.bonusLabel, {
         color: UI_HEX.parchment,
         fontSize: 10,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 559, room.progressLabel, {
+      addCenteredLabel(this, 844, 609, room.progressLabel, {
         color: room.hasActiveTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
-        fontSize: 10,
+        fontSize: 9,
         width: 142
       });
       drawActionButton(this, {
         x: 844,
-        y: 592,
+        y: 642,
         width: 142,
         height: 32,
         label: room.actionLabel,
@@ -371,7 +385,7 @@ export class InnScene extends Phaser.Scene {
       });
 
       if (room.blockedReason) {
-        addCenteredLabel(this, 844, 622, room.blockedReason, {
+        addCenteredLabel(this, 844, 671, room.blockedReason, {
           color: UI_HEX.gold,
           fontSize: 9,
           fontStyle: "700",
@@ -391,6 +405,80 @@ export class InnScene extends Phaser.Scene {
     }
   }
 
+  private drawTrainingSelectorButton(
+    x: number,
+    y: number,
+    label: string,
+    enabled: boolean,
+    command: (state: ReturnType<typeof getGameState>) => ReturnType<typeof getGameState>
+  ): void {
+    drawPanel(this, x - 34, y - 13, 68, 26, enabled ? 0x2c4150 : 0x3a332e, enabled ? UI_COLORS.skyBlue : 0x8a7a69, 0.94, 6);
+    addCenteredLabel(this, x, y, label, {
+      color: enabled ? UI_HEX.skyBlue : UI_HEX.mutedCream,
+      fontSize: 10,
+      fontStyle: "700",
+      width: 60
+    });
+
+    const zone = this.add.zone(x, y, 68, 26).setOrigin(0.5);
+    if (enabled) {
+      zone.setInteractive({ useHandCursor: true });
+      zone.on("pointerup", () => {
+        if (this.didDragWorld) {
+          return;
+        }
+
+        updateGameState(command);
+        this.restartWithCurrentScroll();
+      });
+    }
+  }
+
+  private drawExtraRoomCards(rooms: InnRoomCardViewModel[]): void {
+    addCenteredLabel(this, 1236, 170, "Inn wings", {
+      color: UI_HEX.gold,
+      fontSize: 13,
+      fontStyle: "700",
+      width: 180
+    });
+
+    rooms.slice(0, 5).forEach((room, index) => {
+      const x = 1058 + (index % 2) * 188;
+      const y = 210 + Math.floor(index / 2) * 136;
+      this.drawExtraRoomCard(x, y, room);
+    });
+  }
+
+  private drawExtraRoomCard(x: number, y: number, room: InnRoomCardViewModel): void {
+    const fill = room.isUnlocked ? 0x4c3327 : 0x2f2a27;
+    const stroke = room.isUnlocked ? UI_COLORS.gold : 0x8a7a69;
+    drawPanel(this, x, y, 166, 106, fill, stroke, 0.96, 7);
+    addLabel(this, x + 12, y + 10, room.name, {
+      color: room.isUnlocked ? UI_HEX.cream : UI_HEX.mutedCream,
+      fontSize: 12,
+      fontStyle: "700",
+      width: 102
+    });
+    addLabel(this, x + 116, y + 10, room.levelLabel, {
+      color: room.isUnlocked ? UI_HEX.gold : UI_HEX.mutedCream,
+      fontSize: 11,
+      fontStyle: "700",
+      width: 38,
+      align: "right"
+    });
+    addLabel(this, x + 12, y + 36, room.statusLabel, {
+      color: room.isUnlocked ? UI_HEX.success : UI_HEX.gold,
+      fontSize: 10,
+      fontStyle: "700",
+      width: 138
+    });
+    addLabel(this, x + 12, y + 56, room.effectLabel, {
+      color: UI_HEX.mutedCream,
+      fontSize: 10,
+      width: 138
+    });
+  }
+
   private drawRoomRecommendationBadge(x: number, y: number, label: string): void {
     drawPanel(this, x, y, 198, 38, 0x101722, UI_COLORS.skyBlue, 0.96, 7);
     addCenteredLabel(this, x + 99, y + 19, label, {
@@ -401,35 +489,22 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawTowerGate(
-    gate: InnGateViewModel,
-    autoDispatchLabel: string,
-    canToggleAutoDispatch: boolean
-  ): void {
-    this.add.rectangle(1038, 212, 164, 352, 0x543526, 1).setOrigin(0, 0).setStrokeStyle(2, 0xe7ac64);
-    this.add.polygon(1120, 212, [0, -58, 104, 0, -104, 0], UI_COLORS.darkTimber, 1).setStrokeStyle(2, UI_COLORS.skyBlue);
-    addCenteredLabel(this, 1120, 242, gate.targetFloorLabel, {
+  private drawTowerGate(gate: InnGateViewModel, autoDispatchLabel: string, canToggleAutoDispatch: boolean): void {
+    this.add.rectangle(1038, 530, 352, 82, 0x543526, 1).setOrigin(0, 0).setStrokeStyle(2, 0xe7ac64);
+    addCenteredLabel(this, 1120, 552, gate.targetFloorLabel, {
       color: UI_HEX.skyBlue,
       fontSize: 13,
       fontStyle: "700",
       width: 130
     });
-
-    this.add.rectangle(1086, 326, 68, 136, 0x151922, 1).setStrokeStyle(3, UI_COLORS.skyBlue);
-    this.add.circle(1120, 326, 34, 0x151922, 1).setStrokeStyle(3, UI_COLORS.skyBlue);
-    this.add.circle(1138, 404, 4, UI_COLORS.gold, 1);
-    this.add.line(0, 466, 1120, 0, 1120, 112, UI_COLORS.skyBlue, 0.35).setOrigin(0, 0);
-    this.add.line(0, 608, 1098, 0, 1058, 70, UI_COLORS.skyBlue, 0.24).setOrigin(0, 0);
-    this.add.line(0, 608, 1142, 0, 1182, 70, UI_COLORS.skyBlue, 0.24).setOrigin(0, 0);
-    addCenteredLabel(this, 1120, 502, "tower gate", {
+    addCenteredLabel(this, 1120, 586, "tower gate", {
       color: UI_HEX.skyBlue,
       fontSize: 12,
       fontStyle: "700",
       width: 120
     });
-    this.drawAutoDispatchToggle(1120, 536, autoDispatchLabel, canToggleAutoDispatch);
-
-    this.drawGateAction(1120, 676, gate);
+    this.drawAutoDispatchToggle(1280, 552, autoDispatchLabel, canToggleAutoDispatch);
+    this.drawGateAction(1280, 596, gate);
   }
 
   private drawAutoDispatchToggle(x: number, y: number, label: string, enabled: boolean): void {
@@ -460,21 +535,21 @@ export class InnScene extends Phaser.Scene {
     const fill = gate.actionEnabled ? UI_COLORS.amber : 0x5d5249;
     const stroke = gate.actionEnabled ? UI_COLORS.gold : 0x8a7a69;
 
-    drawPanel(this, x - 82, y - 27, 164, 54, fill, stroke, 1, 7);
+    drawPanel(this, x - 82, y - 18, 164, 36, fill, stroke, 1, 7);
     addCenteredLabel(this, x, y, gate.actionLabel, {
       color: gate.actionEnabled ? UI_HEX.dark : UI_HEX.mutedCream,
-      fontSize: 14,
+      fontSize: 13,
       fontStyle: "700",
       width: 138
     });
-    addCenteredLabel(this, x, y - 44, gate.statusLabel, {
+    addCenteredLabel(this, x, y - 28, gate.statusLabel, {
       color: gate.actionEnabled ? UI_HEX.success : UI_HEX.mutedCream,
-      fontSize: 11,
+      fontSize: 10,
       fontStyle: "700",
       width: 132
     });
 
-    const zone = this.add.zone(x, y, 164, 54).setOrigin(0.5);
+    const zone = this.add.zone(x, y, 164, 36).setOrigin(0.5);
     if (gate.actionEnabled) {
       zone.setInteractive({ useHandCursor: true });
       zone.on("pointerup", () => {
