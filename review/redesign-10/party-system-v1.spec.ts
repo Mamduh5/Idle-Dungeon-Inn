@@ -67,37 +67,13 @@ test("party system view model and command files stay Phaser-free", () => {
 function withSecondParty(state: GameState): GameState {
   return {
     ...state,
-    parties: [
-      ...state.parties,
-      {
-        id: "party_b",
-        name: "Party B",
-        heroIds: [],
-        maxSize: 1,
-        mode: "push",
-        selectedTargetFloor: 1,
-        selectedMaterialId: null,
-        retreatHpPercent: 30,
-        isUnlocked: true
-      }
-    ],
-    towerRuns: [
-      ...state.towerRuns,
-      {
-        ...state.towerRuns[0],
-        partyId: "party_b",
-        status: "preparing" as const,
-        floor: 1,
-        nodeIndex: 0,
-        nodeProgress: 0,
-        enemies: [],
-        heroCombatCooldowns: {},
-        enemyCombatCooldowns: {},
-        lastCombatEventMessage: null,
-        combatStartedAt: null,
-        lootBag: [],
-        lastFailureReason: null
-      }
-    ]
+    parties: state.parties.map((party) =>
+      party.id === "party_b"
+        ? {
+            ...party,
+            isUnlocked: true
+          }
+        : party
+    )
   };
 }

@@ -4,6 +4,7 @@ import { appendRecentEvent } from "../state/recentEvents";
 import { FLOOR_CLEAR_HOLD_REASON } from "./towerNodeActionSystem";
 import { calculateFloorCoinReward } from "./rewardSystem";
 import { updateHeroReadinessAfterInnReturn } from "./roomJobSystem";
+import { applyPartyUnlocksForProgress } from "./partyUnlockSystem";
 import type { GameState } from "../types/gameState";
 import type { PartyState } from "../types/partyTypes";
 import type { RecentEvent } from "../types/recentEventTypes";
@@ -40,7 +41,8 @@ export function completeSelectedFloor(state: GameState, now = Date.now()): GameS
   }
 
   const currentFloor = run.floor;
-  const nextFloor = currentFloor + 1;
+  const isSafeFarm = party.mode === "safe_farm";
+  const nextFloor = isSafeFarm ? currentFloor : currentFloor + 1;
   const coinReward = calculateFloorCoinReward(state, currentFloor);
   const partyHeroIds = getHeroesForParty(state, party.id).map((hero) => hero.id);
   const readinessState = updateHeroReadinessAfterInnReturn(state, partyHeroIds, now);
@@ -49,7 +51,7 @@ export function completeSelectedFloor(state: GameState, now = Date.now()): GameS
     : [...state.firstClearFloorIds, currentFloor];
   const eventMessage = createFloorClearMessage(party.name, currentFloor, coinReward);
 
-  return {
+  return applyPartyUnlocksForProgress({
     ...readinessState,
     currencies: {
       ...readinessState.currencies,
@@ -57,16 +59,16 @@ export function completeSelectedFloor(state: GameState, now = Date.now()): GameS
     },
     highestFloorCleared: Math.max(state.highestFloorCleared, currentFloor),
     firstClearFloorIds,
-    unlockedFloor: Math.max(state.unlockedFloor, nextFloor),
-    parties: state.parties.map((candidate) =>
+    unlockedFloor: isSafeFarm ? state.unlockedFloor : Math.max(state.unlockedFloor, nextFloor),
+    parties: readinessState.parties.map((candidate) =>
       candidate.id === party.id
         ? {
             ...candidate,
-            selectedTargetFloor: nextFloor
+            selectedTargetFloor: isSafeFarm ? currentFloor : nextFloor
           }
         : candidate
     ),
-    towerRuns: state.towerRuns.map((candidate) =>
+    towerRuns: readinessState.towerRuns.map((candidate) =>
       candidate.partyId === party.id
         ? {
             ...candidate,
@@ -86,11 +88,11 @@ export function completeSelectedFloor(state: GameState, now = Date.now()): GameS
         : candidate
     ),
     recentEvents: appendRecentEvent(
-      state.recentEvents,
+      readinessState.recentEvents,
       createEvent(now, "floor_cleared", eventMessage, "success", party, run)
     ),
     lastActiveAt: now
-  };
+  });
 }
 
 function createFloorClearMessage(partyName: string, floor: number, coinReward: number): string {

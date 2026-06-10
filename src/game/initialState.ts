@@ -9,6 +9,7 @@ import type { TowerRunState } from "../types/towerTypes";
 const STARTER_HERO_ID = "hero_rookie_knight_1";
 const STARTER_ARCHER_ID = "hero_apprentice_archer_1";
 const STARTER_PARTY_ID = "party_lantern";
+const FARM_PARTY_ID = "party_b";
 
 export function createInitialGameState(): GameState {
   const now = Date.now();
@@ -65,9 +66,35 @@ export function createInitialGameState(): GameState {
     retreatHpPercent: 30,
     isUnlocked: true
   };
+  const farmParty: PartyState = {
+    id: FARM_PARTY_ID,
+    name: "Party B",
+    heroIds: [],
+    maxSize: 1,
+    mode: "safe_farm",
+    selectedTargetFloor: 1,
+    selectedMaterialId: null,
+    retreatHpPercent: 40,
+    isUnlocked: false
+  };
 
   const starterTowerRun: TowerRunState = {
     partyId: STARTER_PARTY_ID,
+    status: "preparing",
+    floor: 1,
+    nodeIndex: 0,
+    nodeProgress: 0,
+    enemies: [],
+    heroCombatCooldowns: {},
+    enemyCombatCooldowns: {},
+    lastCombatEventMessage: null,
+    combatStartedAt: null,
+    lootBag: [],
+    lastFailureReason: null,
+    startedAt: now
+  };
+  const farmTowerRun: TowerRunState = {
+    partyId: FARM_PARTY_ID,
     status: "preparing",
     floor: 1,
     nodeIndex: 0,
@@ -88,9 +115,9 @@ export function createInitialGameState(): GameState {
       coins: 0
     },
     heroes: [starterHero, secondHero],
-    parties: [starterParty],
+    parties: [starterParty, farmParty],
     selectedPartyId: STARTER_PARTY_ID,
-    towerRuns: [starterTowerRun],
+    towerRuns: [starterTowerRun, farmTowerRun],
     innRooms: [
       {
         roomId: roomDefinitions.bed_room.roomId,

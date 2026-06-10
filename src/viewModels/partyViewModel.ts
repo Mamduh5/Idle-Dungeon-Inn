@@ -6,6 +6,7 @@ import type { HeroId, PartyId, PartyMode } from "../types/ids";
 export interface PartyOptionViewModel {
   id: PartyId;
   name: string;
+  selectorLabel: string;
   isSelected: boolean;
   isUnlocked: boolean;
   mode: PartyMode;
@@ -57,6 +58,7 @@ export function getPartyViewModel(state: GameState): PartyViewModel {
     parties: state.parties.map((party) => ({
       id: party.id,
       name: party.name,
+      selectorLabel: `${formatPartyShortName(party.id, party.name)} ${formatPartyMode(party.mode)}`,
       isSelected: party.id === selectedParty?.id,
       isUnlocked: party.isUnlocked,
       mode: party.mode,
@@ -86,6 +88,18 @@ function formatPartyMode(mode: PartyMode): string {
     .split("_")
     .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
     .join(" ");
+}
+
+function formatPartyShortName(partyId: PartyId, fallbackName: string): string {
+  if (partyId === "party_lantern") {
+    return "Party A";
+  }
+
+  if (partyId === "party_b") {
+    return "Party B";
+  }
+
+  return fallbackName;
 }
 
 function formatStatusLabel(status: string): string {

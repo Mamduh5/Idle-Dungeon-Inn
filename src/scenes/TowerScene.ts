@@ -2,7 +2,8 @@ import Phaser from "phaser";
 import {
   completeSelectedFloorFromTower,
   continueSelectedRunFromTower,
-  recoverSelectedPartyFromTower
+  recoverSelectedPartyFromTower,
+  selectPartyFromTower
 } from "../application/towerCommands";
 import { enemyDefinitions } from "../data/enemyData";
 import { prototypeTowerFloors } from "../data/towerData";
@@ -32,6 +33,7 @@ import { createSceneHud } from "../ui/sceneHud";
 import { getHeroHpDisplayText } from "../ui/heroDisplayText";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
 import { getTowerViewModel, type TowerViewModel } from "../viewModels/towerViewModel";
+import type { PartyOptionViewModel } from "../viewModels/partyViewModel";
 
 const TOWER_WORLD_WIDTH = 960;
 const TOWER_MAX_SCROLL_X = TOWER_WORLD_WIDTH - GAME_WIDTH;
@@ -133,7 +135,34 @@ export class TowerScene extends Phaser.Scene {
       });
     }
     drawStatusBadge(this, 246, 123, viewModel.statusLabel, statusColor(run));
+    this.drawPartySelector(viewModel.party.parties);
     this.drawCompactNodeTrack(run);
+  }
+
+  private drawPartySelector(parties: PartyOptionViewModel[]): void {
+    const unlockedParties = parties.filter((party) => party.isUnlocked);
+
+    unlockedParties.slice(0, 2).forEach((party, index) => {
+      const x = 34 + index * 118;
+      const y = 156;
+      const fill = party.isSelected ? 0x1f4662 : 0x2f3a4c;
+      const stroke = party.isSelected ? UI_COLORS.skyBlue : UI_COLORS.towerStone;
+
+      drawPanel(this, x, y, 108, 24, fill, stroke, 0.96, 7);
+      addCenteredLabel(this, x + 54, y + 12, party.selectorLabel, {
+        color: party.isSelected ? UI_HEX.skyBlue : UI_HEX.mutedCream,
+        fontSize: 9,
+        fontStyle: "700",
+        width: 96
+      });
+
+      if (!party.isSelected) {
+        this.add.zone(x + 54, y + 12, 108, 24).setInteractive({ useHandCursor: true }).on("pointerup", () => {
+          updateGameState((currentState) => selectPartyFromTower(currentState, party.id));
+          this.scene.restart();
+        });
+      }
+    });
   }
 
   private drawCompactNodeTrack(run: TowerRunState | null): void {
@@ -141,7 +170,7 @@ export class TowerScene extends Phaser.Scene {
     const nodes = floor?.nodes ?? [];
     const startX = 38;
     const endX = 352;
-    const y = 178;
+    const y = 188;
 
     drawDivider(this, startX, y, endX, y, UI_COLORS.towerStone, 0.75);
     nodes.forEach((node, index) => {

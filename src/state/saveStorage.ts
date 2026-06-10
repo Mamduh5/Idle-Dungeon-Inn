@@ -9,6 +9,7 @@ import type { RecentEvent, RecentEventSeverity, RecentEventType } from "../types
 import type { InnRoomState, RoomJob, RoomJobStatus, RoomJobType } from "../types/roomTypes";
 import type { TowerRunEnemyState, TowerRunState, TowerRunStatus } from "../types/towerTypes";
 import { heroDefinitions } from "../data/heroData";
+import { normalizePartyUnlocksForProgress } from "../systems/partyUnlockSystem";
 import { RECENT_EVENT_LIMIT, appendRecentEvent } from "./recentEvents";
 
 export const SAVE_STORAGE_KEY = "idle-dungeon-inn:save:v1";
@@ -87,7 +88,13 @@ export function normalizeLoadedGameState(raw: unknown): GameState | null {
 
   const defaults = createInitialGameState();
   const heroes = normalizeHeroes(defaults.heroes, raw.heroes);
-  const parties = normalizeParties(defaults.parties, raw.parties, new Set(heroes.map((hero) => hero.id)));
+  const highestFloorCleared = normalizeNumber(raw.highestFloorCleared, defaults.highestFloorCleared, 0);
+  const unlockedFloor = normalizeNumber(raw.unlockedFloor, defaults.unlockedFloor, 1);
+  const parties = normalizePartyUnlocksForProgress(
+    normalizeParties(defaults.parties, raw.parties, new Set(heroes.map((hero) => hero.id))),
+    highestFloorCleared,
+    unlockedFloor
+  );
   const selectedPartyId = normalizeSelectedPartyId(raw.selectedPartyId, parties, defaults.selectedPartyId);
 
   return {
@@ -104,8 +111,8 @@ export function normalizeLoadedGameState(raw: unknown): GameState | null {
     towerRuns: normalizeTowerRuns(defaults.towerRuns, raw.towerRuns, parties),
     innRooms: normalizeInnRooms(defaults.innRooms, raw.innRooms),
     automation: normalizeAutomationState(defaults.automation, raw.automation),
-    unlockedFloor: normalizeNumber(raw.unlockedFloor, defaults.unlockedFloor, 1),
-    highestFloorCleared: normalizeNumber(raw.highestFloorCleared, defaults.highestFloorCleared, 0),
+    unlockedFloor,
+    highestFloorCleared,
     firstClearFloorIds: raw.firstClearFloorIds.filter(
       (floor): floor is number => typeof floor === "number" && Number.isFinite(floor) && floor > 0
     ),
