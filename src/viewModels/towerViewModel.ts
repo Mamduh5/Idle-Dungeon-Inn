@@ -12,6 +12,7 @@ import { getHeroesForParty, getSelectedParty, getSelectedTowerRun } from "../sta
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
 import type { TowerNodeDefinition, TowerRunState } from "../types/towerTypes";
+import { getBottleneckViewModel, type BottleneckViewModel } from "./bottleneckViewModel";
 
 export type TowerActionId = "complete_floor" | "continue_run" | "recover_party";
 
@@ -34,6 +35,7 @@ export interface TowerViewModel {
   action: TowerActionViewModel | null;
   bottleneckHint: string | null;
   bottleneckSuggestions: string[];
+  bottleneckSummary: BottleneckViewModel;
 }
 
 export function getTowerViewModel(state: GameState): TowerViewModel {
@@ -55,7 +57,8 @@ export function getTowerViewModel(state: GameState): TowerViewModel {
     shouldShowWorldEventLine: shouldDrawWorldEventLine(run),
     action: getTowerActionViewModel(state, run),
     bottleneckHint,
-    bottleneckSuggestions: FLOOR_10_BOSS_SUGGESTIONS.slice(0, 2)
+    bottleneckSuggestions: FLOOR_10_BOSS_SUGGESTIONS.slice(0, 2),
+    bottleneckSummary: getBottleneckViewModel(state)
   };
 }
 

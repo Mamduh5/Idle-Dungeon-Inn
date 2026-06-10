@@ -15,6 +15,7 @@ import { getInnRoom } from "../state/gameSelectors";
 import type { GameState } from "../types/gameState";
 import type { RoomId } from "../types/ids";
 import { TRAINING_ROOM_BUILD_COPY } from "../ui/trainingRoomText";
+import { getBottleneckViewModel, type BottleneckViewModel } from "./bottleneckViewModel";
 
 const PRIMARY_ROOM_IDS: RoomId[] = ["bed_room", "training_room"];
 
@@ -55,6 +56,7 @@ export interface BuildFuturePlanViewModel {
 export interface BuildViewModel {
   hasBottleneckCallout: boolean;
   bottleneckCallout: Floor10BossCallout | null;
+  bottleneckSummary: BottleneckViewModel;
   roomPlans: BuildRoomPlanViewModel[];
   trainingRoomCopy: string[];
   automation: BuildAutomationViewModel;
@@ -67,6 +69,7 @@ export function getBuildViewModel(state: GameState): BuildViewModel {
   return {
     hasBottleneckCallout: Boolean(bottleneckCallout),
     bottleneckCallout,
+    bottleneckSummary: getBottleneckViewModel(state),
     roomPlans: PRIMARY_ROOM_IDS.map((roomId) => createRoomPlanViewModel(state, roomId)),
     trainingRoomCopy: TRAINING_ROOM_BUILD_COPY,
     automation: createAutomationViewModel(state),

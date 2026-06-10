@@ -1,11 +1,12 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 2 - Backend Boundary v2
+Phase 3 - Bottleneck View v0
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
 - Phase 1 - Backend Boundary v1: added canonical view models for Inn/Heroes/Build/Tower, added Build/Tower command wrappers, removed Inn command dependence on view-model output, refactored scenes to consume view models/commands, and added focused boundary tests.
+- Phase 2 - Backend Boundary v2: added a typed game command dispatcher, explicit party command helpers, clearer central tick order, recent-event capping in the tick path, stronger save normalization, and focused backend architecture tests.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -28,9 +29,11 @@ Phase 2 - Backend Boundary v2
 - Completed.
 
 ### Phase 2 - Backend Boundary v2
-- Add a simple typed command pipeline.
-- Strengthen the central tick/backend path and save normalization.
-- Add focused backend-boundary v2 tests.
+- Completed.
+
+### Phase 3 - Bottleneck View v0
+- Add a read-only bottleneck analysis model and view model.
+- Add focused tests for low HP, low damage/training, Floor 10 checkpoint wording, and no-current-blocker state.
 
 ## Changed files by phase
 ### Phase 0
@@ -59,6 +62,14 @@ Phase 2 - Backend Boundary v2
 - review/redesign-10/backend-boundary-v1.spec.ts
 
 ### Phase 2
+- src/application/gameCommands.ts
+- src/application/partyCommands.ts
+- src/state/recentEvents.ts
+- src/state/saveStorage.ts
+- src/systems/gameTickSystem.ts
+- review/redesign-10/backend-boundary-v2.spec.ts
+
+### Phase 3
 - Pending.
 
 ## Commands run
@@ -78,14 +89,26 @@ Phase 2 - Backend Boundary v2
 - `git diff --check`: passed with line-ending warnings only.
 - `git status --short`: tracked Phase 1 edits and new files listed above.
 
+### Phase 2
+- `npm run build`: passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/backend-boundary-v1.spec.ts`: passed, 8 tests.
+- `npm run test -- review/redesign-10/backend-boundary-v2.spec.ts`: passed, 5 tests.
+- `npm run test -- review/redesign-09/room-jobs.spec.ts`: passed, 6 tests.
+- `npm run test -- review/redesign-09/training-room.spec.ts`: passed, 22 tests.
+- `npm run test -- review/redesign-09/inn-drag-scroll.spec.ts`: passed, 5 tests.
+- `git diff --check`: passed with line-ending warnings only.
+- `git status --short --untracked-files=all`: reported `src/state/saveStorage.ts` and `review/redesign-10/backend-boundary-v2.spec.ts` as dirty; other Phase 1 files exist on disk but were not reported dirty by Git in this sandbox state.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
+- Phase 2: no broad long suites were run; not part of Phase 2 fast validation.
 
 ## Known risks
 - The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.
 - Existing ignored build/test output directories may change during validation.
 - `git diff --name-only` hit a transient Windows sandbox `spawn setup refresh` error after Phase 1; `git status --short` succeeded and was used instead.
+- Some Git inspection commands intermittently hit Windows sandbox `spawn setup refresh`; validation commands themselves continued to run successfully.
 
 ## Resume instructions
 The next Codex context should:
