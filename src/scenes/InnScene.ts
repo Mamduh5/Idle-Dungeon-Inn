@@ -1,11 +1,6 @@
 import Phaser from "phaser";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
-import {
-  getFirstPartyHero,
-  getInnRoom,
-  getSelectedParty,
-  getSelectedTowerRun
-} from "../state/gameSelectors";
+import { getFirstPartyHero, getInnRoom, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
 import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
 import { getFloor10BossCallout, getFloor10RoomRecommendation } from "../systems/bottleneckCalloutSystem";
@@ -25,6 +20,7 @@ import type { HeroStatus } from "../types/ids";
 import type { RecentEvent } from "../types/recentEventTypes";
 import type { InnRoomState } from "../types/roomTypes";
 import type { TowerRunStatus } from "../types/towerTypes";
+import { getInnCameraScrollForCreate } from "../ui/innCameraScroll";
 import {
   addCenteredLabel,
   addLabel,
@@ -35,9 +31,8 @@ import {
   drawTinyHero,
   formatStatusLabel
 } from "../ui/components";
-import { createSceneHud } from "../ui/sceneHud";
 import { getHeroHpDisplayText } from "../ui/heroDisplayText";
-import { getInnReadinessRenderKey } from "../ui/innRenderKey";
+import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
 import { getTrainingRoomInnText } from "../ui/trainingRoomText";
 
@@ -47,19 +42,21 @@ const WORLD_DRAG_TOP = 108;
 const WORLD_DRAG_BOTTOM = GAME_HEIGHT - 92;
 const MAX_CAMERA_SCROLL_X = INN_WORLD_WIDTH - GAME_WIDTH;
 
+type InnSceneCreateData = {
+  scrollX?: number;
+};
+
 export class InnScene extends Phaser.Scene {
   private isDraggingWorld = false;
   private didDragWorld = false;
   private dragStartX = 0;
   private lastPointerX = 0;
-  private autoDispatchRenderKey = "";
-  private readinessRenderKey = "";
 
   public constructor() {
     super("InnScene");
   }
 
-  public create(): void {
+  public create(data: InnSceneCreateData = {}): void {
     const state = getGameState();
     const party = getSelectedParty(state);
     const run = getSelectedTowerRun(state);
@@ -74,10 +71,8 @@ export class InnScene extends Phaser.Scene {
     const targetFloor = party?.selectedTargetFloor ?? run?.floor ?? state.unlockedFloor;
     const buttonLabel = isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready";
     const autoDispatchControl = getAutoDispatchControlState(state);
-    this.autoDispatchRenderKey = autoDispatchControl.label;
-    this.readinessRenderKey = getInnReadinessRenderKey(state);
 
-    this.configureCamera();
+    this.configureCamera(data.scrollX);
     this.drawWorldBackdrop();
     this.drawInnBase();
     this.drawBedRoom(
@@ -116,20 +111,17 @@ export class InnScene extends Phaser.Scene {
 
   public update(_time: number, delta: number): void {
     const now = Date.now();
-    const state = updateGameState((currentState) => tickGameState(currentState, delta, now));
-
-    if (
-      getAutoDispatchControlState(state).label !== this.autoDispatchRenderKey ||
-      getInnReadinessRenderKey(state) !== this.readinessRenderKey
-    ) {
-      this.scene.restart();
-    }
+    updateGameState((currentState) => tickGameState(currentState, delta, now));
   }
 
-  private configureCamera(): void {
+  private configureCamera(savedScrollX?: number): void {
     const camera = this.cameras.main;
     camera.setBounds(0, 0, INN_WORLD_WIDTH, GAME_HEIGHT);
-    camera.setScroll(INN_INITIAL_SCROLL_X, 0);
+    camera.setScroll(getInnCameraScrollForCreate(savedScrollX, INN_INITIAL_SCROLL_X, MAX_CAMERA_SCROLL_X), 0);
+  }
+
+  private restartWithCurrentScroll(): void {
+    this.scene.restart({ scrollX: this.cameras.main.scrollX } satisfies InnSceneCreateData);
   }
 
   private enableCameraDrag(): void {
@@ -437,7 +429,7 @@ export class InnScene extends Phaser.Scene {
               ? cancelHeroTrainingDrill(currentState, latestText.activeTrainingJob?.heroId ?? latestTargetHero.id)
               : startHeroTrainingDrill(currentState, latestText.targetHero?.id ?? latestTargetHero.id);
           });
-          this.scene.restart();
+          this.restartWithCurrentScroll();
         }
       });
 
@@ -524,7 +516,7 @@ export class InnScene extends Phaser.Scene {
         }
 
         updateGameState(toggleAutoDispatch);
-        this.scene.restart();
+        this.restartWithCurrentScroll();
       });
     }
   }
