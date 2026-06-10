@@ -1,7 +1,7 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 7 - Floor 1-20 + Floor 20 Boss
+Phase 8 - Build Choice View v1
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
@@ -11,6 +11,7 @@ Phase 7 - Floor 1-20 + Floor 20 Boss
 - Phase 4 - Heroes View v1: expanded Heroes view data for roster-wide hero status, room jobs, party labels, selected-party assignment actions, and simple assignment command wiring in the scene.
 - Phase 5 - Party System v1: added a shared party view model, surfaced party mode/target state, validated party select/mode commands, and fixed duplicate/sparse party slot assignment.
 - Phase 6 - Second Hero + Party Size 2: added Lina the Apprentice Archer, made the starter party size 2, normalized old v1 saves additively, drew compact two-hero parties in Inn/Tower, kept combat/dispatch/recovery all-hero aware, and added focused Phase 6 coverage.
+- Phase 7 - Floor 1-20 + Floor 20 Boss: added Bone Hall floors 11-20, Bone Guard/Archer/Shaman/Captain enemies, Floor 20 checkpoint messaging, bounded rewards, and Floor 20 bottleneck coverage.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -48,8 +49,11 @@ Phase 7 - Floor 1-20 + Floor 20 Boss
 - Completed.
 
 ### Phase 7 - Floor 1-20 + Floor 20 Boss
-- Add Floor 11-20 data, Bone Hall enemies, and a Floor 20 Bone Captain boss checkpoint.
-- Integrate Floor 20 bottleneck messaging without breaking Floor 10 behavior.
+- Completed.
+
+### Phase 8 - Build Choice View v1
+- Refine Build view model cards into strategic categories and recommendation badges.
+- Keep purchase behavior behind Build commands and preserve room cost/currency semantics.
 
 ## Changed files by phase
 ### Phase 0
@@ -122,6 +126,19 @@ Phase 7 - Floor 1-20 + Floor 20 Boss
 - review/redesign-09/training-room.spec.ts
 - review/redesign-09/room-jobs.spec.ts
 
+### Phase 7
+- src/data/enemyData.ts
+- src/data/lootData.ts
+- src/data/towerData.ts
+- src/scenes/TowerScene.ts
+- src/systems/bottleneckAnalysisSystem.ts
+- src/systems/bottleneckCalloutSystem.ts
+- src/systems/bottleneckHintSystem.ts
+- src/systems/combatSystem.ts
+- src/systems/towerRunSystem.ts
+- src/viewModels/towerViewModel.ts
+- review/redesign-10/floor-11-20-boss.spec.ts
+
 ## Commands run
 ### Phase 0
 - `git status --short`: clean before ledger creation.
@@ -177,6 +194,12 @@ Phase 7 - Floor 1-20 + Floor 20 Boss
 - `npm run test -- review/redesign-09/inn-drag-scroll.spec.ts`: passed, 5 tests.
 - `git diff --check`: passed with line-ending warnings only.
 
+### Phase 7
+- `npm run build`: passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/floor-11-20-boss.spec.ts`: passed, 7 tests.
+- `npm run test -- review/redesign-09/balance-pass.spec.ts`: passed, 3 tests.
+- `git diff --check`: passed.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
@@ -185,6 +208,7 @@ Phase 7 - Floor 1-20 + Floor 20 Boss
 - Phase 4: no browser/manual visual checks were run; validation was build plus focused view-model/source tests.
 - Phase 5: no browser/manual visual checks were run; validation was build plus focused party view-model/command tests.
 - Phase 6: no browser/manual visual checks were run; validation was build plus focused backend/view-model/source tests.
+- Phase 7: no browser/manual visual checks were run; validation was build plus focused data/system/view-model tests.
 
 ## Known risks
 - The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.

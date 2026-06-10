@@ -15,6 +15,8 @@ import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
 import {
   getBuildViewModel,
+  type BuildChoiceCardViewModel,
+  type BuildChoiceCategoryViewModel,
   type BuildAutomationViewModel,
   type BuildFuturePlanViewModel,
   type BuildRoomPlanViewModel,
@@ -30,24 +32,12 @@ export class BuildScene extends Phaser.Scene {
 
   public create(): void {
     const viewModel = getBuildViewModel(getGameState());
-    const [bedRoomPlan, trainingRoomPlan] = viewModel.roomPlans;
-    const roomPlanY = viewModel.hasBottleneckCallout ? 284 : 218;
-    const trainingCopyY = viewModel.hasBottleneckCallout ? 502 : 436;
-    const automationY = viewModel.hasBottleneckCallout ? 548 : 490;
-    const futureY = viewModel.hasBottleneckCallout ? 668 : 614;
+    const choicesY = viewModel.hasBottleneckCallout ? 284 : 218;
 
     this.drawBackdrop();
     this.drawPlanTable();
     this.drawBottleneckCallout(viewModel.bottleneckCallout);
-    if (bedRoomPlan) {
-      this.drawRoomPlan(48, roomPlanY, bedRoomPlan);
-    }
-    if (trainingRoomPlan) {
-      this.drawRoomPlan(206, roomPlanY, trainingRoomPlan);
-    }
-    this.drawTrainingRoomCopy(trainingCopyY, viewModel.trainingRoomCopy);
-    this.drawAutomationPanel(viewModel.automation, automationY);
-    this.drawFuturePlans(futureY, viewModel.futurePlans);
+    this.drawChoiceCategories(viewModel.choiceCategories, choicesY);
     this.drawDevControls();
 
     createSceneHud(this, { title: "Build", activeLabel: "Build" });
@@ -184,6 +174,81 @@ export class BuildScene extends Phaser.Scene {
     }
   }
 
+  private drawChoiceCategories(categories: BuildChoiceCategoryViewModel[], startY: number): void {
+    const cards = categories.flatMap((category) => category.cards);
+
+    cards.slice(0, 6).forEach((card, index) => {
+      const col = index % 2;
+      const row = Math.floor(index / 2);
+      this.drawChoiceCard(48 + col * 158, startY + row * 128, card);
+    });
+  }
+
+  private drawChoiceCard(x: number, y: number, card: BuildChoiceCardViewModel): void {
+    const isRecommended = card.recommendationBadge !== null;
+    const fill = isRecommended ? 0x6b4724 : card.isUnlocked ? 0x2f241d : 0x3b312c;
+    const stroke = isRecommended ? UI_COLORS.skyBlue : card.isUnlocked ? UI_COLORS.gold : 0x8a7a69;
+    const canRunCommand = card.command !== null && card.blockedReason === null;
+
+    drawPanel(this, x, y, 136, 116, fill, stroke, 0.98, 7);
+    addLabel(this, x + 10, y + 9, card.category, {
+      color: isRecommended ? UI_HEX.skyBlue : UI_HEX.gold,
+      fontSize: 9,
+      fontStyle: "700",
+      width: 116
+    });
+    addLabel(this, x + 10, y + 25, card.title, {
+      color: card.isUnlocked ? UI_HEX.cream : UI_HEX.mutedCream,
+      fontSize: 13,
+      fontStyle: "700",
+      width: 116
+    });
+    addLabel(this, x + 10, y + 45, card.description, {
+      color: UI_HEX.mutedCream,
+      fontSize: 9,
+      width: 116
+    });
+    addLabel(this, x + 10, y + 72, card.gameplayEffect, {
+      color: card.isUnlocked ? UI_HEX.parchment : UI_HEX.mutedCream,
+      fontSize: 8,
+      width: 116
+    });
+
+    if (card.command) {
+      addLabel(this, x + 10, y + 92, card.recommendationBadge ?? card.costLabel, {
+        color: card.recommendationBadge ? UI_HEX.skyBlue : UI_HEX.mutedCream,
+        fontSize: 8,
+        fontStyle: "700",
+        width: 48
+      });
+      drawActionButton(this, {
+        x: x + 96,
+        y: y + 96,
+        width: 68,
+        height: 28,
+        label: getChoiceActionLabel(card),
+        enabled: canRunCommand,
+        fill: isRecommended ? UI_COLORS.skyBlue : UI_COLORS.amber,
+        stroke: UI_COLORS.gold,
+        onClick: () => {
+          if (card.command === "purchase_room_upgrade" && card.targetRoomId) {
+            const targetRoomId = card.targetRoomId;
+            updateGameState((currentState) => purchaseRoomUpgradeFromBuild(currentState, targetRoomId));
+            this.scene.restart();
+            return;
+          }
+
+          if (card.command === "toggle_auto_dispatch") {
+            updateGameState(toggleAutoDispatchFromBuild);
+            this.scene.restart();
+          }
+        }
+      });
+    } else {
+      drawStatusBadge(this, x + 10, y + 88, card.recommendationBadge ?? card.costLabel, card.blockedReason ? 0x4a4038 : 0x275241);
+    }
+  }
+
   private drawAutomationPanel(control: BuildAutomationViewModel, panelY: number): void {
     drawPanel(this, 48, panelY, 294, 108, 0x2f241d, control.isUnlocked ? UI_COLORS.gold : 0x8a7a69, 0.98, 7);
     addLabel(this, 66, panelY + 16, control.name, {
@@ -308,4 +373,16 @@ export class BuildScene extends Phaser.Scene {
       }
     });
   }
+}
+
+function getChoiceActionLabel(card: BuildChoiceCardViewModel): string {
+  if (card.command === "toggle_auto_dispatch") {
+    return "Toggle";
+  }
+
+  if (card.blockedReason) {
+    return "Wait";
+  }
+
+  return card.isUnlocked ? "Upgrade" : "Unlock";
 }

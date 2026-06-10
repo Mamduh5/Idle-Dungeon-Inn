@@ -53,10 +53,34 @@ export interface BuildFuturePlanViewModel {
   status: string;
 }
 
+export type BuildChoiceCategory = "Sustain" | "Training" | "Tank" | "Fast Clear" | "Loot" | "Automation";
+
+export interface BuildChoiceCardViewModel {
+  id: string;
+  category: BuildChoiceCategory;
+  title: string;
+  description: string;
+  gameplayEffect: string;
+  cost: number | null;
+  costLabel: string;
+  canAfford: boolean;
+  isUnlocked: boolean;
+  blockedReason: string | null;
+  recommendationBadge: string | null;
+  targetRoomId: RoomId | null;
+  command: "purchase_room_upgrade" | "toggle_auto_dispatch" | null;
+}
+
+export interface BuildChoiceCategoryViewModel {
+  category: BuildChoiceCategory;
+  cards: BuildChoiceCardViewModel[];
+}
+
 export interface BuildViewModel {
   hasBottleneckCallout: boolean;
   bottleneckCallout: Floor10BossCallout | null;
   bottleneckSummary: BottleneckViewModel;
+  choiceCategories: BuildChoiceCategoryViewModel[];
   roomPlans: BuildRoomPlanViewModel[];
   trainingRoomCopy: string[];
   automation: BuildAutomationViewModel;
@@ -65,20 +89,113 @@ export interface BuildViewModel {
 
 export function getBuildViewModel(state: GameState): BuildViewModel {
   const bottleneckCallout = getFloor10BossCallout(state);
+  const roomPlans = PRIMARY_ROOM_IDS.map((roomId) => createRoomPlanViewModel(state, roomId));
+  const automation = createAutomationViewModel(state);
+  const choiceCards = [
+    ...roomPlans.map((roomPlan) => createRoomChoiceCard(state, roomPlan)),
+    createAutomationChoiceCard(automation),
+    ...createFutureChoiceCards()
+  ];
 
   return {
     hasBottleneckCallout: Boolean(bottleneckCallout),
     bottleneckCallout,
     bottleneckSummary: getBottleneckViewModel(state),
-    roomPlans: PRIMARY_ROOM_IDS.map((roomId) => createRoomPlanViewModel(state, roomId)),
+    choiceCategories: groupChoiceCards(choiceCards),
+    roomPlans,
     trainingRoomCopy: TRAINING_ROOM_BUILD_COPY,
-    automation: createAutomationViewModel(state),
+    automation,
     futurePlans: [
       { label: "Kitchen", status: "future" },
       { label: "Workshop", status: "future" },
       { label: "Guest Beds", status: "future" }
     ]
   };
+}
+
+function createRoomChoiceCard(state: GameState, roomPlan: BuildRoomPlanViewModel): BuildChoiceCardViewModel {
+  const upgrade = getRoomUpgradePreview(state, roomPlan.roomId);
+  const isBedRoom = roomPlan.roomId === "bed_room";
+
+  return {
+    id: `room_${roomPlan.roomId}`,
+    category: isBedRoom ? "Sustain" : "Training",
+    title: roomPlan.title,
+    description: isBedRoom
+      ? "Recover wounded heroes for safer checkpoint retries."
+      : "Train selected heroes for personal attack gains.",
+    gameplayEffect: isBedRoom
+      ? `${roomPlan.effectLabel}. Improves retry pacing after wipes.`
+      : `${roomPlan.effectLabel}. Personal +ATK is kept per hero; no global aura.`,
+    cost: upgrade?.cost ?? null,
+    costLabel: upgrade ? `${upgrade.cost} coins` : "No upgrade",
+    canAfford: upgrade?.canAfford ?? false,
+    isUnlocked: roomPlan.isAvailable,
+    blockedReason: upgrade?.reason ?? null,
+    recommendationBadge: roomPlan.recommendationBadge,
+    targetRoomId: roomPlan.roomId,
+    command: "purchase_room_upgrade"
+  };
+}
+
+function createAutomationChoiceCard(automation: BuildAutomationViewModel): BuildChoiceCardViewModel {
+  return {
+    id: "automation_auto_dispatch",
+    category: "Automation",
+    title: automation.name,
+    description: "Send ready parties back to the tower automatically.",
+    gameplayEffect: automation.description,
+    cost: null,
+    costLabel: automation.isUnlocked ? automation.statusLabel : automation.unlockLabel,
+    canAfford: automation.isUnlocked,
+    isUnlocked: automation.isUnlocked,
+    blockedReason: automation.isUnlocked ? null : automation.unlockLabel,
+    recommendationBadge: null,
+    targetRoomId: null,
+    command: automation.isUnlocked ? "toggle_auto_dispatch" : null
+  };
+}
+
+function createFutureChoiceCards(): BuildChoiceCardViewModel[] {
+  return [
+    createLockedChoiceCard("future_tavern", "Tank", "Tavern", "Party capacity and roster management foundation."),
+    createLockedChoiceCard("future_gate_room", "Fast Clear", "Gate Room", "Shorter travel and retry pacing."),
+    createLockedChoiceCard("future_kitchen", "Loot", "Kitchen", "Preparation buffs and future loot support.")
+  ];
+}
+
+function createLockedChoiceCard(
+  id: string,
+  category: BuildChoiceCategory,
+  title: string,
+  description: string
+): BuildChoiceCardViewModel {
+  return {
+    id,
+    category,
+    title,
+    description,
+    gameplayEffect: "Coming in a later room phase.",
+    cost: null,
+    costLabel: "Locked",
+    canAfford: false,
+    isUnlocked: false,
+    blockedReason: "Coming soon",
+    recommendationBadge: null,
+    targetRoomId: null,
+    command: null
+  };
+}
+
+function groupChoiceCards(cards: BuildChoiceCardViewModel[]): BuildChoiceCategoryViewModel[] {
+  const categoryOrder: BuildChoiceCategory[] = ["Sustain", "Training", "Automation", "Tank", "Fast Clear", "Loot"];
+
+  return categoryOrder
+    .map((category) => ({
+      category,
+      cards: cards.filter((card) => card.category === category)
+    }))
+    .filter((group) => group.cards.length > 0);
 }
 
 function createRoomPlanViewModel(state: GameState, roomId: RoomId): BuildRoomPlanViewModel {
