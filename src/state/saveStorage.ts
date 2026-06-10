@@ -138,7 +138,7 @@ function normalizeHeroes(defaults: GameState["heroes"], rawHeroes: unknown[]): G
     return defaults;
   }
 
-  return rawHeroes.filter(isRecord).map((rawHero, index) => {
+  const normalizedHeroes = rawHeroes.filter(isRecord).map((rawHero, index) => {
     const fallback = defaults[index] ?? defaults[0];
     const classId = typeof rawHero.classId === "string" ? rawHero.classId : fallback.classId;
     const maxHp = Math.max(1, heroDefinitions[classId]?.baseStats.hp ?? fallback.currentHp);
@@ -165,6 +165,14 @@ function normalizeHeroes(defaults: GameState["heroes"], rawHeroes: unknown[]): G
       training: normalizeHeroTraining(rawHero.training, fallback.training)
     };
   });
+
+  for (const defaultHero of defaults) {
+    if (!normalizedHeroes.some((hero) => hero.id === defaultHero.id)) {
+      normalizedHeroes.push(defaultHero);
+    }
+  }
+
+  return normalizedHeroes;
 }
 
 function normalizeHeroTraining(rawTraining: unknown, fallback: HeroTrainingState): HeroTrainingState {
@@ -245,7 +253,25 @@ function normalizeParties(defaults: PartyState[], rawParties: unknown[], knownHe
     }
   }
 
-  return normalizedParties.length > 0 ? normalizedParties : defaults;
+  const assignedHeroIds = new Set(normalizedParties.flatMap((party) => party.heroIds));
+  return (normalizedParties.length > 0 ? normalizedParties : defaults).map((party) => {
+    const defaultParty = defaults.find((candidate) => candidate.id === party.id);
+    if (!defaultParty) {
+      return party;
+    }
+
+    const missingDefaultHeroIds = defaultParty.heroIds.filter(
+      (heroId) => knownHeroIds.has(heroId) && !assignedHeroIds.has(heroId)
+    );
+    if (missingDefaultHeroIds.length === 0) {
+      return party;
+    }
+
+    return {
+      ...party,
+      heroIds: [...party.heroIds, ...missingDefaultHeroIds].slice(0, party.maxSize)
+    };
+  });
 }
 
 function normalizeSelectedPartyId(rawSelectedPartyId: unknown, parties: PartyState[], fallback: string): string {

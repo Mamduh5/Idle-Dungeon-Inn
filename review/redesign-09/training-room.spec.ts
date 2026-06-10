@@ -78,8 +78,8 @@ test("Training Room action creates a training job and event for the selected her
 
 test("Training Room action label is data-driven from the eligible hero", () => {
   const state = {
-    ...withSecondHero(unlockTrainingRoom(createInitialGameState(), 1)),
-    heroes: withSecondHero(unlockTrainingRoom(createInitialGameState(), 1)).heroes.map((hero, index) =>
+    ...unlockTrainingRoom(createInitialGameState(), 1),
+    heroes: unlockTrainingRoom(createInitialGameState(), 1).heroes.map((hero, index) =>
       index === 0
         ? {
             ...hero,
@@ -288,7 +288,7 @@ test("combat stats use hero-specific training instead of a global room aura", ()
   expect(getHeroTrainingAttackBonus(trainedHero)).toBe(2);
   expect(getHeroTrainingAttackBonus(untrainedHero)).toBe(0);
   expect(createHeroCombatStats(trainedState, trainedHero)?.attack).toBe(14);
-  expect(createHeroCombatStats(trainedState, untrainedHero)?.attack).toBe(12);
+  expect(createHeroCombatStats(trainedState, untrainedHero)?.attack).toBe(14);
 });
 
 test("Training Room level increases training speed", () => {

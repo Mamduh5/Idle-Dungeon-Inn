@@ -482,9 +482,26 @@ function tickHealingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs:
 
   if (isReady) {
     nextState = completeRoomJob(nextState, job.id, now);
+    nextState = assignNextWaitingHeroToBed(nextState, now);
   }
 
   return nextState;
+}
+
+function assignNextWaitingHeroToBed(state: GameState, now: number): GameState {
+  if (getActiveRoomJobs(state, "bed_room").length >= getRoomJobCapacity(state, "bed_room")) {
+    return state;
+  }
+
+  const nextHero = state.heroes.find(
+    (hero) =>
+      hero.currentHp > 0 &&
+      !isHeroHpReady(hero) &&
+      getHeroActiveRoomJob(state, hero.id) === null &&
+      (hero.status === "resting" || hero.status === "wounded")
+  );
+
+  return nextHero ? assignHeroToBedHealingIfNeeded(state, nextHero.id, now) : state;
 }
 
 function tickTrainingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs: number, now: number): GameState {

@@ -13,7 +13,6 @@ import { getInnReadinessRenderKey } from "../../src/ui/innRenderKey";
 import { tickGameState } from "../../src/systems/gameTickSystem";
 import { assignHeroToBedHealingIfNeeded, getHeroActiveRoomJob } from "../../src/systems/roomJobSystem";
 import type { GameState } from "../../src/types/gameState";
-import type { HeroInstance } from "../../src/types/heroTypes";
 
 test("Inn view model returns Bed Room display data without Phaser", () => {
   const state = createInitialGameState();
@@ -106,8 +105,8 @@ test("Passive tick does not require Inn scene restart key churn", () => {
 
 test("Training Room label stays data-driven for future heroes", () => {
   const state = {
-    ...withSecondHero(unlockTrainingRoom(createInitialGameState(), 1)),
-    heroes: withSecondHero(unlockTrainingRoom(createInitialGameState(), 1)).heroes.map((hero, index) =>
+    ...unlockTrainingRoom(createInitialGameState(), 1),
+    heroes: unlockTrainingRoom(createInitialGameState(), 1).heroes.map((hero, index) =>
       index === 0
         ? {
             ...hero,
@@ -122,7 +121,7 @@ test("Training Room label stays data-driven for future heroes", () => {
   const viewModel = getInnViewModel(state);
 
   expect(viewModel.trainingRoom.actionLabel).toBe("Train Niko");
-  expect(viewModel.trainingRoom.targetHeroId).toBe("hero_rookie_knight_2");
+  expect(viewModel.trainingRoom.targetHeroId).toBe("hero_apprentice_archer_1");
 });
 
 test("Bed Room readiness remains strict through view model and commands", () => {
@@ -164,25 +163,6 @@ function unlockTrainingRoom(state: GameState, level: number): GameState {
           }
         : room
     )
-  };
-}
-
-function withSecondHero(state: GameState): GameState {
-  const secondHero: HeroInstance = {
-    ...state.heroes[0],
-    id: "hero_rookie_knight_2",
-    name: "Niko",
-    assignedPartyId: null,
-    training: {
-      attackTrainingXp: 0,
-      attackTrainingLevel: 0,
-      totalTrainingSeconds: 0
-    }
-  };
-
-  return {
-    ...state,
-    heroes: [...state.heroes, secondHero]
   };
 }
 

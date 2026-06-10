@@ -116,10 +116,12 @@ test("Auto-Dispatch does not recover wiped runs and waits for Bed Room readiness
   expect(tooSoonState.towerRuns[0]?.status).toBe("preparing");
   expect(tooSoonState.heroes[0]?.status).toBe("resting");
 
-  const healedState = tickRoomJobs(tooSoonState, 60_000, Date.now() + 65_000);
-  const redispatchedState = tickAutomation(healedState, Date.now() + 67_000);
+  const firstHeroHealedState = tickRoomJobs(tooSoonState, 60_000, Date.now() + 65_000);
+  const secondHeroHealedState = tickRoomJobs(firstHeroHealedState, 40_000, Date.now() + 105_000);
+  const redispatchedState = tickAutomation(secondHeroHealedState, Date.now() + 107_000);
 
   expect(redispatchedState.heroes[0]?.status).toBe("in_tower");
+  expect(redispatchedState.heroes[1]?.status).toBe("in_tower");
   expect(redispatchedState.towerRuns[0]?.status).toBe("traveling");
   expect(redispatchedState.towerRuns[0]?.floor).toBe(6);
 });

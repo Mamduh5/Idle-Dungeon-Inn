@@ -40,8 +40,8 @@ test("tick order lets room jobs update readiness before automation dispatch", ()
     ...createInitialGameState(),
     heroes: createInitialGameState().heroes.map((hero) => ({
       ...hero,
-      currentHp: 106,
-      status: "resting" as const
+      currentHp: hero.id === "hero_rookie_knight_1" ? 106 : hero.currentHp,
+      status: hero.id === "hero_rookie_knight_1" ? ("resting" as const) : ("ready" as const)
     }))
   };
   const healingState = assignHeroToBedHealingIfNeeded(restingState, "hero_rookie_knight_1", 1000);
@@ -115,7 +115,7 @@ test("invalid saves normalize parties, tower runs, events, and numeric state saf
   expect(normalized).not.toBeNull();
   expect(normalized?.currencies.coins).toBe(0);
   expect(normalized?.selectedPartyId).toBe("party_lantern");
-  expect(normalized?.parties[0]?.heroIds).toEqual(["hero_rookie_knight_1"]);
+  expect(normalized?.parties[0]?.heroIds).toEqual(["hero_rookie_knight_1", "hero_apprentice_archer_1"]);
   expect(normalized?.parties[0]?.selectedTargetFloor).toBe(1);
   expect(normalized?.parties[0]?.retreatHpPercent).toBe(100);
   expect(normalized?.towerRuns[0]?.status).toBe("preparing");

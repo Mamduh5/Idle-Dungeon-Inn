@@ -7,11 +7,13 @@ import type { PartyState } from "../types/partyTypes";
 import type { TowerRunState } from "../types/towerTypes";
 
 const STARTER_HERO_ID = "hero_rookie_knight_1";
+const STARTER_ARCHER_ID = "hero_apprentice_archer_1";
 const STARTER_PARTY_ID = "party_lantern";
 
 export function createInitialGameState(): GameState {
   const now = Date.now();
   const rookieKnight = heroDefinitions.rookie_knight;
+  const apprenticeArcher = heroDefinitions.apprentice_archer;
 
   const starterHero: HeroInstance = {
     id: STARTER_HERO_ID,
@@ -32,12 +34,31 @@ export function createInitialGameState(): GameState {
       totalTrainingSeconds: 0
     }
   };
+  const secondHero: HeroInstance = {
+    id: STARTER_ARCHER_ID,
+    classId: apprenticeArcher.classId,
+    name: "Lina",
+    level: 1,
+    xp: 0,
+    currentHp: apprenticeArcher.baseStats.hp,
+    status: "ready",
+    assignedPartyId: STARTER_PARTY_ID,
+    highestFloorCleared: 0,
+    defeats: 0,
+    traits: [],
+    gear: {},
+    training: {
+      attackTrainingXp: 0,
+      attackTrainingLevel: 0,
+      totalTrainingSeconds: 0
+    }
+  };
 
   const starterParty: PartyState = {
     id: STARTER_PARTY_ID,
     name: "Lantern Party",
-    heroIds: [STARTER_HERO_ID],
-    maxSize: 3,
+    heroIds: [STARTER_HERO_ID, STARTER_ARCHER_ID],
+    maxSize: 2,
     mode: "push",
     selectedTargetFloor: 1,
     selectedMaterialId: null,
@@ -66,7 +87,7 @@ export function createInitialGameState(): GameState {
     currencies: {
       coins: 0
     },
-    heroes: [starterHero],
+    heroes: [starterHero, secondHero],
     parties: [starterParty],
     selectedPartyId: STARTER_PARTY_ID,
     towerRuns: [starterTowerRun],

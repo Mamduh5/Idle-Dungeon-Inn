@@ -67,9 +67,7 @@ export class InnScene extends Phaser.Scene {
     this.drawTowerGate(viewModel.gate, viewModel.autoDispatch.label, viewModel.autoDispatch.isUnlocked);
     this.drawDragHints();
 
-    if (viewModel.hero) {
-      this.drawHero(viewModel.hero);
-    }
+    this.drawHeroes(viewModel.heroes.length > 0 ? viewModel.heroes : viewModel.hero ? [viewModel.hero] : []);
 
     this.enableCameraDrag();
 
@@ -525,9 +523,13 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawHero(hero: InnHeroViewModel): void {
-    const position = getHeroPosition(hero.status);
-    const labelPosition = getHeroLabelPosition(hero.status);
+  private drawHeroes(heroes: InnHeroViewModel[]): void {
+    heroes.slice(0, 2).forEach((hero, index) => this.drawHero(hero, index, heroes.length));
+  }
+
+  private drawHero(hero: InnHeroViewModel, index: number, totalHeroes: number): void {
+    const position = getHeroPosition(hero.status, index, totalHeroes);
+    const labelPosition = getHeroLabelPosition(hero.status, index, totalHeroes);
     const palette = hero.status === "in_tower" ? "away" : hero.status === "defeated" ? "defeated" : "hero";
 
     drawTinyHero(this, position.x, position.y, {
@@ -563,26 +565,38 @@ export class InnScene extends Phaser.Scene {
   }
 }
 
-function getHeroPosition(status: HeroStatus): { x: number; y: number } {
+function getHeroPosition(status: HeroStatus, index: number, totalHeroes: number): { x: number; y: number } {
+  const offset = getPartyMemberOffset(index, totalHeroes);
+
   if (status === "in_tower") {
-    return { x: 1118, y: 558 };
+    return { x: 1118 + offset * 0.72, y: 558 + Math.abs(offset) * 0.08 };
   }
 
   if (status === "resting" || status === "wounded" || status === "defeated") {
-    return { x: 194, y: 458 };
+    return { x: 194 + offset * 0.82, y: 458 + Math.abs(offset) * 0.12 };
   }
 
-  return { x: 522, y: 492 };
+  return { x: 522 + offset, y: 492 + Math.abs(offset) * 0.12 };
 }
 
-function getHeroLabelPosition(status: HeroStatus): { x: number; y: number } {
+function getHeroLabelPosition(status: HeroStatus, index: number, totalHeroes: number): { x: number; y: number } {
+  const offset = getPartyMemberOffset(index, totalHeroes);
+
   if (status === "in_tower") {
-    return { x: 1064, y: 548 };
+    return { x: 1064 + offset * 0.72, y: 548 + index * 78 };
   }
 
   if (status === "resting" || status === "wounded" || status === "defeated") {
-    return { x: 130, y: 282 };
+    return { x: 130 + offset * 0.58, y: 282 + index * 78 };
   }
 
-  return { x: 458, y: 358 };
+  return { x: 458 + offset * 0.58, y: 358 + index * 78 };
+}
+
+function getPartyMemberOffset(index: number, totalHeroes: number): number {
+  if (totalHeroes <= 1) {
+    return 0;
+  }
+
+  return index === 0 ? -34 : 34;
 }

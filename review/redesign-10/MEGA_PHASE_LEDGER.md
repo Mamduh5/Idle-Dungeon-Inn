@@ -1,7 +1,7 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 5 - Party System v1
+Phase 6 - Second Hero + Party Size 2
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
@@ -9,6 +9,7 @@ Phase 5 - Party System v1
 - Phase 2 - Backend Boundary v2: added a typed game command dispatcher, explicit party command helpers, clearer central tick order, recent-event capping in the tick path, stronger save normalization, and focused backend architecture tests.
 - Phase 3 - Bottleneck View v0: added pure bottleneck analysis, a display-ready bottleneck view model, Build/Tower summary exposure, and focused read-only bottleneck tests.
 - Phase 4 - Heroes View v1: expanded Heroes view data for roster-wide hero status, room jobs, party labels, selected-party assignment actions, and simple assignment command wiring in the scene.
+- Phase 5 - Party System v1: added a shared party view model, surfaced party mode/target state, validated party select/mode commands, and fixed duplicate/sparse party slot assignment.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -40,8 +41,11 @@ Phase 5 - Party System v1
 - Completed.
 
 ### Phase 5 - Party System v1
-- Add party-oriented view-model/command support without adding a second hero yet.
-- Keep current single-party behavior compatible.
+- Completed.
+
+### Phase 6 - Second Hero + Party Size 2
+- Add a second starting hero and set starter party size to 2.
+- Keep room jobs and combat/readiness per-hero.
 
 ## Changed files by phase
 ### Phase 0
@@ -90,6 +94,14 @@ Phase 5 - Party System v1
 - review/redesign-10/heroes-view-v1.spec.ts
 
 ### Phase 5
+- src/application/partyCommands.ts
+- src/scenes/HeroesScene.ts
+- src/viewModels/heroesViewModel.ts
+- src/viewModels/partyViewModel.ts
+- src/viewModels/towerViewModel.ts
+- review/redesign-10/party-system-v1.spec.ts
+
+### Phase 6
 - Pending.
 
 ## Commands run
@@ -129,12 +141,18 @@ Phase 5 - Party System v1
 - `npm run test -- review/redesign-10/heroes-view-v1.spec.ts`: passed, 4 tests.
 - `git diff --check`: passed with line-ending warnings only.
 
+### Phase 5
+- `npm run build`: passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/party-system-v1.spec.ts`: initially failed on sparse duplicate assignment; fixed `assignHeroToParty`, then passed, 5 tests.
+- `git diff --check`: passed with line-ending warnings only.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
 - Phase 2: no broad long suites were run; not part of Phase 2 fast validation.
 - Phase 3: no visual/manual browser checks were run; Phase 3 validation was pure view-model/system coverage.
 - Phase 4: no browser/manual visual checks were run; validation was build plus focused view-model/source tests.
+- Phase 5: no browser/manual visual checks were run; validation was build plus focused party view-model/command tests.
 
 ## Known risks
 - The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.

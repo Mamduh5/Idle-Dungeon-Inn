@@ -51,7 +51,8 @@ test("assignment command keeps party hero ids unique", () => {
   const assignedState = assignHeroToParty(state, "hero_rookie_knight_1", "party_lantern", 1);
   const party = assignedState.parties.find((candidate) => candidate.id === "party_lantern");
 
-  expect(party?.heroIds).toEqual(["hero_rookie_knight_1"]);
+  expect(party?.heroIds).toEqual(["hero_apprentice_archer_1", "hero_rookie_knight_1"]);
+  expect(new Set(party?.heroIds).size).toBe(party?.heroIds.length);
 });
 
 test("party system view model and command files stay Phaser-free", () => {

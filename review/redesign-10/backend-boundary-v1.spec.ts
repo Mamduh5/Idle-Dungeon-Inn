@@ -15,7 +15,6 @@ import { getTowerViewModel } from "../../src/viewModels/towerViewModel";
 import { tickGameState } from "../../src/systems/gameTickSystem";
 import { assignHeroToBedHealingIfNeeded, getHeroActiveRoomJob } from "../../src/systems/roomJobSystem";
 import type { GameState } from "../../src/types/gameState";
-import type { HeroInstance } from "../../src/types/heroTypes";
 
 test("all Phase 1 view models generate display data without Phaser", () => {
   const state = createInitialGameState();
@@ -56,8 +55,8 @@ test("Inn training commands start and cancel through GameState only", () => {
 
 test("default training target is data-driven and not hardcoded to Mira", () => {
   const state = {
-    ...withSecondHero(unlockTrainingRoom(createInitialGameState(), 1)),
-    heroes: withSecondHero(unlockTrainingRoom(createInitialGameState(), 1)).heroes.map((hero, index) =>
+    ...unlockTrainingRoom(createInitialGameState(), 1),
+    heroes: unlockTrainingRoom(createInitialGameState(), 1).heroes.map((hero, index) =>
       index === 0
         ? {
             ...hero,
@@ -73,8 +72,8 @@ test("default training target is data-driven and not hardcoded to Mira", () => {
   const trainedState = startTrainingFromInn(state, null, 3000);
 
   expect(viewModel.trainingRoom.actionLabel).toBe("Train Niko");
-  expect(viewModel.trainingRoom.targetHeroId).toBe("hero_rookie_knight_2");
-  expect(getHeroActiveRoomJob(trainedState, "hero_rookie_knight_2")?.jobType).toBe("training");
+  expect(viewModel.trainingRoom.targetHeroId).toBe("hero_apprentice_archer_1");
+  expect(getHeroActiveRoomJob(trainedState, "hero_apprentice_archer_1")?.jobType).toBe("training");
   expect(readFileSync("src/application/innCommands.ts", "utf8")).not.toContain("Mira");
 });
 
@@ -162,25 +161,6 @@ function unlockTrainingRoom(state: GameState, level: number): GameState {
           }
         : room
     )
-  };
-}
-
-function withSecondHero(state: GameState): GameState {
-  const secondHero: HeroInstance = {
-    ...state.heroes[0],
-    id: "hero_rookie_knight_2",
-    name: "Niko",
-    assignedPartyId: null,
-    training: {
-      attackTrainingXp: 0,
-      attackTrainingLevel: 0,
-      totalTrainingSeconds: 0
-    }
-  };
-
-  return {
-    ...state,
-    heroes: [...state.heroes, secondHero]
   };
 }
 

@@ -5,24 +5,23 @@ import { createInitialGameState } from "../../src/game/initialState";
 import { startTrainingFromInn } from "../../src/application/innCommands";
 import { getHeroesViewModel } from "../../src/viewModels/heroesViewModel";
 import type { GameState } from "../../src/types/gameState";
-import type { HeroInstance } from "../../src/types/heroTypes";
 
 test("Heroes view model lists all heroes with HP, training, job, and party labels", () => {
-  const state = startTrainingFromInn(unlockTrainingRoom(withSecondHero(createInitialGameState()), 1), "hero_rookie_knight_1", 1000);
+  const state = startTrainingFromInn(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000);
   const viewModel = getHeroesViewModel(state);
 
-  expect(viewModel.summaryLabel).toBe("2 heroes known / 1/3 in party");
-  expect(viewModel.roster.map((hero) => hero.name)).toEqual(["Mira", "Niko"]);
+  expect(viewModel.summaryLabel).toBe("2 heroes known / 2/2 in party");
+  expect(viewModel.roster.map((hero) => hero.name)).toEqual(["Mira", "Lina"]);
   expect(viewModel.roster[0]?.hpLabel).toBe("HP 120/120");
   expect(viewModel.roster[0]?.statusLabel).toBe("Training");
   expect(viewModel.roster[0]?.currentRoomJobLabel).toBe("Training in Training Room");
   expect(viewModel.roster[0]?.partyLabel).toBe("Party: Lantern Party");
-  expect(viewModel.roster[1]?.partyLabel).toBe("Party: Unassigned");
+  expect(viewModel.roster[1]?.partyLabel).toBe("Party: Lantern Party");
 });
 
 test("unassigned heroes expose selected-party assignment action when a slot is open", () => {
-  const viewModel = getHeroesViewModel(withSecondHero(createInitialGameState()));
-  const secondHero = viewModel.roster.find((hero) => hero.id === "hero_rookie_knight_2");
+  const viewModel = getHeroesViewModel(withUnassignedArcher(createInitialGameState()));
+  const secondHero = viewModel.roster.find((hero) => hero.id === "hero_apprentice_archer_1");
 
   expect(secondHero?.assignActionLabel).toBe("Assign");
   expect(secondHero?.canAssignToSelectedParty).toBe(true);
@@ -30,12 +29,12 @@ test("unassigned heroes expose selected-party assignment action when a slot is o
 });
 
 test("party assignment command fills a slot without duplicating heroes", () => {
-  const state = withSecondHero(createInitialGameState());
-  const assignedState = assignHeroToParty(state, "hero_rookie_knight_2", "party_lantern", 1);
+  const state = withUnassignedArcher(createInitialGameState());
+  const assignedState = assignHeroToParty(state, "hero_apprentice_archer_1", "party_lantern", 1);
   const party = assignedState.parties.find((candidate) => candidate.id === "party_lantern");
-  const secondHero = assignedState.heroes.find((hero) => hero.id === "hero_rookie_knight_2");
+  const secondHero = assignedState.heroes.find((hero) => hero.id === "hero_apprentice_archer_1");
 
-  expect(party?.heroIds).toEqual(["hero_rookie_knight_1", "hero_rookie_knight_2"]);
+  expect(party?.heroIds).toEqual(["hero_rookie_knight_1", "hero_apprentice_archer_1"]);
   expect(new Set(party?.heroIds).size).toBe(party?.heroIds.length);
   expect(secondHero?.assignedPartyId).toBe("party_lantern");
 });
@@ -65,21 +64,24 @@ function unlockTrainingRoom(state: GameState, level: number): GameState {
   };
 }
 
-function withSecondHero(state: GameState): GameState {
-  const secondHero: HeroInstance = {
-    ...state.heroes[0],
-    id: "hero_rookie_knight_2",
-    name: "Niko",
-    assignedPartyId: null,
-    training: {
-      attackTrainingXp: 0,
-      attackTrainingLevel: 0,
-      totalTrainingSeconds: 0
-    }
-  };
-
+function withUnassignedArcher(state: GameState): GameState {
   return {
     ...state,
-    heroes: [...state.heroes, secondHero]
+    heroes: state.heroes.map((hero) =>
+      hero.id === "hero_apprentice_archer_1"
+        ? {
+            ...hero,
+            assignedPartyId: null
+          }
+        : hero
+    ),
+    parties: state.parties.map((party) =>
+      party.id === "party_lantern"
+        ? {
+            ...party,
+            heroIds: ["hero_rookie_knight_1"]
+          }
+        : party
+    )
   };
 }

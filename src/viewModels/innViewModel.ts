@@ -7,7 +7,7 @@ import {
   getHeroReadyHpThreshold,
   getRoomJobCapacity
 } from "../systems/roomJobSystem";
-import { getFirstPartyHero, getInnRoom, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
+import { getFirstPartyHero, getHeroesForParty, getInnRoom, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
 import type { HeroId, HeroStatus } from "../types/ids";
@@ -69,6 +69,7 @@ export interface InnViewModel {
   partyName: string;
   commonRoomSubtitle: string;
   hero: InnHeroViewModel | null;
+  heroes: InnHeroViewModel[];
   bedRoom: InnBedRoomViewModel;
   trainingRoom: InnTrainingRoomViewModel;
   gate: InnGateViewModel;
@@ -83,6 +84,7 @@ export function getInnViewModel(state: GameState): InnViewModel {
   const party = getSelectedParty(state);
   const run = getSelectedTowerRun(state);
   const hero = party ? getFirstPartyHero(state, party.id) : null;
+  const heroes = party ? getHeroesForParty(state, party.id).map(createHeroViewModel) : [];
   const bedRoom = getInnRoom(state, "bed_room");
   const trainingRoom = getInnRoom(state, "training_room");
   const latestEvent = state.recentEvents[0];
@@ -97,6 +99,7 @@ export function getInnViewModel(state: GameState): InnViewModel {
     partyName: party?.name ?? "No Party",
     commonRoomSubtitle: compactPartyName,
     hero: hero ? createHeroViewModel(hero) : null,
+    heroes,
     bedRoom: {
       levelLabel: `Lv ${bedRoom?.level ?? 0}`,
       healingSpeedLabel: `Heal ${formatNumber(calculateBedRoomHealingPerSecond(state))} HP/s`,

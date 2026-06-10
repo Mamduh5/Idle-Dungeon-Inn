@@ -168,26 +168,25 @@ export class TowerScene extends Phaser.Scene {
   private drawTowerStage(viewModel: TowerViewModel): void {
     const { partyName, run, currentNode: node, heroes } = viewModel;
     const status = run?.status ?? "preparing";
-    const hero = heroes[0] ?? null;
 
     if (!run || status === "preparing") {
-      this.drawPreparingStage(hero);
+      this.drawPreparingStage(heroes);
     } else if (status === "traveling") {
-      this.drawTravelingStage(partyName, run, hero);
+      this.drawTravelingStage(partyName, run, heroes);
     } else if (status === "exploring") {
-      this.drawExploringStage(run, node, hero);
+      this.drawExploringStage(run, node, heroes);
     } else if (status === "fighting") {
-      this.drawCombatStage(run, hero);
+      this.drawCombatStage(run, heroes);
     } else if (status === "blocked" && run.lastFailureReason === ENCOUNTER_CLEAR_HOLD_REASON) {
-      this.drawClearedStage(run, hero);
+      this.drawClearedStage(run, heroes);
     } else if (status === "blocked" && run.lastFailureReason === FLOOR_CLEAR_HOLD_REASON) {
-      this.drawExitStage(run, hero);
+      this.drawExitStage(run, heroes);
     } else if (status === "looting") {
-      this.drawTreasureStage(run, hero);
+      this.drawTreasureStage(run, heroes);
     } else if (status === "wiped") {
-      this.drawWipedStage(run, hero, viewModel.bottleneckHint, viewModel.bottleneckSuggestions);
+      this.drawWipedStage(run, heroes, viewModel.bottleneckHint, viewModel.bottleneckSuggestions);
     } else {
-      this.drawBlockedStage(run, hero);
+      this.drawBlockedStage(run, heroes);
     }
 
     if (viewModel.shouldShowWorldEventLine) {
@@ -195,7 +194,7 @@ export class TowerScene extends Phaser.Scene {
     }
   }
 
-  private drawPreparingStage(hero: HeroInstance | null): void {
+  private drawPreparingStage(heroes: HeroInstance[]): void {
     this.drawPortal(170, 426, UI_COLORS.skyBlue, "Tower mouth");
     addCenteredLabel(this, 222, 646, "waiting at the threshold", {
       color: UI_HEX.mutedCream,
@@ -203,12 +202,10 @@ export class TowerScene extends Phaser.Scene {
       width: 180
     });
 
-    if (hero) {
-      this.drawHeroUnit(hero, 112, 524, "waiting");
-    }
+    this.drawHeroParty(heroes, 164, 524, "waiting");
   }
 
-  private drawTravelingStage(partyName: string, run: TowerRunState, hero: HeroInstance | null): void {
+  private drawTravelingStage(partyName: string, run: TowerRunState, heroes: HeroInstance[]): void {
     const travelX = 130 + run.nodeProgress * 610;
     this.add.line(0, 554, 108, 0, 808, 0, UI_COLORS.skyBlue, 0.45).setOrigin(0, 0);
     this.add.line(0, 532, 108, 0, 808, -20, UI_COLORS.towerStone, 0.65).setOrigin(0, 0);
@@ -220,12 +217,10 @@ export class TowerScene extends Phaser.Scene {
       width: 150
     });
 
-    if (hero) {
-      this.drawHeroUnit(hero, travelX, 528, "traveling");
-    }
+    this.drawHeroParty(heroes, travelX, 528, "traveling");
   }
 
-  private drawExploringStage(run: TowerRunState, node: TowerNodeDefinition | null, hero: HeroInstance | null): void {
+  private drawExploringStage(run: TowerRunState, node: TowerNodeDefinition | null, heroes: HeroInstance[]): void {
     const exploreX = 170 + run.nodeProgress * 520;
     const nodeLabel = node?.type === "boss" ? "boss gate" : node?.type ?? "node";
     this.drawArchway(250, 412, 0x172235, "side room");
@@ -243,12 +238,10 @@ export class TowerScene extends Phaser.Scene {
       });
     }
 
-    if (hero) {
-      this.drawHeroUnit(hero, exploreX, 528, "exploring");
-    }
+    this.drawHeroParty(heroes, exploreX, 528, "exploring");
   }
 
-  private drawCombatStage(run: TowerRunState, hero: HeroInstance | null): void {
+  private drawCombatStage(run: TowerRunState, heroes: HeroInstance[]): void {
     const isBoss = isFloor10BossNode(run);
     this.add.rectangle(350, 314, 360, 250, 0x0f1724, 0.68).setOrigin(0, 0).setStrokeStyle(2, isBoss ? UI_COLORS.gold : 0x53657e);
     this.add.circle(530, 552, 178, 0x121827, 0.46);
@@ -268,27 +261,23 @@ export class TowerScene extends Phaser.Scene {
       });
     }
 
-    if (hero) {
-      this.drawHeroUnit(hero, 430, 524, "in tower");
-    }
+    this.drawHeroParty(heroes, 430, 524, "in tower");
 
     this.drawEnemies(run.enemies, 650, 510);
     this.add.line(0, 508, 500, 0, 586, 0, UI_COLORS.danger, 0.5).setOrigin(0, 0);
     this.add.line(0, 496, 500, 0, 586, 0, UI_COLORS.gold, 0.35).setOrigin(0, 0);
   }
 
-  private drawClearedStage(run: TowerRunState, hero: HeroInstance | null): void {
+  private drawClearedStage(run: TowerRunState, heroes: HeroInstance[]): void {
     this.add.rectangle(440, 314, 360, 250, 0x0f1724, 0.68).setOrigin(0, 0).setStrokeStyle(2, 0x53657e);
 
-    if (hero) {
-      this.drawHeroUnit(hero, 496, 524, "ready");
-    }
+    this.drawHeroParty(heroes, 496, 524, "ready");
 
     this.drawEnemies(run.enemies, 626, 510, true);
     this.drawPortal(704, 420, UI_COLORS.success, "open passage");
   }
 
-  private drawExitStage(run: TowerRunState, hero: HeroInstance | null): void {
+  private drawExitStage(run: TowerRunState, heroes: HeroInstance[]): void {
     this.drawPortal(715, 418, UI_COLORS.gold, "Exit");
     this.add.circle(715, 438, 82, UI_COLORS.gold, 0.16);
     addCenteredLabel(this, 715, 604, `Floor ${run.floor} clear`, {
@@ -298,12 +287,10 @@ export class TowerScene extends Phaser.Scene {
       width: 128
     });
 
-    if (hero) {
-      this.drawHeroUnit(hero, 620, 528, "at exit");
-    }
+    this.drawHeroParty(heroes, 620, 528, "at exit");
   }
 
-  private drawTreasureStage(run: TowerRunState, hero: HeroInstance | null): void {
+  private drawTreasureStage(run: TowerRunState, heroes: HeroInstance[]): void {
     this.drawArchway(650, 386, 0x172235, "treasure");
     this.add.rectangle(628, 498, 90, 56, 0x7a432d, 1).setStrokeStyle(2, UI_COLORS.gold);
     this.add.rectangle(616, 476, 114, 28, UI_COLORS.amber, 1).setStrokeStyle(2, UI_COLORS.gold);
@@ -313,14 +300,12 @@ export class TowerScene extends Phaser.Scene {
       width: 120
     });
 
-    if (hero) {
-      this.drawHeroUnit(hero, 526, 528, "looting");
-    }
+    this.drawHeroParty(heroes, 526, 528, "looting");
   }
 
   private drawWipedStage(
     run: TowerRunState,
-    hero: HeroInstance | null,
+    heroes: HeroInstance[],
     bottleneckHint: string | null,
     bottleneckSuggestions: string[]
   ): void {
@@ -331,9 +316,7 @@ export class TowerScene extends Phaser.Scene {
       fontStyle: "700"
     });
 
-    if (hero) {
-      this.drawHeroUnit(hero, 430, 528, "defeated", true);
-    }
+    this.drawHeroParty(heroes, 430, 528, "defeated", true);
 
     this.drawEnemies(run.enemies, 650, 510);
 
@@ -357,12 +340,10 @@ export class TowerScene extends Phaser.Scene {
     }
   }
 
-  private drawBlockedStage(run: TowerRunState, hero: HeroInstance | null): void {
+  private drawBlockedStage(run: TowerRunState, heroes: HeroInstance[]): void {
     this.drawArchway(620, 390, 0x172235, "paused");
 
-    if (hero) {
-      this.drawHeroUnit(hero, 500, 528, "waiting");
-    }
+    this.drawHeroParty(heroes, 500, 528, "waiting");
 
     addCenteredLabel(this, 640, 574, run.lastFailureReason ?? "The party is waiting.", {
       color: UI_HEX.mutedCream,
@@ -476,6 +457,31 @@ export class TowerScene extends Phaser.Scene {
       fontSize: 10,
       width: 88
     });
+  }
+
+  private drawHeroParty(
+    heroes: HeroInstance[],
+    x: number,
+    y: number,
+    status: string,
+    forceDefeated = false
+  ): void {
+    const visibleHeroes = heroes.slice(0, 2);
+    const spacing = visibleHeroes.length > 1 ? 116 : 0;
+    const startX = x - (spacing * (visibleHeroes.length - 1)) / 2;
+
+    visibleHeroes.forEach((hero, index) => {
+      this.drawHeroUnit(hero, startX + index * spacing, y + index * 8, status, forceDefeated);
+    });
+
+    if (heroes.length > visibleHeroes.length) {
+      addCenteredLabel(this, x + spacing, y + 44, `+${heroes.length - visibleHeroes.length}`, {
+        color: UI_HEX.gold,
+        fontSize: 10,
+        fontStyle: "700",
+        width: 40
+      });
+    }
   }
 
   private drawEnemies(enemies: TowerRunEnemyState[], x: number, y: number, forceDefeated = false): void {
