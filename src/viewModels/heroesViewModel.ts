@@ -59,7 +59,10 @@ export function getHeroesViewModel(state: GameState): HeroesViewModel {
     roster,
     partySlots: Array.from({ length: party?.maxSize ?? 3 }, (_, slotIndex) => {
       const hero = partyHeroes[slotIndex] ?? null;
-      const card = hero ? roster.find((candidate) => candidate.id === hero.id) ?? createHeroRosterCard(state, hero) : null;
+      const card = hero
+        ? roster.find((candidate) => candidate.id === hero.id) ??
+          createHeroRosterCard(state, hero, party?.id ?? null, partyHeroIds, hasOpenPartySlot)
+        : null;
 
       return {
         slotIndex,
