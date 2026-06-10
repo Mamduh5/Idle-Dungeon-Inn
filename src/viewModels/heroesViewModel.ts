@@ -1,4 +1,5 @@
 import { heroDefinitions } from "../data/heroData";
+import { roomDefinitions } from "../data/roomData";
 import { getHeroesForParty, getSelectedParty } from "../state/gameSelectors";
 import { getHeroActiveRoomJob } from "../systems/roomJobSystem";
 import type { GameState } from "../types/gameState";
@@ -19,6 +20,10 @@ export interface HeroRosterCardViewModel {
   trainingBonusLabel: string;
   trainingProgressLabel: string;
   currentRoomJobLabel: string | null;
+  partyLabel: string;
+  canAssignToSelectedParty: boolean;
+  assignActionLabel: string;
+  assignBlockedReason: string | null;
   hero: HeroInstance;
 }
 
@@ -30,8 +35,10 @@ export interface HeroPartySlotViewModel {
 }
 
 export interface HeroesViewModel {
+  selectedPartyId: string | null;
   partyName: string;
   maxPartySize: number;
+  summaryLabel: string;
   roster: HeroRosterCardViewModel[];
   partySlots: HeroPartySlotViewModel[];
 }
@@ -41,11 +48,14 @@ export function getHeroesViewModel(state: GameState): HeroesViewModel {
   const partyHeroes = party ? getHeroesForParty(state, party.id) : [];
   const partyHeroIds = new Set(partyHeroes.map((hero) => hero.id));
   const orderedHeroes = [...partyHeroes, ...state.heroes.filter((hero) => !partyHeroIds.has(hero.id))];
-  const roster = orderedHeroes.map((hero) => createHeroRosterCard(state, hero));
+  const hasOpenPartySlot = party ? partyHeroes.length < party.maxSize : false;
+  const roster = orderedHeroes.map((hero) => createHeroRosterCard(state, hero, party?.id ?? null, partyHeroIds, hasOpenPartySlot));
 
   return {
+    selectedPartyId: party?.id ?? null,
     partyName: party?.name ?? "No Party",
     maxPartySize: party?.maxSize ?? 3,
+    summaryLabel: `${orderedHeroes.length} hero${orderedHeroes.length === 1 ? "" : "es"} known / ${partyHeroes.length}/${party?.maxSize ?? 3} in party`,
     roster,
     partySlots: Array.from({ length: party?.maxSize ?? 3 }, (_, slotIndex) => {
       const hero = partyHeroes[slotIndex] ?? null;
@@ -61,11 +71,22 @@ export function getHeroesViewModel(state: GameState): HeroesViewModel {
   };
 }
 
-function createHeroRosterCard(state: GameState, hero: HeroInstance): HeroRosterCardViewModel {
+function createHeroRosterCard(
+  state: GameState,
+  hero: HeroInstance,
+  selectedPartyId: string | null,
+  selectedPartyHeroIds: Set<string>,
+  hasOpenPartySlot: boolean
+): HeroRosterCardViewModel {
   const definition = heroDefinitions[hero.classId];
   const hpDisplay = getHeroHpDisplayText(hero);
   const trainingText = getHeroTrainingRosterText(state, hero);
   const activeRoomJob = getHeroActiveRoomJob(state, hero.id);
+  const assignedParty = hero.assignedPartyId
+    ? state.parties.find((party) => party.id === hero.assignedPartyId) ?? null
+    : null;
+  const isInSelectedParty = selectedPartyHeroIds.has(hero.id);
+  const canAssignToSelectedParty = Boolean(selectedPartyId && !isInSelectedParty && hasOpenPartySlot);
 
   return {
     id: hero.id,
@@ -78,7 +99,19 @@ function createHeroRosterCard(state: GameState, hero: HeroInstance): HeroRosterC
     hpRatio: hpDisplay.ratio,
     trainingBonusLabel: trainingText.bonusLabel,
     trainingProgressLabel: trainingText.progressLabel,
-    currentRoomJobLabel: activeRoomJob ? `${formatStatusLabel(activeRoomJob.jobType)} in ${activeRoomJob.roomId}` : null,
+    currentRoomJobLabel: activeRoomJob
+      ? `${formatStatusLabel(activeRoomJob.jobType)} in ${roomDefinitions[activeRoomJob.roomId]?.name ?? activeRoomJob.roomId}`
+      : null,
+    partyLabel: assignedParty ? `Party: ${assignedParty.name}` : "Party: Unassigned",
+    canAssignToSelectedParty,
+    assignActionLabel: isInSelectedParty ? "In Party" : "Assign",
+    assignBlockedReason: canAssignToSelectedParty
+      ? null
+      : isInSelectedParty
+        ? "Already in selected party."
+        : hasOpenPartySlot
+          ? "No selected party."
+          : "Selected party is full.",
     hero
   };
 }

@@ -1,12 +1,13 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 3 - Bottleneck View v0
+Phase 4 - Heroes View v1
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
 - Phase 1 - Backend Boundary v1: added canonical view models for Inn/Heroes/Build/Tower, added Build/Tower command wrappers, removed Inn command dependence on view-model output, refactored scenes to consume view models/commands, and added focused boundary tests.
 - Phase 2 - Backend Boundary v2: added a typed game command dispatcher, explicit party command helpers, clearer central tick order, recent-event capping in the tick path, stronger save normalization, and focused backend architecture tests.
+- Phase 3 - Bottleneck View v0: added pure bottleneck analysis, a display-ready bottleneck view model, Build/Tower summary exposure, and focused read-only bottleneck tests.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -32,8 +33,11 @@ Phase 3 - Bottleneck View v0
 - Completed.
 
 ### Phase 3 - Bottleneck View v0
-- Add a read-only bottleneck analysis model and view model.
-- Add focused tests for low HP, low damage/training, Floor 10 checkpoint wording, and no-current-blocker state.
+- Completed.
+
+### Phase 4 - Heroes View v1
+- Inspect prompt and current Heroes view model/scene.
+- Add hero-focused status, training, room job, and party assignment improvements without changing core gameplay semantics.
 
 ## Changed files by phase
 ### Phase 0
@@ -70,6 +74,13 @@ Phase 3 - Bottleneck View v0
 - review/redesign-10/backend-boundary-v2.spec.ts
 
 ### Phase 3
+- src/systems/bottleneckAnalysisSystem.ts
+- src/viewModels/bottleneckViewModel.ts
+- src/viewModels/buildViewModel.ts
+- src/viewModels/towerViewModel.ts
+- review/redesign-10/bottleneck-view-v0.spec.ts
+
+### Phase 4
 - Pending.
 
 ## Commands run
@@ -99,10 +110,16 @@ Phase 3 - Bottleneck View v0
 - `git diff --check`: passed with line-ending warnings only.
 - `git status --short --untracked-files=all`: reported `src/state/saveStorage.ts` and `review/redesign-10/backend-boundary-v2.spec.ts` as dirty; other Phase 1 files exist on disk but were not reported dirty by Git in this sandbox state.
 
+### Phase 3
+- `npm run build`: passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/bottleneck-view-v0.spec.ts`: passed, 5 tests.
+- `git diff --check`: passed with line-ending warnings only.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
 - Phase 2: no broad long suites were run; not part of Phase 2 fast validation.
+- Phase 3: no visual/manual browser checks were run; Phase 3 validation was pure view-model/system coverage.
 
 ## Known risks
 - The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.

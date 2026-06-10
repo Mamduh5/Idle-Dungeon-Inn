@@ -1,10 +1,12 @@
 import Phaser from "phaser";
+import { assignHeroToParty } from "../application/partyCommands";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getGameState, updateGameState } from "../state/gameStore";
 import { tickGameState } from "../systems/gameTickSystem";
 import {
   addCenteredLabel,
   addLabel,
+  drawActionButton,
   drawDivider,
   drawHpBar,
   drawPanel,
@@ -28,7 +30,7 @@ export class HeroesScene extends Phaser.Scene {
     const viewModel = getHeroesViewModel(getGameState());
 
     this.drawBackdrop();
-    this.drawRosterHall(viewModel.roster);
+    this.drawRosterHall(viewModel.roster, viewModel.selectedPartyId, viewModel.summaryLabel);
     this.drawPartyBench(viewModel.partyName, viewModel.partySlots);
 
     createSceneHud(this, { title: "Heroes", activeLabel: "Heroes" });
@@ -57,12 +59,17 @@ export class HeroesScene extends Phaser.Scene {
     });
   }
 
-  private drawRosterHall(heroes: HeroRosterCardViewModel[]): void {
+  private drawRosterHall(heroes: HeroRosterCardViewModel[], selectedPartyId: string | null, summaryLabel: string): void {
     drawPanel(this, 38, 178, 314, 282, 0x263f38, 0x7fd3a6, 0.96, 7);
     addLabel(this, 56, 194, "Hero Roster", {
       color: UI_HEX.cream,
       fontSize: 15,
       fontStyle: "700"
+    });
+    addLabel(this, 176, 197, summaryLabel, {
+      color: UI_HEX.mutedCream,
+      fontSize: 9,
+      width: 150
     });
 
     if (heroes.length === 0) {
@@ -105,6 +112,33 @@ export class HeroesScene extends Phaser.Scene {
       });
       drawHpBar(this, 154, y + 30, 150, 8, hero.hpRatio, hero.hpLabel, UI_COLORS.success);
       drawStatusBadge(this, 154, y + 50, hero.statusLabel, hero.status === "in_tower" ? 0x1f4662 : 0x275241);
+      addLabel(this, 62, y + 67, hero.partyLabel, {
+        color: UI_HEX.mutedCream,
+        fontSize: 9,
+        width: 126
+      });
+      addLabel(this, 188, y + 67, hero.currentRoomJobLabel ?? "No room job", {
+        color: hero.currentRoomJobLabel ? UI_HEX.gold : UI_HEX.mutedCream,
+        fontSize: 9,
+        width: 104
+      });
+
+      if (selectedPartyId) {
+        drawActionButton(this, {
+          x: 292,
+          y: y - 24,
+          width: 66,
+          height: 24,
+          label: hero.assignActionLabel,
+          enabled: hero.canAssignToSelectedParty,
+          fill: UI_COLORS.amber,
+          stroke: UI_COLORS.gold,
+          onClick: () => {
+            updateGameState((currentState) => assignHeroToParty(currentState, hero.id, selectedPartyId));
+            this.scene.restart();
+          }
+        });
+      }
     });
   }
 
