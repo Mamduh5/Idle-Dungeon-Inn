@@ -31,7 +31,7 @@ export class HeroesScene extends Phaser.Scene {
 
     this.drawBackdrop();
     this.drawRosterHall(viewModel.roster, viewModel.selectedPartyId, viewModel.summaryLabel);
-    this.drawPartyBench(viewModel.partyName, viewModel.partySlots);
+    this.drawPartyBench(viewModel.partyName, viewModel.partySlots, `${viewModel.party.selectedModeLabel} / ${viewModel.party.targetFloorLabel}`);
 
     createSceneHud(this, { title: "Heroes", activeLabel: "Heroes" });
   }
@@ -142,7 +142,7 @@ export class HeroesScene extends Phaser.Scene {
     });
   }
 
-  private drawPartyBench(partyName: string, slots: HeroPartySlotViewModel[]): void {
+  private drawPartyBench(partyName: string, slots: HeroPartySlotViewModel[], partyStatusLabel: string): void {
     drawPanel(this, 38, 492, 314, 172, 0x233832, 0x7fd3a6, 0.96, 7);
     addLabel(this, 56, 510, partyName, {
       color: UI_HEX.cream,
@@ -150,9 +150,11 @@ export class HeroesScene extends Phaser.Scene {
       fontStyle: "700",
       width: 180
     });
-    addLabel(this, 56, 532, "Party bench", {
+    addLabel(this, 56, 532, partyStatusLabel,
+    {
       color: UI_HEX.mutedCream,
-      fontSize: 12
+      fontSize: 12,
+      width: 160
     });
     drawDivider(this, 56, 556, 332, 556, 0x7fd3a6, 0.45);
 

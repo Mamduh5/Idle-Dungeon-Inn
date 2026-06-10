@@ -1,13 +1,14 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 4 - Heroes View v1
+Phase 5 - Party System v1
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
 - Phase 1 - Backend Boundary v1: added canonical view models for Inn/Heroes/Build/Tower, added Build/Tower command wrappers, removed Inn command dependence on view-model output, refactored scenes to consume view models/commands, and added focused boundary tests.
 - Phase 2 - Backend Boundary v2: added a typed game command dispatcher, explicit party command helpers, clearer central tick order, recent-event capping in the tick path, stronger save normalization, and focused backend architecture tests.
 - Phase 3 - Bottleneck View v0: added pure bottleneck analysis, a display-ready bottleneck view model, Build/Tower summary exposure, and focused read-only bottleneck tests.
+- Phase 4 - Heroes View v1: expanded Heroes view data for roster-wide hero status, room jobs, party labels, selected-party assignment actions, and simple assignment command wiring in the scene.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -36,8 +37,11 @@ Phase 4 - Heroes View v1
 - Completed.
 
 ### Phase 4 - Heroes View v1
-- Inspect prompt and current Heroes view model/scene.
-- Add hero-focused status, training, room job, and party assignment improvements without changing core gameplay semantics.
+- Completed.
+
+### Phase 5 - Party System v1
+- Add party-oriented view-model/command support without adding a second hero yet.
+- Keep current single-party behavior compatible.
 
 ## Changed files by phase
 ### Phase 0
@@ -81,6 +85,11 @@ Phase 4 - Heroes View v1
 - review/redesign-10/bottleneck-view-v0.spec.ts
 
 ### Phase 4
+- src/viewModels/heroesViewModel.ts
+- src/scenes/HeroesScene.ts
+- review/redesign-10/heroes-view-v1.spec.ts
+
+### Phase 5
 - Pending.
 
 ## Commands run
@@ -115,11 +124,17 @@ Phase 4 - Heroes View v1
 - `npm run test -- review/redesign-10/bottleneck-view-v0.spec.ts`: passed, 5 tests.
 - `git diff --check`: passed with line-ending warnings only.
 
+### Phase 4
+- `npm run build`: initially failed due to an old helper call arity in `heroesViewModel`; fixed, then passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/heroes-view-v1.spec.ts`: passed, 4 tests.
+- `git diff --check`: passed with line-ending warnings only.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
 - Phase 2: no broad long suites were run; not part of Phase 2 fast validation.
 - Phase 3: no visual/manual browser checks were run; Phase 3 validation was pure view-model/system coverage.
+- Phase 4: no browser/manual visual checks were run; validation was build plus focused view-model/source tests.
 
 ## Known risks
 - The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.

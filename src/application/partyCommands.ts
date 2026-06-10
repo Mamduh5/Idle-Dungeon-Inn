@@ -33,9 +33,11 @@ export function assignHeroToParty(
       return party;
     }
 
+    const compactHeroIds = [...new Set(nextHeroIds.filter((candidateHeroId): candidateHeroId is HeroId => typeof candidateHeroId === "string"))];
+
     return {
       ...party,
-      heroIds: nextHeroIds.slice(0, party.maxSize)
+      heroIds: compactHeroIds.slice(0, party.maxSize)
     };
   });
   const changedParty = nextParties.find((party) => party.id === partyId);

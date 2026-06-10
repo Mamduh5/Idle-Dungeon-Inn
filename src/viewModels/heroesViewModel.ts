@@ -7,6 +7,7 @@ import type { HeroInstance } from "../types/heroTypes";
 import type { HeroId, HeroStatus } from "../types/ids";
 import { getHeroHpDisplayText } from "../ui/heroDisplayText";
 import { getHeroTrainingRosterText } from "../ui/trainingRoomText";
+import { getPartyViewModel, type PartyViewModel } from "./partyViewModel";
 
 export interface HeroRosterCardViewModel {
   id: HeroId;
@@ -39,6 +40,7 @@ export interface HeroesViewModel {
   partyName: string;
   maxPartySize: number;
   summaryLabel: string;
+  party: PartyViewModel;
   roster: HeroRosterCardViewModel[];
   partySlots: HeroPartySlotViewModel[];
 }
@@ -56,6 +58,7 @@ export function getHeroesViewModel(state: GameState): HeroesViewModel {
     partyName: party?.name ?? "No Party",
     maxPartySize: party?.maxSize ?? 3,
     summaryLabel: `${orderedHeroes.length} hero${orderedHeroes.length === 1 ? "" : "es"} known / ${partyHeroes.length}/${party?.maxSize ?? 3} in party`,
+    party: getPartyViewModel(state),
     roster,
     partySlots: Array.from({ length: party?.maxSize ?? 3 }, (_, slotIndex) => {
       const hero = partyHeroes[slotIndex] ?? null;
