@@ -1,37 +1,58 @@
 import { toggleAutoDispatch } from "../systems/automationSystem";
 import { sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
-import { cancelHeroTrainingDrill, startHeroTrainingDrill } from "../systems/roomJobSystem";
+import {
+  cancelHeroTrainingDrill,
+  getActiveRoomJobs,
+  getDefaultTrainingHero,
+  startHeroTrainingDrill
+} from "../systems/roomJobSystem";
 import type { GameState } from "../types/gameState";
 import type { HeroId } from "../types/ids";
-import { getInnViewModel } from "./innViewModel";
+
+export function startTrainingFromInn(state: GameState, heroId?: HeroId | null, now?: number): GameState {
+  const targetHeroId = heroId ?? getDefaultTrainingHero(state)?.id ?? null;
+  return targetHeroId ? startHeroTrainingDrill(state, targetHeroId, now) : state;
+}
+
+export function cancelTrainingFromInn(state: GameState, heroId?: HeroId | null, now?: number): GameState {
+  const targetHeroId = heroId ?? getActiveTrainingHeroId(state);
+  return targetHeroId ? cancelHeroTrainingDrill(state, targetHeroId, now) : state;
+}
+
+export function toggleAutoDispatchFromInn(state: GameState, now?: number): GameState {
+  return toggleAutoDispatch(state, now);
+}
+
+export function sendSelectedPartyFromInn(state: GameState, now?: number): GameState {
+  return sendSelectedPartyToTower(state, { now });
+}
 
 export function handleInnTrainAction(state: GameState, heroId?: HeroId | null): GameState {
-  const targetHeroId = heroId ?? getInnViewModel(state).trainingRoom.targetHeroId;
-  return targetHeroId ? startHeroTrainingDrill(state, targetHeroId) : state;
+  return startTrainingFromInn(state, heroId);
 }
 
 export function handleInnCancelTrainingAction(state: GameState, heroId?: HeroId | null): GameState {
-  const targetHeroId = heroId ?? getInnViewModel(state).trainingRoom.targetHeroId;
-  return targetHeroId ? cancelHeroTrainingDrill(state, targetHeroId) : state;
+  return cancelTrainingFromInn(state, heroId);
 }
 
 export function handleInnTrainingAction(state: GameState, heroId?: HeroId | null): GameState {
-  const viewModel = getInnViewModel(state);
-  const targetHeroId = heroId ?? viewModel.trainingRoom.targetHeroId;
+  const activeTrainingHeroId = getActiveTrainingHeroId(state);
 
-  if (!targetHeroId) {
-    return state;
+  if (activeTrainingHeroId && (!heroId || heroId === activeTrainingHeroId)) {
+    return cancelTrainingFromInn(state, activeTrainingHeroId);
   }
 
-  return viewModel.trainingRoom.isCancelAction
-    ? cancelHeroTrainingDrill(state, targetHeroId)
-    : startHeroTrainingDrill(state, targetHeroId);
+  return startTrainingFromInn(state, heroId);
 }
 
 export function handleInnToggleAutoDispatch(state: GameState): GameState {
-  return toggleAutoDispatch(state);
+  return toggleAutoDispatchFromInn(state);
 }
 
 export function handleInnSendSelectedParty(state: GameState): GameState {
-  return sendSelectedPartyToTower(state);
+  return sendSelectedPartyFromInn(state);
+}
+
+function getActiveTrainingHeroId(state: GameState): HeroId | null {
+  return getActiveRoomJobs(state, "training_room").find((job) => job.jobType === "training")?.heroId ?? null;
 }

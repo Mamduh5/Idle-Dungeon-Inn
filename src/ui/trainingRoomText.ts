@@ -1,11 +1,11 @@
-import { getHeroesForParty, getInnRoom, getSelectedParty } from "../state/gameSelectors";
+import { getInnRoom } from "../state/gameSelectors";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
-import type { HeroId } from "../types/ids";
 import type { RoomJob } from "../types/roomTypes";
 import {
   calculateTrainingRoomXpPerSecond,
   getActiveRoomJobs,
+  getDefaultTrainingHero,
   getHeroActiveRoomJob,
   getHeroTrainingAttackBonus,
   getTrainingRoomAssignmentBlockReason,
@@ -18,6 +18,8 @@ export const TRAINING_ROOM_BUILD_COPY = [
   "Personal +ATK is kept.",
   "No global attack aura."
 ];
+
+export { getDefaultTrainingHero, getEligibleTrainingHeroes } from "../systems/roomJobSystem";
 
 export interface TrainingRoomInnText {
   speedLabel: string;
@@ -128,26 +130,6 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
     activeTrainingHero,
     targetHero
   };
-}
-
-export function getEligibleTrainingHeroes(state: GameState): HeroInstance[] {
-  const party = getSelectedParty(state);
-  const partyHeroes = party ? getHeroesForParty(state, party.id) : [];
-  const partyHeroIds = new Set(partyHeroes.map((hero) => hero.id));
-  const orderedHeroes = [...partyHeroes, ...state.heroes.filter((hero) => !partyHeroIds.has(hero.id))];
-
-  return orderedHeroes.filter((hero) => getTrainingRoomAssignmentBlockReason(state, hero.id) === null);
-}
-
-export function getDefaultTrainingHero(state: GameState, preferredHeroId: HeroId | null = null): HeroInstance | null {
-  if (preferredHeroId) {
-    const preferredHero = state.heroes.find((hero) => hero.id === preferredHeroId) ?? null;
-    if (preferredHero && getTrainingRoomAssignmentBlockReason(state, preferredHero.id) === null) {
-      return preferredHero;
-    }
-  }
-
-  return getEligibleTrainingHeroes(state)[0] ?? null;
 }
 
 export function getHeroTrainingRosterText(state: GameState, hero: HeroInstance): HeroTrainingRosterText {

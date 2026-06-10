@@ -10,10 +10,9 @@ export const ENCOUNTER_CLEAR_HOLD_REASON = "Encounter cleared. Node advancement 
 export const TREASURE_HOLD_REASON = "Treasure found. Rewards are not implemented yet.";
 export const FLOOR_CLEAR_HOLD_REASON = "Floor clear is not implemented yet.";
 
-export function continueSelectedTowerRun(state: GameState): GameState {
+export function continueSelectedTowerRun(state: GameState, now = Date.now()): GameState {
   const party = getSelectedParty(state);
   const run = getSelectedTowerRun(state);
-  const now = Date.now();
 
   if (!party || !run) {
     return state;

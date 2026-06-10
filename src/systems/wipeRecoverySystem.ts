@@ -18,10 +18,9 @@ export function canRecoverSelectedWipedParty(state: GameState): boolean {
   return getHeroesForParty(state, party.id).length > 0;
 }
 
-export function recoverSelectedWipedParty(state: GameState): GameState {
+export function recoverSelectedWipedParty(state: GameState, now = Date.now()): GameState {
   const party = getSelectedParty(state);
   const run = getSelectedTowerRun(state);
-  const now = Date.now();
 
   if (!party || !run || run.status !== "wiped") {
     return state;

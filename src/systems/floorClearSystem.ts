@@ -20,10 +20,9 @@ export function canCompleteSelectedFloor(state: GameState): boolean {
   return node?.type === "exit";
 }
 
-export function completeSelectedFloor(state: GameState): GameState {
+export function completeSelectedFloor(state: GameState, now = Date.now()): GameState {
   const party = getSelectedParty(state);
   const run = getSelectedTowerRun(state);
-  const now = Date.now();
 
   if (!party || !run) {
     return state;

@@ -1,20 +1,20 @@
 import Phaser from "phaser";
+import {
+  completeSelectedFloorFromTower,
+  continueSelectedRunFromTower,
+  recoverSelectedPartyFromTower
+} from "../application/towerCommands";
 import { enemyDefinitions } from "../data/enemyData";
 import { prototypeTowerFloors } from "../data/towerData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
-import { getHeroesForParty, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
-import { getBottleneckHintForRun, FLOOR_10_BOSS_SUGGESTIONS, isFloor10BossNode } from "../systems/bottleneckHintSystem";
+import { isFloor10BossNode } from "../systems/bottleneckHintSystem";
 import { tickGameState } from "../systems/gameTickSystem";
-import { canCompleteSelectedFloor, completeSelectedFloor } from "../systems/floorClearSystem";
 import {
-  canContinueTowerRun,
-  continueSelectedTowerRun,
   ENCOUNTER_CLEAR_HOLD_REASON,
   FLOOR_CLEAR_HOLD_REASON,
   TREASURE_HOLD_REASON
 } from "../systems/towerNodeActionSystem";
-import { canRecoverSelectedWipedParty, recoverSelectedWipedParty } from "../systems/wipeRecoverySystem";
 import type { HeroInstance } from "../types/heroTypes";
 import type { TowerNodeDefinition, TowerRunEnemyState, TowerRunState } from "../types/towerTypes";
 import {
@@ -26,12 +26,12 @@ import {
   drawPanel,
   drawStatusBadge,
   drawTinyEnemy,
-  drawTinyHero,
-  formatStatusLabel
+  drawTinyHero
 } from "../ui/components";
 import { createSceneHud } from "../ui/sceneHud";
 import { getHeroHpDisplayText } from "../ui/heroDisplayText";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
+import { getTowerViewModel, type TowerViewModel } from "../viewModels/towerViewModel";
 
 const TOWER_WORLD_WIDTH = 960;
 const TOWER_MAX_SCROLL_X = TOWER_WORLD_WIDTH - GAME_WIDTH;
@@ -46,20 +46,18 @@ export class TowerScene extends Phaser.Scene {
 
   public create(): void {
     const state = getGameState();
-    const party = getSelectedParty(state);
-    const run = getSelectedTowerRun(state);
-    const heroes = party ? getHeroesForParty(state, party.id) : [];
-    const node = run ? getCurrentNode(run) : null;
-    const partyName = party?.name ?? "Party";
+    const viewModel = getTowerViewModel(state);
+    const run = viewModel.run;
+    const heroes = viewModel.heroes;
 
     this.renderKey = getTowerRenderKey(run, heroes);
     this.configureCamera(run);
     this.drawDungeonWorld(run);
-    this.drawTowerStage(partyName, run, node, heroes);
-    this.drawContextAction(state, run);
+    this.drawTowerStage(viewModel);
+    this.drawContextAction(viewModel);
 
     const fixedChildStart = this.children.list.length;
-    this.drawCompactRunOverlay(partyName, run, node);
+    this.drawCompactRunOverlay(viewModel);
     createSceneHud(this, { title: "Tower Run", activeLabel: "Tower" });
     this.fixChildrenAddedAfter(fixedChildStart);
   }
@@ -67,10 +65,8 @@ export class TowerScene extends Phaser.Scene {
   public update(_time: number, delta: number): void {
     const now = Date.now();
     const state = updateGameState((currentState) => tickGameState(currentState, delta, now));
-    const nextRun = getSelectedTowerRun(state);
-    const nextParty = getSelectedParty(state);
-    const nextHeroes = nextParty ? getHeroesForParty(state, nextParty.id) : [];
-    const nextKey = getTowerRenderKey(nextRun, nextHeroes);
+    const viewModel = getTowerViewModel(state);
+    const nextKey = getTowerRenderKey(viewModel.run, viewModel.heroes);
 
     if (nextKey !== this.renderKey && now - this.lastRestartAt > 80) {
       this.lastRestartAt = now;
@@ -114,28 +110,29 @@ export class TowerScene extends Phaser.Scene {
     this.drawFarDoor(830, "Deep", UI_COLORS.towerStone);
   }
 
-  private drawCompactRunOverlay(partyName: string, run: TowerRunState | null, node: TowerNodeDefinition | null): void {
+  private drawCompactRunOverlay(viewModel: TowerViewModel): void {
+    const run = viewModel.run;
     drawPanel(this, 18, 112, 354, 88, 0x101722, UI_COLORS.towerStone, 0.96, 7);
-    addLabel(this, 34, 124, partyName, {
+    addLabel(this, 34, 124, viewModel.partyName, {
       color: UI_HEX.cream,
       fontSize: 13,
       fontStyle: "700",
       width: 136
     });
-    addLabel(this, 34, 144, `Floor ${run?.floor ?? 1} / Node ${(run?.nodeIndex ?? 0) + 1}`, {
+    addLabel(this, 34, 144, viewModel.floorNodeLabel, {
       color: UI_HEX.skyBlue,
       fontSize: 11,
       fontStyle: "700"
     });
-    if (run?.floor === 10) {
-      addLabel(this, 150, 144, "First checkpoint", {
+    if (viewModel.checkpointLabel) {
+      addLabel(this, 150, 144, viewModel.checkpointLabel, {
         color: UI_HEX.gold,
         fontSize: 11,
         fontStyle: "700",
         width: 100
       });
     }
-    drawStatusBadge(this, 246, 123, formatTowerStatus(run, node), statusColor(run));
+    drawStatusBadge(this, 246, 123, viewModel.statusLabel, statusColor(run));
     this.drawCompactNodeTrack(run);
   }
 
@@ -168,12 +165,8 @@ export class TowerScene extends Phaser.Scene {
     }
   }
 
-  private drawTowerStage(
-    partyName: string,
-    run: TowerRunState | null,
-    node: TowerNodeDefinition | null,
-    heroes: HeroInstance[]
-  ): void {
+  private drawTowerStage(viewModel: TowerViewModel): void {
+    const { partyName, run, currentNode: node, heroes } = viewModel;
     const status = run?.status ?? "preparing";
     const hero = heroes[0] ?? null;
 
@@ -192,13 +185,13 @@ export class TowerScene extends Phaser.Scene {
     } else if (status === "looting") {
       this.drawTreasureStage(run, hero);
     } else if (status === "wiped") {
-      this.drawWipedStage(run, hero);
+      this.drawWipedStage(run, hero, viewModel.bottleneckHint, viewModel.bottleneckSuggestions);
     } else {
       this.drawBlockedStage(run, hero);
     }
 
-    if (shouldDrawWorldEventLine(run)) {
-      this.drawWorldEventLine(getTowerMessage(partyName, run, node));
+    if (viewModel.shouldShowWorldEventLine) {
+      this.drawWorldEventLine(viewModel.message);
     }
   }
 
@@ -325,8 +318,12 @@ export class TowerScene extends Phaser.Scene {
     }
   }
 
-  private drawWipedStage(run: TowerRunState, hero: HeroInstance | null): void {
-    const bottleneckHint = getBottleneckHintForRun(run);
+  private drawWipedStage(
+    run: TowerRunState,
+    hero: HeroInstance | null,
+    bottleneckHint: string | null,
+    bottleneckSuggestions: string[]
+  ): void {
     this.add.rectangle(330, 300, 390, bottleneckHint ? 326 : 286, 0x4d1824, 0.38).setOrigin(0, 0);
     addCenteredLabel(this, 525, 328, bottleneckHint ? "Checkpoint Failed" : "Party Wiped", {
       color: UI_HEX.danger,
@@ -352,7 +349,7 @@ export class TowerScene extends Phaser.Scene {
         fontSize: 10,
         width: 184
       });
-      addLabel(this, 358, 450, FLOOR_10_BOSS_SUGGESTIONS.slice(0, 2).join(" "), {
+      addLabel(this, 358, 450, bottleneckSuggestions.join(" "), {
         color: UI_HEX.parchment,
         fontSize: 10,
         width: 184
@@ -374,66 +371,48 @@ export class TowerScene extends Phaser.Scene {
     });
   }
 
-  private drawContextAction(state: ReturnType<typeof getGameState>, run: TowerRunState | null): void {
+  private drawContextAction(viewModel: TowerViewModel): void {
+    const action = viewModel.action;
+    if (!action) {
+      return;
+    }
+
     const actionX = this.cameras.main.scrollX + GAME_WIDTH / 2;
     const actionY = 652;
+    const color =
+      action.id === "complete_floor" ? UI_COLORS.gold : action.id === "continue_run" ? UI_COLORS.skyBlue : UI_COLORS.danger;
+    const fill =
+      action.id === "complete_floor" ? UI_COLORS.gold : action.id === "continue_run" ? UI_COLORS.skyBlue : 0x6b2935;
+    const stroke = action.id === "continue_run" ? 0xd7e8ff : UI_COLORS.parchment;
 
-    if (canCompleteSelectedFloor(state)) {
-      this.drawActionConnector(actionX, actionY, UI_COLORS.gold);
-      drawActionButton(this, {
-        x: actionX,
-        y: actionY,
-        width: 154,
-        height: 44,
-        label: "Complete Floor",
-        enabled: true,
-        fill: UI_COLORS.gold,
-        stroke: UI_COLORS.parchment,
-        onClick: () => {
-          updateGameState(completeSelectedFloor);
+    this.drawActionConnector(actionX, actionY, color);
+    drawActionButton(this, {
+      x: actionX,
+      y: actionY,
+      width: 154,
+      height: 44,
+      label: action.label,
+      enabled: action.enabled,
+      fill,
+      stroke,
+      textColor: action.id === "recover_party" ? UI_HEX.cream : undefined,
+      onClick: () => {
+        if (action.id === "complete_floor") {
+          updateGameState(completeSelectedFloorFromTower);
           this.scene.start("InnScene");
+          return;
         }
-      });
-      return;
-    }
 
-    if (canContinueTowerRun(run)) {
-      this.drawActionConnector(actionX, actionY, UI_COLORS.skyBlue);
-      drawActionButton(this, {
-        x: actionX,
-        y: actionY,
-        width: 154,
-        height: 44,
-        label: "Continue Run",
-        enabled: true,
-        fill: UI_COLORS.skyBlue,
-        stroke: 0xd7e8ff,
-        onClick: () => {
-          updateGameState(continueSelectedTowerRun);
+        if (action.id === "continue_run") {
+          updateGameState(continueSelectedRunFromTower);
           this.scene.restart();
+          return;
         }
-      });
-      return;
-    }
 
-    if (canRecoverSelectedWipedParty(state)) {
-      this.drawActionConnector(actionX, actionY, UI_COLORS.danger);
-      drawActionButton(this, {
-        x: actionX,
-        y: actionY,
-        width: 154,
-        height: 44,
-        label: "Return to Inn",
-        enabled: true,
-        fill: 0x6b2935,
-        stroke: UI_COLORS.parchment,
-        textColor: UI_HEX.cream,
-        onClick: () => {
-          updateGameState(recoverSelectedWipedParty);
-          this.scene.start("InnScene");
-        }
-      });
-    }
+        updateGameState(recoverSelectedPartyFromTower);
+        this.scene.start("InnScene");
+      }
+    });
   }
 
   private drawActionConnector(x: number, y: number, color: number): void {
@@ -554,10 +533,6 @@ export class TowerScene extends Phaser.Scene {
   }
 }
 
-function getCurrentNode(run: TowerRunState): TowerNodeDefinition | null {
-  return prototypeTowerFloors.find((floor) => floor.floor === run.floor)?.nodes[run.nodeIndex] ?? null;
-}
-
 function getTowerCameraScrollX(run: TowerRunState | null): number {
   if (!run || run.status === "preparing") {
     return 0;
@@ -594,74 +569,6 @@ function clampCameraScroll(scrollX: number): number {
   return Phaser.Math.Clamp(scrollX, 0, TOWER_MAX_SCROLL_X);
 }
 
-function getTowerMessage(partyName: string, run: TowerRunState | null, node: TowerNodeDefinition | null): string {
-  if (!run || run.status === "preparing") {
-    return "Party is preparing at the inn.";
-  }
-
-  if (run.status === "traveling") {
-    return `${partyName} is traveling to Floor ${run.floor}.`;
-  }
-
-  if (run.status === "exploring") {
-    return `Exploring toward ${node?.type === "boss" ? "the boss checkpoint" : node?.type ?? "the next node"}.`;
-  }
-
-  if (run.status === "fighting") {
-    return isFloor10BossNode(run) ? run.lastCombatEventMessage ?? "Boss checkpoint running." : run.lastCombatEventMessage ?? "Combat running.";
-  }
-
-  if (run.status === "looting") {
-    return "Treasure found. Continue when ready.";
-  }
-
-  if (run.status === "blocked") {
-    if (run.lastFailureReason === ENCOUNTER_CLEAR_HOLD_REASON) {
-      return "Encounter cleared. Continue through the open passage.";
-    }
-
-    if (run.lastFailureReason === FLOOR_CLEAR_HOLD_REASON) {
-      return "Exit reached. Complete Floor to return to the inn.";
-    }
-
-    return run.lastFailureReason ?? "Run is paused.";
-  }
-
-  if (run.status === "wiped") {
-    return getBottleneckHintForRun(run) ?? "Party wiped. Return to the inn to recover.";
-  }
-
-  return `${partyName} status: ${formatStatusLabel(run.status)}.`;
-}
-
-function formatTowerStatus(run: TowerRunState | null, node: TowerNodeDefinition | null): string {
-  if (!run) {
-    return "No Run";
-  }
-
-  if (run.status === "wiped" && getBottleneckHintForRun(run)) {
-    return "Boss Failed";
-  }
-
-  if (run.status === "fighting" && isFloor10BossNode(run)) {
-    return "Boss";
-  }
-
-  if (run.status === "blocked" && run.lastFailureReason === ENCOUNTER_CLEAR_HOLD_REASON) {
-    return "Cleared";
-  }
-
-  if (run.status === "blocked" && run.lastFailureReason === FLOOR_CLEAR_HOLD_REASON) {
-    return "Exit";
-  }
-
-  if (run.status === "exploring" && node) {
-    return node.type === "boss" ? "Boss Gate" : formatStatusLabel(node.type);
-  }
-
-  return formatStatusLabel(run.status);
-}
-
 function statusColor(run: TowerRunState | null): number {
   if (!run) {
     return 0x334155;
@@ -680,18 +587,6 @@ function statusColor(run: TowerRunState | null): number {
   }
 
   return 0x334155;
-}
-
-function shouldDrawWorldEventLine(run: TowerRunState | null): boolean {
-  if (!run) {
-    return true;
-  }
-
-  if (run.status === "blocked") {
-    return run.lastFailureReason !== ENCOUNTER_CLEAR_HOLD_REASON && run.lastFailureReason !== FLOOR_CLEAR_HOLD_REASON;
-  }
-
-  return true;
 }
 
 function getTowerRenderKey(run: TowerRunState | null, heroes: Array<{ id: string; currentHp: number; status: string }>): string {

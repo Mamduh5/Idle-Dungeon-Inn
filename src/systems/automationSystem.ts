@@ -91,12 +91,11 @@ export function tickAutomation(state: GameState, now: number): GameState {
   };
 }
 
-export function toggleAutoDispatch(state: GameState): GameState {
+export function toggleAutoDispatch(state: GameState, now = Date.now()): GameState {
   if (state.automation.autoDispatchLevel <= 0) {
     return state;
   }
 
-  const now = Date.now();
   const nextEnabled = !state.automation.enabled[AUTO_DISPATCH_ID];
 
   return {

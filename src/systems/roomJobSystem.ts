@@ -1,5 +1,5 @@
 import { heroDefinitions } from "../data/heroData";
-import { getInnRoom } from "../state/gameSelectors";
+import { getHeroesForParty, getInnRoom, getSelectedParty } from "../state/gameSelectors";
 import { appendRecentEvent } from "../state/recentEvents";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
@@ -335,6 +335,26 @@ export function getTrainingRoomAssignmentBlockReason(state: GameState, heroId: H
   }
 
   return null;
+}
+
+export function getEligibleTrainingHeroes(state: GameState): HeroInstance[] {
+  const party = getSelectedParty(state);
+  const partyHeroes = party ? getHeroesForParty(state, party.id) : [];
+  const partyHeroIds = new Set(partyHeroes.map((hero) => hero.id));
+  const orderedHeroes = [...partyHeroes, ...state.heroes.filter((hero) => !partyHeroIds.has(hero.id))];
+
+  return orderedHeroes.filter((hero) => getTrainingRoomAssignmentBlockReason(state, hero.id) === null);
+}
+
+export function getDefaultTrainingHero(state: GameState, preferredHeroId: HeroId | null = null): HeroInstance | null {
+  if (preferredHeroId) {
+    const preferredHero = state.heroes.find((hero) => hero.id === preferredHeroId) ?? null;
+    if (preferredHero && getTrainingRoomAssignmentBlockReason(state, preferredHero.id) === null) {
+      return preferredHero;
+    }
+  }
+
+  return getEligibleTrainingHeroes(state)[0] ?? null;
 }
 
 export function startHeroTrainingDrill(state: GameState, heroId: HeroId, now = Date.now()): GameState {

@@ -4,17 +4,17 @@ import {
   handleInnToggleAutoDispatch,
   handleInnTrainingAction
 } from "../application/innCommands";
+import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
+import { getGameState, updateGameState } from "../state/gameStore";
+import { tickGameState } from "../systems/gameTickSystem";
+import type { HeroStatus } from "../types/ids";
 import {
   getInnViewModel,
   type InnBedRoomViewModel,
   type InnGateViewModel,
   type InnHeroViewModel,
   type InnTrainingRoomViewModel
-} from "../application/innViewModel";
-import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
-import { getGameState, updateGameState } from "../state/gameStore";
-import { tickGameState } from "../systems/gameTickSystem";
-import type { HeroStatus } from "../types/ids";
+} from "../viewModels/innViewModel";
 import { getInnCameraScrollForCreate } from "../ui/innCameraScroll";
 import {
   addCenteredLabel,

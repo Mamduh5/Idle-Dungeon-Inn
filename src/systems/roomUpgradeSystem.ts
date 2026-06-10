@@ -54,10 +54,9 @@ export function getRoomUpgradePreview(state: GameState, roomId: RoomId): RoomUpg
   };
 }
 
-export function purchaseRoomUpgrade(roomId: RoomId): (state: GameState) => GameState {
+export function purchaseRoomUpgrade(roomId: RoomId, now = Date.now()): (state: GameState) => GameState {
   return (state) => {
     const definition = roomDefinitions[roomId];
-    const now = Date.now();
 
     if (!definition) {
       return withRoomUpgradeEvent(state, createRoomEvent(now, `Unknown room ${roomId}.`, "warning"));

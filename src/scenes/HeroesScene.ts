@@ -1,10 +1,7 @@
 import Phaser from "phaser";
-import { heroDefinitions } from "../data/heroData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
-import { getHeroesForParty, getSelectedParty } from "../state/gameSelectors";
 import { getGameState, updateGameState } from "../state/gameStore";
 import { tickGameState } from "../systems/gameTickSystem";
-import type { HeroInstance } from "../types/heroTypes";
 import {
   addCenteredLabel,
   addLabel,
@@ -12,13 +9,15 @@ import {
   drawHpBar,
   drawPanel,
   drawStatusBadge,
-  drawTinyHero,
-  formatStatusLabel
+  drawTinyHero
 } from "../ui/components";
-import { getHeroHpDisplayText } from "../ui/heroDisplayText";
 import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
-import { getHeroTrainingRosterText } from "../ui/trainingRoomText";
+import {
+  getHeroesViewModel,
+  type HeroPartySlotViewModel,
+  type HeroRosterCardViewModel
+} from "../viewModels/heroesViewModel";
 
 export class HeroesScene extends Phaser.Scene {
   public constructor() {
@@ -26,13 +25,11 @@ export class HeroesScene extends Phaser.Scene {
   }
 
   public create(): void {
-    const state = getGameState();
-    const party = getSelectedParty(state);
-    const heroes = party ? getHeroesForParty(state, party.id) : [];
+    const viewModel = getHeroesViewModel(getGameState());
 
     this.drawBackdrop();
-    this.drawRosterHall(heroes, state);
-    this.drawPartyBench(party?.name ?? "No Party", heroes, party?.maxSize ?? 3);
+    this.drawRosterHall(viewModel.roster);
+    this.drawPartyBench(viewModel.partyName, viewModel.partySlots);
 
     createSceneHud(this, { title: "Heroes", activeLabel: "Heroes" });
   }
@@ -60,7 +57,7 @@ export class HeroesScene extends Phaser.Scene {
     });
   }
 
-  private drawRosterHall(heroes: HeroInstance[], state: ReturnType<typeof getGameState>): void {
+  private drawRosterHall(heroes: HeroRosterCardViewModel[]): void {
     drawPanel(this, 38, 178, 314, 282, 0x263f38, 0x7fd3a6, 0.96, 7);
     addLabel(this, 56, 194, "Hero Roster", {
       color: UI_HEX.cream,
@@ -79,43 +76,39 @@ export class HeroesScene extends Phaser.Scene {
 
     heroes.forEach((hero, index) => {
       const y = 256 + index * 116;
-      const definition = heroDefinitions[hero.classId];
-      const hpDisplay = getHeroHpDisplayText(hero);
-      const trainingText = getHeroTrainingRosterText(state, hero);
-
       this.add.rectangle(58, y - 42, 274, 112, 0x1d332e, 1).setOrigin(0, 0).setStrokeStyle(1, 0x6bc5b8);
       drawTinyHero(this, 102, y, {
         name: hero.name,
-        status: formatStatusLabel(hero.status),
+        status: hero.statusLabel,
         palette: hero.status === "defeated" ? "defeated" : hero.status === "in_tower" ? "away" : "hero"
       });
-      addLabel(this, 154, y - 35, `${hero.name} Lv ${hero.level}`, {
+      addLabel(this, 154, y - 35, hero.levelLabel, {
         color: UI_HEX.cream,
         fontSize: 15,
         fontStyle: "700",
         width: 160
       });
-      addLabel(this, 154, y - 14, definition?.name ?? hero.classId, {
+      addLabel(this, 154, y - 14, hero.classLabel, {
         color: UI_HEX.mutedCream,
         fontSize: 12,
         width: 160
       });
-      addLabel(this, 154, y + 2, trainingText.bonusLabel, {
+      addLabel(this, 154, y + 2, hero.trainingBonusLabel, {
         color: UI_HEX.gold,
         fontSize: 10,
         width: 160
       });
-      addLabel(this, 154, y + 16, trainingText.progressLabel, {
+      addLabel(this, 154, y + 16, hero.trainingProgressLabel, {
         color: UI_HEX.mutedCream,
         fontSize: 9,
         width: 160
       });
-      drawHpBar(this, 154, y + 30, 150, 8, hpDisplay.ratio, hpDisplay.label, UI_COLORS.success);
-      drawStatusBadge(this, 154, y + 50, trainingText.statusLabel, hero.status === "in_tower" ? 0x1f4662 : 0x275241);
+      drawHpBar(this, 154, y + 30, 150, 8, hero.hpRatio, hero.hpLabel, UI_COLORS.success);
+      drawStatusBadge(this, 154, y + 50, hero.statusLabel, hero.status === "in_tower" ? 0x1f4662 : 0x275241);
     });
   }
 
-  private drawPartyBench(partyName: string, heroes: HeroInstance[], maxSize: number): void {
+  private drawPartyBench(partyName: string, slots: HeroPartySlotViewModel[]): void {
     drawPanel(this, 38, 492, 314, 172, 0x233832, 0x7fd3a6, 0.96, 7);
     addLabel(this, 56, 510, partyName, {
       color: UI_HEX.cream,
@@ -129,23 +122,23 @@ export class HeroesScene extends Phaser.Scene {
     });
     drawDivider(this, 56, 556, 332, 556, 0x7fd3a6, 0.45);
 
-    for (let index = 0; index < maxSize; index += 1) {
-      const hero = heroes[index] ?? null;
+    slots.forEach((slot, index) => {
+      const hero = slot.hero;
       const x = 56 + index * 99;
       this.add.rectangle(x, 578, 82, 58, hero ? 0x314e45 : 0x1b2c28, 1).setStrokeStyle(1, hero ? UI_COLORS.gold : 0x5f7770).setOrigin(0, 0);
       this.add.circle(x + 20, 606, 14, hero ? UI_COLORS.gold : 0x5f7770, 0.9);
-      addCenteredLabel(this, x + 50, 596, hero ? hero.name : "Future", {
+      addCenteredLabel(this, x + 50, 596, slot.label, {
         color: hero ? UI_HEX.cream : UI_HEX.mutedCream,
         fontSize: 11,
         fontStyle: "700",
         width: 58
       });
-      addCenteredLabel(this, x + 50, 617, hero ? formatStatusLabel(hero.status) : "slot", {
+      addCenteredLabel(this, x + 50, 617, slot.statusLabel, {
         color: hero ? UI_HEX.gold : UI_HEX.mutedCream,
         fontSize: 10,
         width: 58
       });
-    }
+    });
 
     addCenteredLabel(this, GAME_WIDTH / 2, 684, "Additional party actions are not implemented.", {
       color: UI_HEX.mutedCream,
