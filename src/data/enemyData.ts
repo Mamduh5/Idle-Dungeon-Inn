@@ -163,5 +163,77 @@ export const enemyDefinitions: Record<EnemyId, EnemyDefinition> = {
     },
     unlockFloor: 10,
     lootTableId: "coins_small"
+  },
+  bone_guard: {
+    enemyId: "bone_guard",
+    name: "Bone Guard",
+    baseStats: {
+      hp: 112,
+      attack: 14,
+      defense: 8,
+      attackSpeed: 0.75,
+      critChance: 0.04,
+      critDamage: 1.25,
+      skillPower: 0,
+      recovery: 0,
+      aggro: 8,
+      lootBonus: 0
+    },
+    unlockFloor: 11,
+    lootTableId: "coins_small"
+  },
+  bone_archer: {
+    enemyId: "bone_archer",
+    name: "Bone Archer",
+    baseStats: {
+      hp: 86,
+      attack: 15,
+      defense: 4,
+      attackSpeed: 1.05,
+      critChance: 0.08,
+      critDamage: 1.35,
+      skillPower: 0,
+      recovery: 0,
+      aggro: 4,
+      lootBonus: 0
+    },
+    unlockFloor: 12,
+    lootTableId: "coins_small"
+  },
+  bone_shaman: {
+    enemyId: "bone_shaman",
+    name: "Bone Shaman",
+    baseStats: {
+      hp: 104,
+      attack: 17,
+      defense: 5,
+      attackSpeed: 0.8,
+      critChance: 0.06,
+      critDamage: 1.35,
+      skillPower: 1.2,
+      recovery: 0,
+      aggro: 5,
+      lootBonus: 0
+    },
+    unlockFloor: 15,
+    lootTableId: "coins_small"
+  },
+  bone_captain: {
+    enemyId: "bone_captain",
+    name: "Bone Captain",
+    baseStats: {
+      hp: 320,
+      attack: 19,
+      defense: 10,
+      attackSpeed: 0.85,
+      critChance: 0.07,
+      critDamage: 1.4,
+      skillPower: 1,
+      recovery: 0,
+      aggro: 12,
+      lootBonus: 0
+    },
+    unlockFloor: 20,
+    lootTableId: "coins_small"
   }
 };

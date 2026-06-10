@@ -8,7 +8,7 @@ import { enemyDefinitions } from "../data/enemyData";
 import { prototypeTowerFloors } from "../data/towerData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getGameState, updateGameState } from "../state/gameStore";
-import { isFloor10BossNode } from "../systems/bottleneckHintSystem";
+import { getCheckpointBossName, isCheckpointBossNode } from "../systems/bottleneckHintSystem";
 import { tickGameState } from "../systems/gameTickSystem";
 import {
   ENCOUNTER_CLEAR_HOLD_REASON,
@@ -242,7 +242,8 @@ export class TowerScene extends Phaser.Scene {
   }
 
   private drawCombatStage(run: TowerRunState, heroes: HeroInstance[]): void {
-    const isBoss = isFloor10BossNode(run);
+    const bossName = getCheckpointBossName(run);
+    const isBoss = isCheckpointBossNode(run);
     this.add.rectangle(350, 314, 360, 250, 0x0f1724, 0.68).setOrigin(0, 0).setStrokeStyle(2, isBoss ? UI_COLORS.gold : 0x53657e);
     this.add.circle(530, 552, 178, 0x121827, 0.46);
     addCenteredLabel(this, 530, 326, isBoss ? "boss checkpoint" : "encounter room", {
@@ -253,7 +254,7 @@ export class TowerScene extends Phaser.Scene {
     });
 
     if (isBoss) {
-      addCenteredLabel(this, 530, 348, "Big Cave Slime", {
+      addCenteredLabel(this, 530, 348, bossName ?? "Checkpoint Boss", {
         color: UI_HEX.cream,
         fontSize: 12,
         fontStyle: "700",

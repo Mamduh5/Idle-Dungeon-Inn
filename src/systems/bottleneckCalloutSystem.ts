@@ -17,13 +17,13 @@ export interface Floor10BossCallout {
   recommendations: BottleneckRoomRecommendation[];
 }
 
-const FLOOR_10_MARKERS = ["Floor 10 checkpoint", "Big Cave Slime", "boss checkpoint"];
+const CHECKPOINT_MARKERS = ["Floor 10 checkpoint", "Big Cave Slime", "Floor 20 checkpoint", "Bone Captain", "boss checkpoint"];
 
 const BED_ROOM_RECOMMENDATION: BottleneckRoomRecommendation = {
   roomId: "bed_room",
   buildLabel: "Bed Room",
   buildWhy: "Bed Room: improves recovery/retry pacing.",
-  innBadge: "Recommended after Floor 10 wipe"
+  innBadge: "Recommended after checkpoint wipe"
 };
 
 const TRAINING_ROOM_RECOMMENDATION: BottleneckRoomRecommendation = {
@@ -64,8 +64,8 @@ export function getFloor10BossCallout(state: GameState): Floor10BossCallout | nu
 
   return {
     hint,
-    title: "Floor 10 bottleneck",
-    buildMessage: createBuildMessage(recommendations),
+    title: createCalloutTitle(hint),
+    buildMessage: createBuildMessage(hint, recommendations),
     recommendations
   };
 }
@@ -91,21 +91,26 @@ function getRecommendationsFromHint(hint: string): BottleneckRoomRecommendation[
   return recommendations;
 }
 
-function createBuildMessage(recommendations: BottleneckRoomRecommendation[]): string {
+function createBuildMessage(hint: string, recommendations: BottleneckRoomRecommendation[]): string {
   const hasBedRoom = recommendations.some((recommendation) => recommendation.roomId === "bed_room");
   const hasTrainingRoom = recommendations.some((recommendation) => recommendation.roomId === "training_room");
+  const checkpointLabel = hint.includes("Floor 20") || hint.includes("Bone Captain") ? "Floor 20" : "Floor 10";
 
   if (hasBedRoom && hasTrainingRoom) {
-    return "Floor 10 blocked your party. Upgrade Bed Room for safer retries or Training Room for more damage.";
+    return `${checkpointLabel} blocked your party. Upgrade Bed Room for safer retries or Training Room for more damage.`;
   }
 
   if (hasBedRoom) {
-    return "Floor 10 blocked your party. Upgrade Bed Room for safer recovery before retrying.";
+    return `${checkpointLabel} blocked your party. Upgrade Bed Room for safer recovery before retrying.`;
   }
 
-  return "Floor 10 blocked your party. Upgrade Training Room for more boss damage.";
+  return `${checkpointLabel} blocked your party. Upgrade Training Room for more boss damage.`;
 }
 
 function isFloor10BossBottleneckText(message: string): boolean {
-  return FLOOR_10_MARKERS.some((marker) => message.includes(marker));
+  return CHECKPOINT_MARKERS.some((marker) => message.includes(marker));
+}
+
+function createCalloutTitle(hint: string): string {
+  return hint.includes("Floor 20") || hint.includes("Bone Captain") ? "Floor 20 bottleneck" : "Floor 10 bottleneck";
 }

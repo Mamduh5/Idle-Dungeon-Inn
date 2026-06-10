@@ -1,7 +1,7 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 6 - Second Hero + Party Size 2
+Phase 7 - Floor 1-20 + Floor 20 Boss
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
@@ -10,6 +10,7 @@ Phase 6 - Second Hero + Party Size 2
 - Phase 3 - Bottleneck View v0: added pure bottleneck analysis, a display-ready bottleneck view model, Build/Tower summary exposure, and focused read-only bottleneck tests.
 - Phase 4 - Heroes View v1: expanded Heroes view data for roster-wide hero status, room jobs, party labels, selected-party assignment actions, and simple assignment command wiring in the scene.
 - Phase 5 - Party System v1: added a shared party view model, surfaced party mode/target state, validated party select/mode commands, and fixed duplicate/sparse party slot assignment.
+- Phase 6 - Second Hero + Party Size 2: added Lina the Apprentice Archer, made the starter party size 2, normalized old v1 saves additively, drew compact two-hero parties in Inn/Tower, kept combat/dispatch/recovery all-hero aware, and added focused Phase 6 coverage.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -44,8 +45,11 @@ Phase 6 - Second Hero + Party Size 2
 - Completed.
 
 ### Phase 6 - Second Hero + Party Size 2
-- Add a second starting hero and set starter party size to 2.
-- Keep room jobs and combat/readiness per-hero.
+- Completed.
+
+### Phase 7 - Floor 1-20 + Floor 20 Boss
+- Add Floor 11-20 data, Bone Hall enemies, and a Floor 20 Bone Captain boss checkpoint.
+- Integrate Floor 20 bottleneck messaging without breaking Floor 10 behavior.
 
 ## Changed files by phase
 ### Phase 0
@@ -102,7 +106,21 @@ Phase 6 - Second Hero + Party Size 2
 - review/redesign-10/party-system-v1.spec.ts
 
 ### Phase 6
-- Pending.
+- src/data/heroData.ts
+- src/game/initialState.ts
+- src/state/saveStorage.ts
+- src/viewModels/innViewModel.ts
+- src/scenes/InnScene.ts
+- src/scenes/TowerScene.ts
+- src/systems/roomJobSystem.ts
+- review/redesign-10/second-hero-party-size-2.spec.ts
+- review/redesign-10/backend-boundary-v1.spec.ts
+- review/redesign-10/backend-boundary-v2.spec.ts
+- review/redesign-10/heroes-view-v1.spec.ts
+- review/redesign-10/party-system-v1.spec.ts
+- review/redesign-09/inn-backend-boundary.spec.ts
+- review/redesign-09/training-room.spec.ts
+- review/redesign-09/room-jobs.spec.ts
 
 ## Commands run
 ### Phase 0
@@ -146,6 +164,19 @@ Phase 6 - Second Hero + Party Size 2
 - `npm run test -- review/redesign-10/party-system-v1.spec.ts`: initially failed on sparse duplicate assignment; fixed `assignHeroToParty`, then passed, 5 tests.
 - `git diff --check`: passed with line-ending warnings only.
 
+### Phase 6
+- `npm run build`: passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/second-hero-party-size-2.spec.ts`: passed, 7 tests.
+- `npm run test -- review/redesign-10/backend-boundary-v1.spec.ts`: initially failed on the old temporary `hero_rookie_knight_2` expectation; updated to canonical `hero_apprentice_archer_1`, then passed, 8 tests.
+- `npm run test -- review/redesign-10/backend-boundary-v2.spec.ts`: initially failed because the new second party hero was still resting in an automation fixture and because normalized parties now add Lina; updated the fixture/expectation, then passed, 5 tests.
+- `npm run test -- review/redesign-10/heroes-view-v1.spec.ts`: initially failed on one-hero/temporary-Niko expectations; updated to canonical two-hero defaults and explicit open-slot fixtures, then passed, 4 tests.
+- `npm run test -- review/redesign-10/party-system-v1.spec.ts`: initially failed on the old one-hero slot ordering expectation; updated to assert uniqueness with the canonical two-hero party, then passed, 5 tests.
+- `npm run test -- review/redesign-09/inn-backend-boundary.spec.ts`: initially failed on the old temporary `hero_rookie_knight_2` expectation; updated to canonical `hero_apprentice_archer_1`, then passed, 10 tests.
+- `npm run test -- review/redesign-09/training-room.spec.ts`: initially failed on duplicate temporary hero assumptions and archer base attack; updated fixtures/expectations, then passed, 22 tests.
+- `npm run test -- review/redesign-09/room-jobs.spec.ts`: initially exposed that two-hero wipe recovery could leave the second hero waiting forever after Bed Room capacity freed; added a pure Bed Room queue handoff, updated the test for sequential recovery, then passed, 6 tests.
+- `npm run test -- review/redesign-09/inn-drag-scroll.spec.ts`: passed, 5 tests.
+- `git diff --check`: passed with line-ending warnings only.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
@@ -153,6 +184,7 @@ Phase 6 - Second Hero + Party Size 2
 - Phase 3: no visual/manual browser checks were run; Phase 3 validation was pure view-model/system coverage.
 - Phase 4: no browser/manual visual checks were run; validation was build plus focused view-model/source tests.
 - Phase 5: no browser/manual visual checks were run; validation was build plus focused party view-model/command tests.
+- Phase 6: no browser/manual visual checks were run; validation was build plus focused backend/view-model/source tests.
 
 ## Known risks
 - The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.

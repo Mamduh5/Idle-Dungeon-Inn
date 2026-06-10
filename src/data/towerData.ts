@@ -236,5 +236,245 @@ export const prototypeTowerFloors: TowerFloorDefinition[] = [
     ],
     firstClearRewards: [rewardDefinitions.floor_10_first_clear_coins],
     repeatRewards: [rewardDefinitions.floor_10_repeat_clear_coins]
+  },
+  {
+    floor: 11,
+    themeId: "bone_hall",
+    nodes: [
+      {
+        id: "floor_11_combat_1",
+        type: "combat",
+        enemyIds: ["bone_guard"]
+      },
+      {
+        id: "floor_11_combat_2",
+        type: "combat",
+        enemyIds: ["bone_rat", "bone_guard"]
+      },
+      {
+        id: "floor_11_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_11_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_11_repeat_clear_coins]
+  },
+  {
+    floor: 12,
+    themeId: "bone_hall",
+    nodes: [
+      {
+        id: "floor_12_combat_1",
+        type: "combat",
+        enemyIds: ["bone_archer"]
+      },
+      {
+        id: "floor_12_treasure_1",
+        type: "treasure",
+        rewardTableId: "coins_small"
+      },
+      {
+        id: "floor_12_combat_2",
+        type: "combat",
+        enemyIds: ["bone_guard", "bone_archer"]
+      },
+      {
+        id: "floor_12_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_12_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_12_repeat_clear_coins]
+  },
+  {
+    floor: 13,
+    themeId: "bone_hall",
+    nodes: [
+      {
+        id: "floor_13_combat_1",
+        type: "combat",
+        enemyIds: ["bone_guard", "bone_archer"]
+      },
+      {
+        id: "floor_13_elite_1",
+        type: "elite",
+        enemyIds: ["bone_guard", "bone_guard"]
+      },
+      {
+        id: "floor_13_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_13_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_13_repeat_clear_coins]
+  },
+  {
+    floor: 14,
+    themeId: "bone_hall",
+    nodes: [
+      {
+        id: "floor_14_combat_1",
+        type: "combat",
+        enemyIds: ["bone_archer", "bone_archer"]
+      },
+      {
+        id: "floor_14_combat_2",
+        type: "combat",
+        enemyIds: ["bone_guard", "bone_archer"]
+      },
+      {
+        id: "floor_14_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_14_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_14_repeat_clear_coins]
+  },
+  {
+    floor: 15,
+    themeId: "bone_hall",
+    nodes: [
+      {
+        id: "floor_15_combat_1",
+        type: "combat",
+        enemyIds: ["bone_shaman"]
+      },
+      {
+        id: "floor_15_treasure_1",
+        type: "treasure",
+        rewardTableId: "coins_small"
+      },
+      {
+        id: "floor_15_elite_1",
+        type: "elite",
+        enemyIds: ["bone_guard", "bone_shaman"]
+      },
+      {
+        id: "floor_15_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_15_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_15_repeat_clear_coins]
+  },
+  {
+    floor: 16,
+    themeId: "bone_hall",
+    nodes: [
+      {
+        id: "floor_16_combat_1",
+        type: "combat",
+        enemyIds: ["bone_guard", "bone_shaman"]
+      },
+      {
+        id: "floor_16_combat_2",
+        type: "combat",
+        enemyIds: ["bone_archer", "bone_shaman"]
+      },
+      {
+        id: "floor_16_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_16_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_16_repeat_clear_coins]
+  },
+  {
+    floor: 17,
+    themeId: "bone_hall",
+    nodes: [
+      {
+        id: "floor_17_combat_1",
+        type: "combat",
+        enemyIds: ["bone_guard", "bone_archer", "bone_archer"]
+      },
+      {
+        id: "floor_17_elite_1",
+        type: "elite",
+        enemyIds: ["bone_guard", "bone_shaman"]
+      },
+      {
+        id: "floor_17_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_17_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_17_repeat_clear_coins]
+  },
+  {
+    floor: 18,
+    themeId: "bone_hall",
+    nodes: [
+      {
+        id: "floor_18_combat_1",
+        type: "combat",
+        enemyIds: ["bone_archer", "bone_shaman"]
+      },
+      {
+        id: "floor_18_treasure_1",
+        type: "treasure",
+        rewardTableId: "coins_small"
+      },
+      {
+        id: "floor_18_elite_1",
+        type: "elite",
+        enemyIds: ["bone_guard", "bone_guard", "bone_shaman"]
+      },
+      {
+        id: "floor_18_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_18_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_18_repeat_clear_coins]
+  },
+  {
+    floor: 19,
+    themeId: "bone_hall",
+    nodes: [
+      {
+        id: "floor_19_combat_1",
+        type: "combat",
+        enemyIds: ["bone_guard", "bone_archer", "bone_shaman"]
+      },
+      {
+        id: "floor_19_elite_1",
+        type: "elite",
+        enemyIds: ["bone_guard", "bone_shaman", "bone_shaman"]
+      },
+      {
+        id: "floor_19_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_19_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_19_repeat_clear_coins]
+  },
+  {
+    floor: 20,
+    themeId: "bone_hall_checkpoint",
+    nodes: [
+      {
+        id: "floor_20_combat_1",
+        type: "combat",
+        enemyIds: ["bone_guard", "bone_archer"]
+      },
+      {
+        id: "floor_20_elite_1",
+        type: "elite",
+        enemyIds: ["bone_guard", "bone_shaman"]
+      },
+      {
+        id: "floor_20_boss_1",
+        type: "boss",
+        bossId: "bone_captain"
+      },
+      {
+        id: "floor_20_exit",
+        type: "exit"
+      }
+    ],
+    firstClearRewards: [rewardDefinitions.floor_20_first_clear_coins],
+    repeatRewards: [rewardDefinitions.floor_20_repeat_clear_coins]
   }
 ];

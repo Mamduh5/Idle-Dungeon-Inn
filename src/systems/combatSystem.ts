@@ -3,9 +3,9 @@ import { heroDefinitions } from "../data/heroData";
 import { appendRecentEvent } from "../state/recentEvents";
 import { createHeroCombatStats } from "./combatStatSystem";
 import {
-  createFloor10BossFailureEventMessage,
-  createFloor10BossFailureReason,
-  isFloor10BossNode
+  createCheckpointBossFailureEventMessage,
+  createCheckpointBossFailureReason,
+  isCheckpointBossNode
 } from "./bottleneckHintSystem";
 import { ENCOUNTER_CLEAR_HOLD_REASON } from "./towerNodeActionSystem";
 import type { CombatStats } from "../types/combatTypes";
@@ -208,13 +208,13 @@ function tickCombatRun(
       heroCombatCooldowns,
       enemyCombatCooldowns
     };
-    const floor10BossWipe = isFloor10BossNode(failedRun);
-    const lastFailureReason = floor10BossWipe ? createFloor10BossFailureReason(failedRun) : "Party wiped.";
-    const lastCombatMessage = floor10BossWipe
-      ? "Floor 10 checkpoint failed. Return to the inn, recover, then improve Bed Room or Training Room."
+    const checkpointBossWipe = isCheckpointBossNode(failedRun);
+    const lastFailureReason = checkpointBossWipe ? createCheckpointBossFailureReason(failedRun) : "Party wiped.";
+    const lastCombatMessage = checkpointBossWipe
+      ? `Floor ${failedRun.floor} checkpoint failed. Return to the inn, recover, then improve Bed Room or Training Room.`
       : "Party wiped. Return/revive is not implemented yet.";
-    const eventMessage = floor10BossWipe
-      ? createFloor10BossFailureEventMessage()
+    const eventMessage = checkpointBossWipe
+      ? createCheckpointBossFailureEventMessage(failedRun)
       : `${party.name} was wiped on Floor ${run.floor}.`;
 
     return {

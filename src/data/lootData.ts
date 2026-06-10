@@ -116,5 +116,105 @@ export const rewardDefinitions: Record<LootId, RewardDefinition> = {
     rewardId: "floor_10_repeat_clear_coins",
     name: "Floor 10 Repeat Clear Coins",
     coins: 110
+  },
+  floor_11_first_clear_coins: {
+    rewardId: "floor_11_first_clear_coins",
+    name: "Floor 11 First Clear Coins",
+    coins: 325
+  },
+  floor_11_repeat_clear_coins: {
+    rewardId: "floor_11_repeat_clear_coins",
+    name: "Floor 11 Repeat Clear Coins",
+    coins: 130
+  },
+  floor_12_first_clear_coins: {
+    rewardId: "floor_12_first_clear_coins",
+    name: "Floor 12 First Clear Coins",
+    coins: 380
+  },
+  floor_12_repeat_clear_coins: {
+    rewardId: "floor_12_repeat_clear_coins",
+    name: "Floor 12 Repeat Clear Coins",
+    coins: 152
+  },
+  floor_13_first_clear_coins: {
+    rewardId: "floor_13_first_clear_coins",
+    name: "Floor 13 First Clear Coins",
+    coins: 440
+  },
+  floor_13_repeat_clear_coins: {
+    rewardId: "floor_13_repeat_clear_coins",
+    name: "Floor 13 Repeat Clear Coins",
+    coins: 176
+  },
+  floor_14_first_clear_coins: {
+    rewardId: "floor_14_first_clear_coins",
+    name: "Floor 14 First Clear Coins",
+    coins: 505
+  },
+  floor_14_repeat_clear_coins: {
+    rewardId: "floor_14_repeat_clear_coins",
+    name: "Floor 14 Repeat Clear Coins",
+    coins: 202
+  },
+  floor_15_first_clear_coins: {
+    rewardId: "floor_15_first_clear_coins",
+    name: "Floor 15 First Clear Coins",
+    coins: 575
+  },
+  floor_15_repeat_clear_coins: {
+    rewardId: "floor_15_repeat_clear_coins",
+    name: "Floor 15 Repeat Clear Coins",
+    coins: 230
+  },
+  floor_16_first_clear_coins: {
+    rewardId: "floor_16_first_clear_coins",
+    name: "Floor 16 First Clear Coins",
+    coins: 650
+  },
+  floor_16_repeat_clear_coins: {
+    rewardId: "floor_16_repeat_clear_coins",
+    name: "Floor 16 Repeat Clear Coins",
+    coins: 260
+  },
+  floor_17_first_clear_coins: {
+    rewardId: "floor_17_first_clear_coins",
+    name: "Floor 17 First Clear Coins",
+    coins: 730
+  },
+  floor_17_repeat_clear_coins: {
+    rewardId: "floor_17_repeat_clear_coins",
+    name: "Floor 17 Repeat Clear Coins",
+    coins: 292
+  },
+  floor_18_first_clear_coins: {
+    rewardId: "floor_18_first_clear_coins",
+    name: "Floor 18 First Clear Coins",
+    coins: 815
+  },
+  floor_18_repeat_clear_coins: {
+    rewardId: "floor_18_repeat_clear_coins",
+    name: "Floor 18 Repeat Clear Coins",
+    coins: 326
+  },
+  floor_19_first_clear_coins: {
+    rewardId: "floor_19_first_clear_coins",
+    name: "Floor 19 First Clear Coins",
+    coins: 905
+  },
+  floor_19_repeat_clear_coins: {
+    rewardId: "floor_19_repeat_clear_coins",
+    name: "Floor 19 Repeat Clear Coins",
+    coins: 362
+  },
+  floor_20_first_clear_coins: {
+    rewardId: "floor_20_first_clear_coins",
+    name: "Floor 20 First Clear Coins",
+    coins: 1000
+  },
+  floor_20_repeat_clear_coins: {
+    rewardId: "floor_20_repeat_clear_coins",
+    name: "Floor 20 Repeat Clear Coins",
+    coins: 400
   }
 };

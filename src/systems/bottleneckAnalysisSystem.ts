@@ -54,6 +54,10 @@ export function analyzeBottleneck(state: GameState): BottleneckSummary {
   const isWiped = run?.status === "wiped" || latestEvent?.type === "party_wiped";
   const lowHpHero = heroes.find((hero) => hero.currentHp < getHeroReadyHpThreshold(hero));
   const hasFloor10CheckpointText = includesCheckpointText(hint) || includesCheckpointText(latestMessage) || includesCheckpointText(run?.lastFailureReason);
+  const hasFloor20CheckpointText =
+    includesFloor20CheckpointText(hint) ||
+    includesFloor20CheckpointText(latestMessage) ||
+    includesFloor20CheckpointText(run?.lastFailureReason);
   const wantsBedRoom = mentionsRoom(hint, "Bed Room") || mentionsRoom(latestMessage, "Bed Room") || mentionsRoom(run?.lastFailureReason, "Bed Room");
   const wantsTrainingRoom =
     mentionsRoom(hint, "Training Room") ||
@@ -69,6 +73,20 @@ export function analyzeBottleneck(state: GameState): BottleneckSummary {
       evidence: uniqueEvidence([
         ...evidence,
         "Big Cave Slime is the first checkpoint boss.",
+        hint ?? latestMessage
+      ]),
+      recommendations: createRecommendations(wantsBedRoom || Boolean(lowHpHero), wantsTrainingRoom || Boolean(lowTrainingHero))
+    };
+  }
+
+  if (hasFloor20CheckpointText) {
+    return {
+      floor,
+      title: "Floor 20 bottleneck",
+      cause: "boss_checkpoint",
+      evidence: uniqueEvidence([
+        ...evidence,
+        "Bone Captain is the Bone Hall checkpoint boss.",
         hint ?? latestMessage
       ]),
       recommendations: createRecommendations(wantsBedRoom || Boolean(lowHpHero), wantsTrainingRoom || Boolean(lowTrainingHero))
@@ -163,6 +181,10 @@ function mentionsRoom(text: string | null | undefined, roomName: string): boolea
 
 function includesCheckpointText(text: string | null | undefined): boolean {
   return text?.includes("Floor 10 checkpoint") === true || text?.includes("Big Cave Slime") === true || text?.includes("boss checkpoint") === true;
+}
+
+function includesFloor20CheckpointText(text: string | null | undefined): boolean {
+  return text?.includes("Floor 20 checkpoint") === true || text?.includes("Bone Captain") === true;
 }
 
 function uniqueEvidence(evidence: string[]): string[] {

@@ -1,7 +1,7 @@
 import { enemyDefinitions } from "../data/enemyData";
 import { prototypeTowerFloors } from "../data/towerData";
 import { appendRecentEvent } from "../state/recentEvents";
-import { createFloor10BossEncounterMessage } from "./bottleneckHintSystem";
+import { createBossEncounterMessage } from "./bottleneckHintSystem";
 import { FLOOR_CLEAR_HOLD_REASON, TREASURE_HOLD_REASON } from "./towerNodeActionSystem";
 import type { GameState } from "../types/gameState";
 import type { EnemyId } from "../types/ids";
@@ -137,7 +137,7 @@ function resolveReachedNode(
     const enemyIds = getNodeEnemyIds(node);
     const isBoss = node.type === "boss";
     const encounterMessage = isBoss
-      ? createFloor10BossEncounterMessage(partyName(party))
+      ? createBossEncounterMessage(run.floor, enemyIds[0] ?? null, partyName(party))
       : `${partyName(party)} encountered enemies on Floor ${run.floor}.`;
 
     return {

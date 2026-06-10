@@ -1,6 +1,12 @@
 import { prototypeTowerFloors } from "../data/towerData";
 import { canCompleteSelectedFloor } from "../systems/floorClearSystem";
-import { getBottleneckHintForRun, FLOOR_10_BOSS_SUGGESTIONS, isFloor10BossNode } from "../systems/bottleneckHintSystem";
+import {
+  getBottleneckHintForRun,
+  getBottleneckSuggestionsForRun,
+  isCheckpointBossNode,
+  isFloor10BossNode,
+  isFloor20BossNode
+} from "../systems/bottleneckHintSystem";
 import {
   canContinueTowerRun,
   ENCOUNTER_CLEAR_HOLD_REASON,
@@ -54,12 +60,12 @@ export function getTowerViewModel(state: GameState): TowerViewModel {
     currentNode,
     floorNodeLabel: `Floor ${run?.floor ?? 1} / Node ${(run?.nodeIndex ?? 0) + 1}`,
     statusLabel: formatTowerStatus(run, currentNode, bottleneckHint),
-    checkpointLabel: run?.floor === 10 ? "First checkpoint" : null,
+    checkpointLabel: getCheckpointLabel(run),
     message: getTowerMessage(party?.name ?? "Party", run, currentNode, bottleneckHint),
     shouldShowWorldEventLine: shouldDrawWorldEventLine(run),
     action: getTowerActionViewModel(state, run),
     bottleneckHint,
-    bottleneckSuggestions: FLOOR_10_BOSS_SUGGESTIONS.slice(0, 2),
+    bottleneckSuggestions: getBottleneckSuggestionsForRun(run).slice(0, 2),
     bottleneckSummary: getBottleneckViewModel(state),
     party: getPartyViewModel(state)
   };
@@ -116,7 +122,7 @@ function getTowerMessage(
   }
 
   if (run.status === "fighting") {
-    return isFloor10BossNode(run) ? run.lastCombatEventMessage ?? "Boss checkpoint running." : run.lastCombatEventMessage ?? "Combat running.";
+    return isCheckpointBossNode(run) ? run.lastCombatEventMessage ?? "Boss checkpoint running." : run.lastCombatEventMessage ?? "Combat running.";
   }
 
   if (run.status === "looting") {
@@ -155,7 +161,7 @@ function formatTowerStatus(
     return "Boss Failed";
   }
 
-  if (run.status === "fighting" && isFloor10BossNode(run)) {
+  if (run.status === "fighting" && isCheckpointBossNode(run)) {
     return "Boss";
   }
 
@@ -184,6 +190,22 @@ function shouldDrawWorldEventLine(run: TowerRunState | null): boolean {
   }
 
   return true;
+}
+
+function getCheckpointLabel(run: TowerRunState | null): string | null {
+  if (!run) {
+    return null;
+  }
+
+  if (run.floor === 10 || isFloor10BossNode(run)) {
+    return "First checkpoint";
+  }
+
+  if (run.floor === 20 || isFloor20BossNode(run)) {
+    return "Bone Hall checkpoint";
+  }
+
+  return null;
 }
 
 function formatStatusLabel(status: string): string {
