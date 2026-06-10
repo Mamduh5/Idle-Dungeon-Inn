@@ -11,7 +11,7 @@ export function getInnCameraScrollForCreate(
   initialScrollX: number,
   maxScrollX: number
 ): number {
-  if (!Number.isFinite(savedScrollX)) {
+  if (typeof savedScrollX !== "number" || !Number.isFinite(savedScrollX)) {
     return clampInnCameraScroll(initialScrollX, maxScrollX);
   }
 

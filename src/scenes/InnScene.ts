@@ -1,25 +1,20 @@
 import Phaser from "phaser";
-import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
-import { getFirstPartyHero, getInnRoom, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
-import { getGameState, updateGameState } from "../state/gameStore";
-import { getAutoDispatchControlState, toggleAutoDispatch } from "../systems/automationSystem";
-import { getFloor10BossCallout, getFloor10RoomRecommendation } from "../systems/bottleneckCalloutSystem";
-import { tickGameState } from "../systems/gameTickSystem";
-import { canDispatchSelectedParty, sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
 import {
-  calculateBedRoomHealingPerSecond,
-  cancelHeroTrainingDrill,
-  getHeroActiveRoomJob,
-  getHeroReadyHpThreshold,
-  getRoomJobCapacity,
-  startHeroTrainingDrill
-} from "../systems/roomJobSystem";
-import type { GameState } from "../types/gameState";
-import type { HeroInstance } from "../types/heroTypes";
+  handleInnSendSelectedParty,
+  handleInnToggleAutoDispatch,
+  handleInnTrainingAction
+} from "../application/innCommands";
+import {
+  getInnViewModel,
+  type InnBedRoomViewModel,
+  type InnGateViewModel,
+  type InnHeroViewModel,
+  type InnTrainingRoomViewModel
+} from "../application/innViewModel";
+import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
+import { getGameState, updateGameState } from "../state/gameStore";
+import { tickGameState } from "../systems/gameTickSystem";
 import type { HeroStatus } from "../types/ids";
-import type { RecentEvent } from "../types/recentEventTypes";
-import type { InnRoomState } from "../types/roomTypes";
-import type { TowerRunStatus } from "../types/towerTypes";
 import { getInnCameraScrollForCreate } from "../ui/innCameraScroll";
 import {
   addCenteredLabel,
@@ -28,13 +23,10 @@ import {
   drawDivider,
   drawHpBar,
   drawPanel,
-  drawTinyHero,
-  formatStatusLabel
+  drawTinyHero
 } from "../ui/components";
-import { getHeroHpDisplayText } from "../ui/heroDisplayText";
 import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
-import { getTrainingRoomInnText } from "../ui/trainingRoomText";
 
 const INN_WORLD_WIDTH = 1260;
 const INN_INITIAL_SCROLL_X = 330;
@@ -58,48 +50,25 @@ export class InnScene extends Phaser.Scene {
 
   public create(data: InnSceneCreateData = {}): void {
     const state = getGameState();
-    const party = getSelectedParty(state);
-    const run = getSelectedTowerRun(state);
-    const hero = party ? getFirstPartyHero(state, party.id) : null;
-    const bedRoom = getInnRoom(state, "bed_room");
-    const bedRoomHealingSpeed = calculateBedRoomHealingPerSecond(state);
-    const trainingRoom = getInnRoom(state, "training_room");
-    const latestEvent = state.recentEvents[0];
-    const latestOfflineReport = getLatestOfflineReport(state);
-    const floor10Callout = getFloor10BossCallout(state);
-    const canDispatch = canDispatchSelectedParty(state);
-    const targetFloor = party?.selectedTargetFloor ?? run?.floor ?? state.unlockedFloor;
-    const buttonLabel = isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready";
-    const autoDispatchControl = getAutoDispatchControlState(state);
+    const viewModel = getInnViewModel(state);
 
     this.configureCamera(data.scrollX);
     this.drawWorldBackdrop();
     this.drawInnBase();
-    this.drawBedRoom(
-      state,
-      bedRoom,
-      bedRoomHealingSpeed,
-      hero,
-      getFloor10RoomRecommendation(state, "bed_room")?.innBadge ?? null
-    );
+    this.drawBedRoom(viewModel.bedRoom);
     this.drawCommonRoom(
-      party?.name ?? "No Party",
-      latestEvent?.message ?? "The inn is waiting for orders.",
-      Boolean(floor10Callout) || latestEvent?.severity === "warning",
-      latestOfflineReport?.message,
-      floor10Callout?.buildMessage
+      viewModel.commonRoomSubtitle,
+      viewModel.latestMessage,
+      viewModel.isWarning,
+      viewModel.offlineReportMessage,
+      viewModel.bottleneckMessage
     );
-    this.drawTrainingRoom(
-      state,
-      trainingRoom,
-      hero,
-      getFloor10RoomRecommendation(state, "training_room")?.innBadge ?? null
-    );
-    this.drawTowerGate(targetFloor, buttonLabel, canDispatch, autoDispatchControl.label, autoDispatchControl.isUnlocked);
+    this.drawTrainingRoom(viewModel.trainingRoom);
+    this.drawTowerGate(viewModel.gate, viewModel.autoDispatch.label, viewModel.autoDispatch.isUnlocked);
     this.drawDragHints();
 
-    if (hero) {
-      this.drawHero(hero);
+    if (viewModel.hero) {
+      this.drawHero(viewModel.hero);
     }
 
     this.enableCameraDrag();
@@ -221,14 +190,8 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawBedRoom(
-    state: GameState,
-    room: InnRoomState | null,
-    healingPerSecond: number,
-    hero: HeroInstance | null,
-    recommendationBadge: string | null
-  ): void {
-    this.drawRoomShell(74, 198, 246, 362, 0x8f5935, "Bed Room", `Lv ${room?.level ?? 0}`, UI_HEX.cream);
+  private drawBedRoom(room: InnBedRoomViewModel): void {
+    this.drawRoomShell(74, 198, 246, 362, 0x8f5935, "Bed Room", room.levelLabel, UI_HEX.cream);
 
     this.add.rectangle(116, 388, 144, 58, 0x3a241d, 1).setOrigin(0, 0).setStrokeStyle(2, UI_COLORS.gold);
     this.add.rectangle(126, 398, 46, 22, 0xffe2b0, 1).setOrigin(0, 0);
@@ -242,37 +205,34 @@ export class InnScene extends Phaser.Scene {
       fontStyle: "700",
       width: 150
     });
-    addCenteredLabel(this, 193, 532, `Heal ${formatNumber(healingPerSecond)} HP/s`, {
+    addCenteredLabel(this, 193, 532, room.healingSpeedLabel, {
       color: UI_HEX.gold,
       fontSize: 11,
       fontStyle: "700",
       width: 150
     });
-    addCenteredLabel(this, 193, 550, `Capacity ${getRoomJobCapacity(state, "bed_room")}`, {
+    addCenteredLabel(this, 193, 550, room.capacityLabel, {
       color: UI_HEX.mutedCream,
       fontSize: 10,
       width: 150
     });
 
-    if (hero) {
-      const activeJob = getHeroActiveRoomJob(state, hero.id);
-      const readyHp = getHeroReadyHpThreshold(hero);
-      const isHealingHere = activeJob?.roomId === "bed_room" && activeJob.jobType === "healing";
-      addCenteredLabel(this, 193, 470, isHealingHere ? `${hero.name} resting` : `${hero.name} ${formatStatusLabel(hero.status)}`, {
-        color: isHealingHere ? UI_HEX.success : UI_HEX.parchment,
+    if (room.heroStatusLabel) {
+      addCenteredLabel(this, 193, 470, room.heroStatusLabel, {
+        color: room.heroStatusIsActive ? UI_HEX.success : UI_HEX.parchment,
         fontSize: 10,
         fontStyle: "700",
         width: 150
       });
-      addCenteredLabel(this, 193, 486, `Ready at ${readyHp} HP`, {
+      addCenteredLabel(this, 193, 486, room.readyHpLabel ?? "", {
         color: UI_HEX.mutedCream,
         fontSize: 10,
         width: 150
       });
     }
 
-    if (recommendationBadge) {
-      this.drawRoomRecommendationBadge(98, 260, recommendationBadge);
+    if (room.recommendationBadge) {
+      this.drawRoomRecommendationBadge(98, 260, room.recommendationBadge);
     }
 
     this.add.circle(292, 236, 18, UI_COLORS.gold, 0.76);
@@ -286,9 +246,7 @@ export class InnScene extends Phaser.Scene {
     offlineReportMessage: string | undefined,
     bottleneckMessage: string | undefined
   ): void {
-    const compactPartyName = partyName === "Lantern Party" ? "Party" : partyName;
-
-    this.drawRoomShell(382, 236, 286, 328, 0x6f3d28, "Hearth Hall", compactPartyName, UI_HEX.gold);
+    this.drawRoomShell(382, 236, 286, 328, 0x6f3d28, "Hearth Hall", partyName, UI_HEX.gold);
 
     if (offlineReportMessage) {
       this.drawAwayReport(414, 122, offlineReportMessage);
@@ -350,14 +308,8 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawTrainingRoom(
-    state: GameState,
-    room: InnRoomState | null,
-    hero: HeroInstance | null,
-    recommendationBadge: string | null
-  ): void {
-    const isUnlocked = Boolean(room?.isUnlocked);
-    const fill = isUnlocked ? 0x76503b : 0x3a332e;
+  private drawTrainingRoom(room: InnTrainingRoomViewModel): void {
+    const fill = room.isUnlocked ? 0x76503b : 0x3a332e;
 
     this.drawRoomShell(
       724,
@@ -365,40 +317,39 @@ export class InnScene extends Phaser.Scene {
       240,
       362,
       fill,
-      isUnlocked ? "Training Room" : "Locked Wing",
-      isUnlocked ? `Lv ${room?.level ?? 0}` : "Floor 2",
-      isUnlocked ? UI_HEX.cream : UI_HEX.mutedCream
+      room.title,
+      room.levelLabel,
+      room.isUnlocked ? UI_HEX.cream : UI_HEX.mutedCream
     );
 
-    this.add.circle(844, 384, 36, isUnlocked ? UI_COLORS.gold : 0x6d5a49, 1);
-    this.add.circle(844, 384, 21, isUnlocked ? 0x7a432d : 0x3b312c, 1);
-    this.add.rectangle(840, 420, 8, 66, isUnlocked ? 0xb07742 : 0x6d5a49, 1);
-    this.add.rectangle(794, 488, 102, 12, isUnlocked ? 0xb07742 : 0x6d5a49, 1);
-    drawDivider(this, 778, 432, 812, 388, isUnlocked ? UI_COLORS.gold : UI_COLORS.mutedCream, 0.7);
-    drawDivider(this, 910, 432, 876, 388, isUnlocked ? UI_COLORS.gold : UI_COLORS.mutedCream, 0.7);
+    this.add.circle(844, 384, 36, room.isUnlocked ? UI_COLORS.gold : 0x6d5a49, 1);
+    this.add.circle(844, 384, 21, room.isUnlocked ? 0x7a432d : 0x3b312c, 1);
+    this.add.rectangle(840, 420, 8, 66, room.isUnlocked ? 0xb07742 : 0x6d5a49, 1);
+    this.add.rectangle(794, 488, 102, 12, room.isUnlocked ? 0xb07742 : 0x6d5a49, 1);
+    drawDivider(this, 778, 432, 812, 388, room.isUnlocked ? UI_COLORS.gold : UI_COLORS.mutedCream, 0.7);
+    drawDivider(this, 910, 432, 876, 388, room.isUnlocked ? UI_COLORS.gold : UI_COLORS.mutedCream, 0.7);
 
-    if (isUnlocked) {
-      const trainingText = getTrainingRoomInnText(state, hero);
-      addCenteredLabel(this, 844, 512, trainingText.speedLabel, {
+    if (room.isUnlocked) {
+      addCenteredLabel(this, 844, 512, room.speedLabel, {
         color: UI_HEX.gold,
         fontSize: 11,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 528, trainingText.assignmentLabel, {
-        color: trainingText.activeTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
+      addCenteredLabel(this, 844, 528, room.assignmentLabel, {
+        color: room.hasActiveTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
         fontSize: 10,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 544, trainingText.bonusLabel, {
+      addCenteredLabel(this, 844, 544, room.bonusLabel, {
         color: UI_HEX.parchment,
         fontSize: 10,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 559, trainingText.progressLabel, {
-        color: trainingText.activeTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
+      addCenteredLabel(this, 844, 559, room.progressLabel, {
+        color: room.hasActiveTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
         fontSize: 10,
         width: 142
       });
@@ -407,34 +358,22 @@ export class InnScene extends Phaser.Scene {
         y: 592,
         width: 142,
         height: 32,
-        label: trainingText.actionLabel,
-        enabled: trainingText.actionEnabled,
-        fill: trainingText.isCancelAction ? 0x5d5249 : UI_COLORS.amber,
+        label: room.actionLabel,
+        enabled: room.actionEnabled,
+        fill: room.isCancelAction ? 0x5d5249 : UI_COLORS.amber,
         stroke: UI_COLORS.gold,
         onClick: () => {
-          if (this.didDragWorld || !trainingText.targetHero) {
+          if (this.didDragWorld || !room.targetHeroId) {
             return;
           }
 
-          updateGameState((currentState) => {
-            const latestTargetHero = trainingText.targetHero
-              ? currentState.heroes.find((candidate) => candidate.id === trainingText.targetHero?.id) ?? null
-              : null;
-            if (!latestTargetHero) {
-              return currentState;
-            }
-
-            const latestText = getTrainingRoomInnText(currentState, latestTargetHero);
-            return latestText.isCancelAction
-              ? cancelHeroTrainingDrill(currentState, latestText.activeTrainingJob?.heroId ?? latestTargetHero.id)
-              : startHeroTrainingDrill(currentState, latestText.targetHero?.id ?? latestTargetHero.id);
-          });
+          updateGameState((currentState) => handleInnTrainingAction(currentState, room.targetHeroId));
           this.restartWithCurrentScroll();
         }
       });
 
-      if (trainingText.blockedReason) {
-        addCenteredLabel(this, 844, 622, trainingText.blockedReason, {
+      if (room.blockedReason) {
+        addCenteredLabel(this, 844, 622, room.blockedReason, {
           color: UI_HEX.gold,
           fontSize: 9,
           fontStyle: "700",
@@ -443,11 +382,11 @@ export class InnScene extends Phaser.Scene {
       }
     }
 
-    if (recommendationBadge) {
-      this.drawRoomRecommendationBadge(746, 260, recommendationBadge);
+    if (room.recommendationBadge) {
+      this.drawRoomRecommendationBadge(746, 260, room.recommendationBadge);
     }
 
-    if (!isUnlocked) {
+    if (!room.isUnlocked) {
       this.add.rectangle(724, 198, 240, 362, 0x11100f, 0.3).setOrigin(0, 0);
       drawDivider(this, 762, 270, 926, 510, UI_COLORS.mutedCream, 0.42);
       drawDivider(this, 926, 270, 762, 510, UI_COLORS.mutedCream, 0.42);
@@ -465,15 +404,13 @@ export class InnScene extends Phaser.Scene {
   }
 
   private drawTowerGate(
-    targetFloor: number,
-    buttonLabel: string,
-    canDispatch: boolean,
+    gate: InnGateViewModel,
     autoDispatchLabel: string,
     canToggleAutoDispatch: boolean
   ): void {
     this.add.rectangle(1038, 212, 164, 352, 0x543526, 1).setOrigin(0, 0).setStrokeStyle(2, 0xe7ac64);
     this.add.polygon(1120, 212, [0, -58, 104, 0, -104, 0], UI_COLORS.darkTimber, 1).setStrokeStyle(2, UI_COLORS.skyBlue);
-    addCenteredLabel(this, 1120, 242, `Target F${targetFloor}`, {
+    addCenteredLabel(this, 1120, 242, gate.targetFloorLabel, {
       color: UI_HEX.skyBlue,
       fontSize: 13,
       fontStyle: "700",
@@ -494,7 +431,7 @@ export class InnScene extends Phaser.Scene {
     });
     this.drawAutoDispatchToggle(1120, 536, autoDispatchLabel, canToggleAutoDispatch);
 
-    this.drawGateAction(1120, 676, buttonLabel, canDispatch);
+    this.drawGateAction(1120, 676, gate);
   }
 
   private drawAutoDispatchToggle(x: number, y: number, label: string, enabled: boolean): void {
@@ -515,39 +452,39 @@ export class InnScene extends Phaser.Scene {
           return;
         }
 
-        updateGameState(toggleAutoDispatch);
+        updateGameState(handleInnToggleAutoDispatch);
         this.restartWithCurrentScroll();
       });
     }
   }
 
-  private drawGateAction(x: number, y: number, label: string, enabled: boolean): void {
-    const fill = enabled ? UI_COLORS.amber : 0x5d5249;
-    const stroke = enabled ? UI_COLORS.gold : 0x8a7a69;
+  private drawGateAction(x: number, y: number, gate: InnGateViewModel): void {
+    const fill = gate.actionEnabled ? UI_COLORS.amber : 0x5d5249;
+    const stroke = gate.actionEnabled ? UI_COLORS.gold : 0x8a7a69;
 
     drawPanel(this, x - 82, y - 27, 164, 54, fill, stroke, 1, 7);
-    addCenteredLabel(this, x, y, label, {
-      color: enabled ? UI_HEX.dark : UI_HEX.mutedCream,
+    addCenteredLabel(this, x, y, gate.actionLabel, {
+      color: gate.actionEnabled ? UI_HEX.dark : UI_HEX.mutedCream,
       fontSize: 14,
       fontStyle: "700",
       width: 138
     });
-    addCenteredLabel(this, x, y - 44, enabled ? "path is clear" : "gate closed", {
-      color: enabled ? UI_HEX.success : UI_HEX.mutedCream,
+    addCenteredLabel(this, x, y - 44, gate.statusLabel, {
+      color: gate.actionEnabled ? UI_HEX.success : UI_HEX.mutedCream,
       fontSize: 11,
       fontStyle: "700",
       width: 132
     });
 
     const zone = this.add.zone(x, y, 164, 54).setOrigin(0.5);
-    if (enabled) {
+    if (gate.actionEnabled) {
       zone.setInteractive({ useHandCursor: true });
       zone.on("pointerup", () => {
         if (this.didDragWorld) {
           return;
         }
 
-        updateGameState(sendSelectedPartyToTower);
+        updateGameState(handleInnSendSelectedParty);
         this.scene.start("TowerScene");
       });
     }
@@ -588,29 +525,28 @@ export class InnScene extends Phaser.Scene {
     });
   }
 
-  private drawHero(hero: HeroInstance): void {
-    const hpDisplay = getHeroHpDisplayText(hero);
+  private drawHero(hero: InnHeroViewModel): void {
     const position = getHeroPosition(hero.status);
     const labelPosition = getHeroLabelPosition(hero.status);
     const palette = hero.status === "in_tower" ? "away" : hero.status === "defeated" ? "defeated" : "hero";
 
     drawTinyHero(this, position.x, position.y, {
-      hpRatio: hpDisplay.ratio,
+      hpRatio: hero.hpRatio,
       palette
     });
-    addLabel(this, labelPosition.x, labelPosition.y, `${hero.name} Lv ${hero.level}`, {
+    addLabel(this, labelPosition.x, labelPosition.y, hero.levelLabel, {
       color: UI_HEX.cream,
       fontSize: 11,
       fontStyle: "700",
       width: 118
     });
-    drawHpBar(this, labelPosition.x, labelPosition.y + 34, 108, 8, hpDisplay.ratio, hpDisplay.label);
-    addLabel(this, labelPosition.x, labelPosition.y + 48, formatStatusLabel(hero.status), {
+    drawHpBar(this, labelPosition.x, labelPosition.y + 34, 108, 8, hero.hpRatio, hero.hpLabel);
+    addLabel(this, labelPosition.x, labelPosition.y + 48, hero.statusLabel, {
       color: hero.status === "in_tower" ? UI_HEX.skyBlue : UI_HEX.gold,
       fontSize: 10,
       width: 108
     });
-    addLabel(this, labelPosition.x, labelPosition.y + 62, `Ready at ${getHeroReadyHpThreshold(hero)} HP`, {
+    addLabel(this, labelPosition.x, labelPosition.y + 62, hero.readyHpLabel, {
       color: UI_HEX.mutedCream,
       fontSize: 9,
       width: 108
@@ -625,10 +561,6 @@ export class InnScene extends Phaser.Scene {
       maybeFixed.setScrollFactor?.(0);
     });
   }
-}
-
-function getLatestOfflineReport(state: GameState): RecentEvent | undefined {
-  return state.recentEvents.find((event) => event.type === "offline_report");
 }
 
 function getHeroPosition(status: HeroStatus): { x: number; y: number } {
@@ -653,12 +585,4 @@ function getHeroLabelPosition(status: HeroStatus): { x: number; y: number } {
   }
 
   return { x: 458, y: 358 };
-}
-
-function isRunActive(status: TowerRunStatus | undefined): boolean {
-  return status === "traveling" || status === "exploring" || status === "fighting" || status === "looting";
-}
-
-function formatNumber(value: number): string {
-  return Number.isInteger(value) ? `${value}` : value.toFixed(1);
 }

@@ -8,7 +8,7 @@ import type { GameState } from "../../src/types/gameState";
 
 test("InnScene update ticks game state without passive scene restart", () => {
   const source = readFileSync("src/scenes/InnScene.ts", "utf8");
-  const updateMethod = source.match(/public update\([\s\S]*?\n  }\n\n  private configureCamera/);
+  const updateMethod = source.match(/public update\([\s\S]*?\n  }/);
 
   expect(updateMethod?.[0]).toContain("tickGameState");
   expect(updateMethod?.[0]).not.toContain("scene.restart");
