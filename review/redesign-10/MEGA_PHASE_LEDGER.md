@@ -1,7 +1,7 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 13 - Final Validation / Stabilization
+Complete - all phases attempted through Phase 13
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
@@ -17,6 +17,7 @@ Phase 13 - Final Validation / Stabilization
 - Phase 10 - Party B + Safe Farm Mode: added locked default Party B with its own tower run, Floor 20 progress unlock normalization, Tower party selector, safe-farm floor-clear semantics, and multi-party/backend safety tests.
 - Phase 11 - More Rooms v0: added Kitchen, Forge, Tavern, Library, and Gate Room foundations, old-save normalization, pure Library/Gate room effects, Build choice exposure, and focused room-effect coverage.
 - Phase 12 - UI Polish / Redesign Pass: added a Heroes party selector, tightened compact Build card blocked-reason text, preserved passive Inn tick behavior, and added focused final UI/source coverage.
+- Phase 13 - Final Validation / Stabilization: reran the broad practical validation set, confirmed all redesign-10 specs and non-server redesign-09 checks passed, and recorded server-dependent browser checks blocked by the missing Vite server on port 5174.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -72,8 +73,7 @@ Phase 13 - Final Validation / Stabilization
 - Completed.
 
 ### Phase 13 - Final Validation / Stabilization
-- Run the broad validation set that is practical in this environment.
-- Fix regressions caused by this prompt and record any environment-blocked commands honestly.
+- Completed.
 
 ## Changed files by phase
 ### Phase 0
@@ -196,12 +196,16 @@ Phase 13 - Final Validation / Stabilization
 - src/scenes/BuildScene.ts
 - review/redesign-10/ui-polish-final.spec.ts
 
+### Phase 13
+- review/redesign-10/MEGA_PHASE_LEDGER.md
+
 ## Commands run
 ### Phase 0
 - `git status --short`: clean before ledger creation.
 - `rg --files`: inspected repo file surface.
 - `npm run build`: passed. Vite reported the existing large chunk warning.
-- `git diff --check`: passed.
+- `git diff --check`: passed with line-ending warning only.
+- `git status --short --untracked-files=all`: reported `review/redesign-10/MEGA_PHASE_LEDGER.md` modified in the current sandbox state.
 
 ### Phase 1
 - `npm run build`: passed. Vite reported the existing large chunk warning.
@@ -288,6 +292,32 @@ Phase 13 - Final Validation / Stabilization
 - `npm run test -- review/redesign-09/inn-drag-scroll.spec.ts`: passed, 5 tests.
 - `git diff --check`: passed with line-ending warnings only.
 
+### Phase 13
+- `npm run build`: passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/backend-boundary-v1.spec.ts`: passed, 8 tests.
+- `npm run test -- review/redesign-10/backend-boundary-v2.spec.ts`: passed, 5 tests.
+- `npm run test -- review/redesign-10/bottleneck-view-v0.spec.ts`: passed, 5 tests.
+- `npm run test -- review/redesign-10/heroes-view-v1.spec.ts`: passed, 4 tests.
+- `npm run test -- review/redesign-10/party-system-v1.spec.ts`: passed, 5 tests.
+- `npm run test -- review/redesign-10/second-hero-party-size-2.spec.ts`: passed, 7 tests.
+- `npm run test -- review/redesign-10/floor-11-20-boss.spec.ts`: passed, 7 tests.
+- `npm run test -- review/redesign-10/build-choice-view-v1.spec.ts`: passed, 5 tests.
+- `npm run test -- review/redesign-10/offline-room-progress-v1.spec.ts`: passed, 5 tests.
+- `npm run test -- review/redesign-10/party-b-safe-farm.spec.ts`: passed, 7 tests.
+- `npm run test -- review/redesign-10/more-rooms-v0.spec.ts`: passed, 6 tests.
+- `npm run test -- review/redesign-10/ui-polish-final.spec.ts`: passed, 6 tests.
+- `npm run test -- review/redesign-09/room-jobs.spec.ts`: passed, 6 tests.
+- `npm run test -- review/redesign-09/training-room.spec.ts`: passed, 22 tests.
+- `npm run test -- review/redesign-09/inn-drag-scroll.spec.ts`: passed, 5 tests.
+- `npm run test -- review/redesign-09/wipe-recovery.spec.ts`: failed before app logic; all 3 tests hit `page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:5174/`.
+- `npm run test -- review/redesign-09/automation-run.spec.ts`: failed before app logic; 1 test hit `page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:5174/`.
+- `npm run test -- review/redesign-09/offline-progress.spec.ts`: failed before app logic; all 3 tests hit `page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:5174/`.
+- `npm run test -- review/redesign-09/balance-pass.spec.ts`: passed, 3 tests.
+- `npm run test -- review/redesign-09/loop-validation.spec.ts -g "training room attack bonus follows room level and affects combat"`: failed before app logic; 1 test hit `page.goto: net::ERR_CONNECTION_REFUSED at http://127.0.0.1:5174/`.
+- `Get-Content -Path playwright.config.ts`: failed because no `playwright.config.ts` exists in the repo.
+- `rg "5174|baseURL|webServer" -n .`: confirmed browser specs default to `http://127.0.0.1:5174` and the repo has no `webServer` config.
+- `git diff --check`: passed.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
@@ -302,13 +332,15 @@ Phase 13 - Final Validation / Stabilization
 - Phase 10: no browser/manual visual checks were run; validation was build plus focused backend/view-model/source tests.
 - Phase 11: no browser/manual visual checks were run; validation was build plus focused pure/backend/view-model tests.
 - Phase 12: no screenshot or browser manual visual pass was run; validation was build plus focused view-model/source tests.
+- Phase 13: manual browser checklist was not run because no Vite dev server was listening on port 5174 in this sandbox session; no screenshots were taken or generated.
 
 ## Known risks
-- The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.
+- The pasted mega prompt has been attempted through all phases, including final validation.
 - Existing ignored build/test output directories may change during validation.
 - `git diff --name-only` hit a transient Windows sandbox `spawn setup refresh` error after Phase 1; `git status --short` succeeded and was used instead.
 - Some Git inspection commands intermittently hit Windows sandbox `spawn setup refresh`; validation commands themselves continued to run successfully.
 - Phase 9 browser offline validation remains unproven in this session because starting a temporary Vite dev server was blocked by sandbox/approval limits.
+- Phase 13 server-dependent browser specs remain unproven in this session for the same missing-dev-server reason: `wipe-recovery.spec.ts`, `automation-run.spec.ts`, `offline-progress.spec.ts`, and the targeted `loop-validation.spec.ts` check all failed at `page.goto` before app logic.
 
 ## Resume instructions
 The next Codex context should:
