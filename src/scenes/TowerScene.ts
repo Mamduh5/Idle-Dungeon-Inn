@@ -1,6 +1,5 @@
 import Phaser from "phaser";
 import { enemyDefinitions } from "../data/enemyData";
-import { heroDefinitions } from "../data/heroData";
 import { prototypeTowerFloors } from "../data/towerData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import { getHeroesForParty, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
@@ -31,6 +30,7 @@ import {
   formatStatusLabel
 } from "../ui/components";
 import { createSceneHud } from "../ui/sceneHud";
+import { getHeroHpDisplayText } from "../ui/heroDisplayText";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
 
 const TOWER_WORLD_WIDTH = 960;
@@ -485,14 +485,13 @@ export class TowerScene extends Phaser.Scene {
   }
 
   private drawHeroUnit(hero: HeroInstance, x: number, y: number, status: string, forceDefeated = false): void {
-    const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? Math.max(1, hero.currentHp);
-    const hpRatio = Phaser.Math.Clamp(hero.currentHp / Math.max(1, maxHp), 0, 1);
+    const hpDisplay = getHeroHpDisplayText(hero);
 
     drawTinyHero(this, x, y, {
       facing: "right",
       palette: forceDefeated || hero.status === "defeated" ? "defeated" : "hero"
     });
-    drawHpBar(this, x - 50, y - 86, 100, 8, hpRatio, `${hero.name} HP ${hero.currentHp}/${maxHp}`, UI_COLORS.success);
+    drawHpBar(this, x - 50, y - 86, 100, 8, hpDisplay.ratio, `${hero.name} ${hpDisplay.label}`, UI_COLORS.success);
     addCenteredLabel(this, x, y + 44, status, {
       color: UI_HEX.mutedCream,
       fontSize: 10,

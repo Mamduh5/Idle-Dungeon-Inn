@@ -8,8 +8,10 @@ import {
   calculateTrainingRoomXpPerSecondForLevel,
   cancelHeroTrainingDrill,
   getHeroActiveRoomJob,
+  getHeroMaxHp,
   getHeroTrainingAttackBonus,
   getTrainingRoomAssignmentBlockReason,
+  MAX_TRAINING_ATTACK_LEVEL,
   startHeroTrainingDrill,
   tickRoomJobs,
   TRAINING_XP_PER_ATTACK_LEVEL
@@ -17,10 +19,14 @@ import {
 import type { GameState } from "../../src/types/gameState";
 import type { HeroInstance } from "../../src/types/heroTypes";
 import {
+  getDefaultTrainingHero,
+  getEligibleTrainingHeroes,
   getHeroTrainingRosterText,
   getTrainingRoomInnText,
   TRAINING_ROOM_BUILD_COPY
 } from "../../src/ui/trainingRoomText";
+import { getHeroHpDisplayText } from "../../src/ui/heroDisplayText";
+import { getInnReadinessRenderKey } from "../../src/ui/innRenderKey";
 
 test("old saves normalize missing or invalid hero training state", () => {
   const baseState = createInitialGameState();
@@ -68,6 +74,60 @@ test("Training Room action creates a training job and event for the selected her
   expect(job?.roomId).toBe("training_room");
   expect(job?.jobType).toBe("training");
   expect(trainedState.recentEvents[0]?.message).toBe("Mira started a training drill.");
+});
+
+test("Training Room action label is data-driven from the eligible hero", () => {
+  const state = {
+    ...withSecondHero(unlockTrainingRoom(createInitialGameState(), 1)),
+    heroes: withSecondHero(unlockTrainingRoom(createInitialGameState(), 1)).heroes.map((hero, index) =>
+      index === 0
+        ? {
+            ...hero,
+            status: "in_tower" as const
+          }
+        : {
+            ...hero,
+            name: "Niko"
+          }
+    )
+  };
+  const text = getTrainingRoomInnText(state, state.heroes[0]);
+
+  expect(getEligibleTrainingHeroes(state).map((hero) => hero.name)).toEqual(["Niko"]);
+  expect(getDefaultTrainingHero(state, state.heroes[0].id)?.name).toBe("Niko");
+  expect(text.actionLabel).toBe("Train Niko");
+  expect(text.targetHero?.name).toBe("Niko");
+});
+
+test("Changing hero name changes Training Room action label without hardcoded Mira", () => {
+  const state = {
+    ...unlockTrainingRoom(createInitialGameState(), 1),
+    heroes: createInitialGameState().heroes.map((hero) => ({
+      ...hero,
+      name: "Asha"
+    }))
+  };
+  const text = getTrainingRoomInnText(state, state.heroes[0]);
+
+  expect(text.actionLabel).toBe("Train Asha");
+  expect(text.bonusLabel).toBe("Asha training: +0 ATK");
+  expect(text.actionLabel).not.toContain("Mira");
+});
+
+test("Training Room action text reports no eligible hero instead of a misleading target", () => {
+  const state = {
+    ...unlockTrainingRoom(createInitialGameState(), 1),
+    heroes: createInitialGameState().heroes.map((hero) => ({
+      ...hero,
+      status: "in_tower" as const
+    }))
+  };
+  const text = getTrainingRoomInnText(state, state.heroes[0]);
+
+  expect(getEligibleTrainingHeroes(state)).toEqual([]);
+  expect(text.targetHero).toBeNull();
+  expect(text.actionEnabled).toBe(false);
+  expect(text.blockedReason).toBe("No eligible hero.");
 });
 
 test("Training Room action is blocked when hero is in tower", () => {
@@ -143,6 +203,72 @@ test("training jobs add XP, seconds, and complete one attack-training drill", ()
   expect(getHeroActiveRoomJob(completedState, "hero_rookie_knight_1")).toBeNull();
 });
 
+test("training tick only mutates training progress and status, not HP", () => {
+  const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000);
+  const beforeHero = state.heroes[0];
+  const beforeMaxHp = getHeroMaxHp(beforeHero);
+  const tickedState = tickRoomJobs(state, 10_000, 11_000);
+  const afterHero = tickedState.heroes[0];
+
+  expect(afterHero?.currentHp).toBe(beforeHero.currentHp);
+  expect(afterHero ? getHeroMaxHp(afterHero) : null).toBe(beforeMaxHp);
+  expect(afterHero?.training.attackTrainingXp).toBeGreaterThan(beforeHero.training.attackTrainingXp);
+  expect(afterHero?.training.totalTrainingSeconds).toBeGreaterThan(beforeHero.training.totalTrainingSeconds);
+});
+
+test("active training progress does not churn Inn readiness render key", () => {
+  const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000);
+  const beforeKey = getInnReadinessRenderKey(state);
+  const tickedState = tickRoomJobs(state, 10_000, 11_000);
+
+  expect(tickedState.heroes[0]?.training.attackTrainingXp).toBeGreaterThan(state.heroes[0].training.attackTrainingXp);
+  expect(getHeroActiveRoomJob(tickedState, "hero_rookie_knight_1")?.progress).toBeGreaterThan(0);
+  expect(getInnReadinessRenderKey(tickedState)).toBe(beforeKey);
+});
+
+test("combat HP stays base HP while training bonus only affects attack", () => {
+  const state = unlockTrainingRoom(createInitialGameState(), 1);
+  const trainedHero = {
+    ...state.heroes[0],
+    training: {
+      attackTrainingXp: 0,
+      attackTrainingLevel: 3,
+      totalTrainingSeconds: 180
+    }
+  };
+  const trainedState: GameState = {
+    ...state,
+    heroes: [trainedHero]
+  };
+  const stats = createHeroCombatStats(trainedState, trainedHero);
+
+  expect(stats?.hp).toBe(120);
+  expect(stats?.attack).toBe(15);
+});
+
+test("runtime training math clamps invalid values without changing HP", () => {
+  const state = assignHeroToTrainingRoom(
+    {
+      ...unlockTrainingRoom(createInitialGameState(), 1),
+      heroes: createInitialGameState().heroes.map((hero) => ({
+        ...hero,
+        training: {
+          attackTrainingXp: Number.POSITIVE_INFINITY,
+          attackTrainingLevel: Number.POSITIVE_INFINITY,
+          totalTrainingSeconds: Number.POSITIVE_INFINITY
+        }
+      }))
+    },
+    "hero_rookie_knight_1",
+    1000
+  );
+  const tickedState = tickRoomJobs(state, 1_000, 2_000);
+
+  expect(tickedState.heroes[0]?.currentHp).toBe(120);
+  expect(tickedState.heroes[0]?.training.attackTrainingLevel).toBe(0);
+  expect(tickedState.heroes[0]?.training.attackTrainingXp).toBe(1);
+});
+
 test("combat stats use hero-specific training instead of a global room aura", () => {
   const state = withSecondHero(unlockTrainingRoom(createInitialGameState(), 3));
   const trainedHero = {
@@ -206,6 +332,38 @@ test("Heroes View training text shows personal bonus, progress, and status", () 
   expect(text.bonusLabel).toBe("Training +2 ATK");
   expect(text.progressLabel).toBe("Next +ATK 15/60 XP");
   expect(text.statusLabel).toBe("Ready");
+});
+
+test("save normalization clamps huge HP and training stats to readable finite values", () => {
+  const baseState = createInitialGameState();
+  const normalized = normalizeLoadedGameState({
+    ...baseState,
+    heroes: baseState.heroes.map((hero) => ({
+      ...hero,
+      currentHp: 999_999_999_999,
+      training: {
+        attackTrainingXp: 999_999_999,
+        attackTrainingLevel: 999_999_999,
+        totalTrainingSeconds: 999_999_999_999
+      }
+    }))
+  });
+
+  expect(normalized?.heroes[0]?.currentHp).toBe(120);
+  expect(normalized?.heroes[0]?.training.attackTrainingXp).toBe(60);
+  expect(normalized?.heroes[0]?.training.attackTrainingLevel).toBe(MAX_TRAINING_ATTACK_LEVEL);
+  expect(normalized?.heroes[0] ? getHeroHpDisplayText(normalized.heroes[0]).label : null).toBe("HP 120/120");
+});
+
+test("HP display text clamps corrupted runtime HP to finite max HP", () => {
+  const state = createInitialGameState();
+  const display = getHeroHpDisplayText({
+    ...state.heroes[0],
+    currentHp: 999_999_999_999
+  });
+
+  expect(display.label).toBe("HP 120/120");
+  expect(display.ratio).toBe(1);
 });
 
 test("Build View copy explains selected-hero training instead of a global aura", () => {

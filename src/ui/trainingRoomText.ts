@@ -1,6 +1,7 @@
-import { getInnRoom } from "../state/gameSelectors";
+import { getHeroesForParty, getInnRoom, getSelectedParty } from "../state/gameSelectors";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
+import type { HeroId } from "../types/ids";
 import type { RoomJob } from "../types/roomTypes";
 import {
   calculateTrainingRoomXpPerSecond,
@@ -29,6 +30,7 @@ export interface TrainingRoomInnText {
   isCancelAction: boolean;
   activeTrainingJob: RoomJob | null;
   activeTrainingHero: HeroInstance | null;
+  targetHero: HeroInstance | null;
 }
 
 export interface HeroTrainingRosterText {
@@ -44,9 +46,10 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
   const activeTrainingHero = activeTrainingJob
     ? state.heroes.find((hero) => hero.id === activeTrainingJob.heroId) ?? null
     : null;
-  const displayHero = activeTrainingHero ?? selectedHero;
+  const targetHero = activeTrainingHero ?? getDefaultTrainingHero(state, selectedHero?.id ?? null);
+  const displayHero = activeTrainingHero ?? targetHero ?? selectedHero;
   const isUnlocked = Boolean(room?.isUnlocked && room.level > 0);
-  const blockedReason = displayHero && !activeTrainingJob ? getTrainingRoomAssignmentBlockReason(state, displayHero.id) : null;
+  const blockedReason = targetHero && !activeTrainingJob ? getTrainingRoomAssignmentBlockReason(state, targetHero.id) : null;
 
   if (!isUnlocked) {
     return {
@@ -59,22 +62,24 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
       blockedReason,
       isCancelAction: false,
       activeTrainingJob,
-      activeTrainingHero
+      activeTrainingHero,
+      targetHero
     };
   }
 
-  if (!displayHero) {
+  if (!targetHero && !activeTrainingHero) {
     return {
       speedLabel: `Train ${formatNumber(calculateTrainingRoomXpPerSecond(state))} XP/s`,
       assignmentLabel: "Training Room idle",
       bonusLabel: "No hero selected",
-      progressLabel: "Choose a hero first",
+      progressLabel: "No eligible hero",
       actionLabel: "No Hero",
       actionEnabled: false,
-      blockedReason: "No hero selected.",
+      blockedReason: "No eligible hero.",
       isCancelAction: false,
       activeTrainingJob,
-      activeTrainingHero
+      activeTrainingHero,
+      targetHero
     };
   }
 
@@ -89,7 +94,24 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
       blockedReason: null,
       isCancelAction: true,
       activeTrainingJob,
-      activeTrainingHero
+      activeTrainingHero,
+      targetHero: activeTrainingHero
+    };
+  }
+
+  if (!displayHero) {
+    return {
+      speedLabel: `Train ${formatNumber(calculateTrainingRoomXpPerSecond(state))} XP/s`,
+      assignmentLabel: "Training Room idle",
+      bonusLabel: "No hero selected",
+      progressLabel: "Choose a hero first",
+      actionLabel: "No Hero",
+      actionEnabled: false,
+      blockedReason: "No hero selected.",
+      isCancelAction: false,
+      activeTrainingJob,
+      activeTrainingHero,
+      targetHero
     };
   }
 
@@ -103,8 +125,29 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
     blockedReason,
     isCancelAction: false,
     activeTrainingJob,
-    activeTrainingHero
+    activeTrainingHero,
+    targetHero
   };
+}
+
+export function getEligibleTrainingHeroes(state: GameState): HeroInstance[] {
+  const party = getSelectedParty(state);
+  const partyHeroes = party ? getHeroesForParty(state, party.id) : [];
+  const partyHeroIds = new Set(partyHeroes.map((hero) => hero.id));
+  const orderedHeroes = [...partyHeroes, ...state.heroes.filter((hero) => !partyHeroIds.has(hero.id))];
+
+  return orderedHeroes.filter((hero) => getTrainingRoomAssignmentBlockReason(state, hero.id) === null);
+}
+
+export function getDefaultTrainingHero(state: GameState, preferredHeroId: HeroId | null = null): HeroInstance | null {
+  if (preferredHeroId) {
+    const preferredHero = state.heroes.find((hero) => hero.id === preferredHeroId) ?? null;
+    if (preferredHero && getTrainingRoomAssignmentBlockReason(state, preferredHero.id) === null) {
+      return preferredHero;
+    }
+  }
+
+  return getEligibleTrainingHeroes(state)[0] ?? null;
 }
 
 export function getHeroTrainingRosterText(state: GameState, hero: HeroInstance): HeroTrainingRosterText {

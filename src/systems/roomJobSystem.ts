@@ -9,9 +9,13 @@ import type { InnRoomState, RoomJob, RoomJobType } from "../types/roomTypes";
 
 export const HERO_READY_HP_RATIO = 0.9;
 export const TRAINING_XP_PER_ATTACK_LEVEL = 60;
+export const MAX_TRAINING_ATTACK_LEVEL = 999;
+export const MAX_TRAINING_TOTAL_SECONDS = 9_999_999;
 
 export function getHeroMaxHp(hero: HeroInstance): number {
-  return Math.max(1, heroDefinitions[hero.classId]?.baseStats.hp ?? hero.currentHp, 1);
+  const baseHp = heroDefinitions[hero.classId]?.baseStats.hp;
+  const fallbackHp = Number.isFinite(hero.currentHp) ? hero.currentHp : 1;
+  return Math.max(1, Number.isFinite(baseHp) ? baseHp : fallbackHp);
 }
 
 export function getHeroReadyHpThreshold(hero: HeroInstance): number {
@@ -260,7 +264,7 @@ export function calculateTrainingRoomXpPerSecond(state: GameState): number {
 }
 
 export function getHeroTrainingAttackBonus(hero: HeroInstance): number {
-  return Math.max(0, Math.floor(hero.training.attackTrainingLevel));
+  return Math.min(MAX_TRAINING_ATTACK_LEVEL, Math.max(0, Math.floor(getFiniteNumber(hero.training.attackTrainingLevel, 0))));
 }
 
 export function assignHeroToTrainingRoom(state: GameState, heroId: HeroId, now = Date.now()): GameState {
@@ -478,16 +482,23 @@ function tickTrainingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs
 
   const addedSeconds = deltaMs / 1000;
   const gainedXp = xpPerSecond * addedSeconds;
-  const totalXp = hero.training.attackTrainingXp + gainedXp;
+  const currentTrainingXp = clampNumber(hero.training.attackTrainingXp, 0, 0, TRAINING_XP_PER_ATTACK_LEVEL);
+  const currentTrainingLevel = Math.min(
+    MAX_TRAINING_ATTACK_LEVEL,
+    Math.max(0, Math.floor(getFiniteNumber(hero.training.attackTrainingLevel, 0)))
+  );
+  const currentTrainingSeconds = clampNumber(hero.training.totalTrainingSeconds, 0, 0, MAX_TRAINING_TOTAL_SECONDS);
+  const totalXp = currentTrainingXp + gainedXp;
   const gainedLevels = Math.floor(totalXp / TRAINING_XP_PER_ATTACK_LEVEL);
   const nextXp = totalXp % TRAINING_XP_PER_ATTACK_LEVEL;
+  const nextTrainingLevel = Math.min(MAX_TRAINING_ATTACK_LEVEL, currentTrainingLevel + gainedLevels);
   const nextTraining = {
-    attackTrainingXp: gainedLevels > 0 ? nextXp : totalXp,
-    attackTrainingLevel: hero.training.attackTrainingLevel + gainedLevels,
-    totalTrainingSeconds: hero.training.totalTrainingSeconds + addedSeconds
+    attackTrainingXp: nextTrainingLevel >= MAX_TRAINING_ATTACK_LEVEL ? 0 : gainedLevels > 0 ? nextXp : totalXp,
+    attackTrainingLevel: nextTrainingLevel,
+    totalTrainingSeconds: Math.min(MAX_TRAINING_TOTAL_SECONDS, currentTrainingSeconds + addedSeconds)
   };
   const progress = Math.min(1, nextTraining.attackTrainingXp / TRAINING_XP_PER_ATTACK_LEVEL);
-  const shouldComplete = gainedLevels > 0;
+  const shouldComplete = gainedLevels > 0 || nextTrainingLevel >= MAX_TRAINING_ATTACK_LEVEL;
 
   let nextState: GameState = {
     ...state,
@@ -557,6 +568,18 @@ function withRoomJobEvent(state: GameState, event: RecentEvent): GameState {
     recentEvents: appendRecentEvent(state.recentEvents, event),
     lastActiveAt: event.createdAt
   };
+}
+
+function getFiniteNumber(value: number, fallback: number): number {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function clampNumber(value: number, fallback: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(max, Math.max(min, value));
 }
 
 export function normalizeRoomJobsForRuntime(room: InnRoomState): InnRoomState {

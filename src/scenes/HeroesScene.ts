@@ -15,6 +15,7 @@ import {
   drawTinyHero,
   formatStatusLabel
 } from "../ui/components";
+import { getHeroHpDisplayText } from "../ui/heroDisplayText";
 import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
 import { getHeroTrainingRosterText } from "../ui/trainingRoomText";
@@ -79,8 +80,7 @@ export class HeroesScene extends Phaser.Scene {
     heroes.forEach((hero, index) => {
       const y = 256 + index * 116;
       const definition = heroDefinitions[hero.classId];
-      const maxHp = definition?.baseStats.hp ?? Math.max(1, hero.currentHp);
-      const hpRatio = Phaser.Math.Clamp(hero.currentHp / Math.max(1, maxHp), 0, 1);
+      const hpDisplay = getHeroHpDisplayText(hero);
       const trainingText = getHeroTrainingRosterText(state, hero);
 
       this.add.rectangle(58, y - 42, 274, 112, 0x1d332e, 1).setOrigin(0, 0).setStrokeStyle(1, 0x6bc5b8);
@@ -110,7 +110,7 @@ export class HeroesScene extends Phaser.Scene {
         fontSize: 9,
         width: 160
       });
-      drawHpBar(this, 154, y + 30, 150, 8, hpRatio, `HP ${hero.currentHp}/${maxHp}`, UI_COLORS.success);
+      drawHpBar(this, 154, y + 30, 150, 8, hpDisplay.ratio, hpDisplay.label, UI_COLORS.success);
       drawStatusBadge(this, 154, y + 50, trainingText.statusLabel, hero.status === "in_tower" ? 0x1f4662 : 0x275241);
     });
   }

@@ -10,6 +10,9 @@ import { RECENT_EVENT_LIMIT, appendRecentEvent } from "./recentEvents";
 
 export const SAVE_STORAGE_KEY = "idle-dungeon-inn:save:v1";
 const CURRENT_SAVE_VERSION = 1;
+const MAX_NORMALIZED_TRAINING_LEVEL = 999;
+const MAX_NORMALIZED_TRAINING_XP = 60;
+const MAX_NORMALIZED_TRAINING_SECONDS = 9_999_999;
 
 export function loadSavedGameState(): GameState | null {
   const storage = getLocalStorage();
@@ -167,9 +170,16 @@ function normalizeHeroTraining(rawTraining: unknown, fallback: HeroTrainingState
   }
 
   return {
-    attackTrainingXp: normalizeNumber(rawTraining.attackTrainingXp, fallback.attackTrainingXp, 0),
-    attackTrainingLevel: Math.floor(normalizeNumber(rawTraining.attackTrainingLevel, fallback.attackTrainingLevel, 0)),
-    totalTrainingSeconds: normalizeNumber(rawTraining.totalTrainingSeconds, fallback.totalTrainingSeconds, 0)
+    attackTrainingXp: clampNumber(rawTraining.attackTrainingXp, fallback.attackTrainingXp, 0, MAX_NORMALIZED_TRAINING_XP),
+    attackTrainingLevel: Math.floor(
+      clampNumber(rawTraining.attackTrainingLevel, fallback.attackTrainingLevel, 0, MAX_NORMALIZED_TRAINING_LEVEL)
+    ),
+    totalTrainingSeconds: clampNumber(
+      rawTraining.totalTrainingSeconds,
+      fallback.totalTrainingSeconds,
+      0,
+      MAX_NORMALIZED_TRAINING_SECONDS
+    )
   };
 }
 

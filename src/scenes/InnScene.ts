@@ -1,5 +1,4 @@
 import Phaser from "phaser";
-import { heroDefinitions } from "../data/heroData";
 import { GAME_HEIGHT, GAME_WIDTH } from "../game/screen";
 import {
   getFirstPartyHero,
@@ -14,7 +13,6 @@ import { tickGameState } from "../systems/gameTickSystem";
 import { canDispatchSelectedParty, sendSelectedPartyToTower } from "../systems/partyDispatchSystem";
 import {
   calculateBedRoomHealingPerSecond,
-  calculateTrainingRoomXpPerSecond,
   cancelHeroTrainingDrill,
   getHeroActiveRoomJob,
   getHeroReadyHpThreshold,
@@ -38,6 +36,8 @@ import {
   formatStatusLabel
 } from "../ui/components";
 import { createSceneHud } from "../ui/sceneHud";
+import { getHeroHpDisplayText } from "../ui/heroDisplayText";
+import { getInnReadinessRenderKey } from "../ui/innRenderKey";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
 import { getTrainingRoomInnText } from "../ui/trainingRoomText";
 
@@ -67,7 +67,6 @@ export class InnScene extends Phaser.Scene {
     const bedRoom = getInnRoom(state, "bed_room");
     const bedRoomHealingSpeed = calculateBedRoomHealingPerSecond(state);
     const trainingRoom = getInnRoom(state, "training_room");
-    const trainingRoomSpeed = calculateTrainingRoomXpPerSecond(state);
     const latestEvent = state.recentEvents[0];
     const latestOfflineReport = getLatestOfflineReport(state);
     const floor10Callout = getFloor10BossCallout(state);
@@ -76,7 +75,7 @@ export class InnScene extends Phaser.Scene {
     const buttonLabel = isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready";
     const autoDispatchControl = getAutoDispatchControlState(state);
     this.autoDispatchRenderKey = autoDispatchControl.label;
-    this.readinessRenderKey = getReadinessRenderKey(state);
+    this.readinessRenderKey = getInnReadinessRenderKey(state);
 
     this.configureCamera();
     this.drawWorldBackdrop();
@@ -98,7 +97,6 @@ export class InnScene extends Phaser.Scene {
     this.drawTrainingRoom(
       state,
       trainingRoom,
-      trainingRoomSpeed,
       hero,
       getFloor10RoomRecommendation(state, "training_room")?.innBadge ?? null
     );
@@ -122,7 +120,7 @@ export class InnScene extends Phaser.Scene {
 
     if (
       getAutoDispatchControlState(state).label !== this.autoDispatchRenderKey ||
-      getReadinessRenderKey(state) !== this.readinessRenderKey
+      getInnReadinessRenderKey(state) !== this.readinessRenderKey
     ) {
       this.scene.restart();
     }
@@ -363,7 +361,6 @@ export class InnScene extends Phaser.Scene {
   private drawTrainingRoom(
     state: GameState,
     room: InnRoomState | null,
-    trainingXpPerSecond: number,
     hero: HeroInstance | null,
     recommendationBadge: string | null
   ): void {
@@ -390,7 +387,7 @@ export class InnScene extends Phaser.Scene {
 
     if (isUnlocked) {
       const trainingText = getTrainingRoomInnText(state, hero);
-      addCenteredLabel(this, 844, 512, `Train ${formatNumber(trainingXpPerSecond)} XP/s`, {
+      addCenteredLabel(this, 844, 512, trainingText.speedLabel, {
         color: UI_HEX.gold,
         fontSize: 11,
         fontStyle: "700",
@@ -423,20 +420,22 @@ export class InnScene extends Phaser.Scene {
         fill: trainingText.isCancelAction ? 0x5d5249 : UI_COLORS.amber,
         stroke: UI_COLORS.gold,
         onClick: () => {
-          if (this.didDragWorld || !hero) {
+          if (this.didDragWorld || !trainingText.targetHero) {
             return;
           }
 
           updateGameState((currentState) => {
-            const latestHero = currentState.heroes.find((candidate) => candidate.id === hero.id);
-            if (!latestHero) {
+            const latestTargetHero = trainingText.targetHero
+              ? currentState.heroes.find((candidate) => candidate.id === trainingText.targetHero?.id) ?? null
+              : null;
+            if (!latestTargetHero) {
               return currentState;
             }
 
-            const latestText = getTrainingRoomInnText(currentState, latestHero);
+            const latestText = getTrainingRoomInnText(currentState, latestTargetHero);
             return latestText.isCancelAction
-              ? cancelHeroTrainingDrill(currentState, latestText.activeTrainingJob?.heroId ?? latestHero.id)
-              : startHeroTrainingDrill(currentState, latestHero.id);
+              ? cancelHeroTrainingDrill(currentState, latestText.activeTrainingJob?.heroId ?? latestTargetHero.id)
+              : startHeroTrainingDrill(currentState, latestText.targetHero?.id ?? latestTargetHero.id);
           });
           this.scene.restart();
         }
@@ -598,14 +597,13 @@ export class InnScene extends Phaser.Scene {
   }
 
   private drawHero(hero: HeroInstance): void {
-    const maxHp = heroDefinitions[hero.classId]?.baseStats.hp ?? Math.max(1, hero.currentHp);
-    const hpRatio = Phaser.Math.Clamp(hero.currentHp / Math.max(1, maxHp), 0, 1);
+    const hpDisplay = getHeroHpDisplayText(hero);
     const position = getHeroPosition(hero.status);
     const labelPosition = getHeroLabelPosition(hero.status);
     const palette = hero.status === "in_tower" ? "away" : hero.status === "defeated" ? "defeated" : "hero";
 
     drawTinyHero(this, position.x, position.y, {
-      hpRatio,
+      hpRatio: hpDisplay.ratio,
       palette
     });
     addLabel(this, labelPosition.x, labelPosition.y, `${hero.name} Lv ${hero.level}`, {
@@ -614,7 +612,7 @@ export class InnScene extends Phaser.Scene {
       fontStyle: "700",
       width: 118
     });
-    drawHpBar(this, labelPosition.x, labelPosition.y + 34, 108, 8, hpRatio, `HP ${formatNumber(hero.currentHp)}/${maxHp}`);
+    drawHpBar(this, labelPosition.x, labelPosition.y + 34, 108, 8, hpDisplay.ratio, hpDisplay.label);
     addLabel(this, labelPosition.x, labelPosition.y + 48, formatStatusLabel(hero.status), {
       color: hero.status === "in_tower" ? UI_HEX.skyBlue : UI_HEX.gold,
       fontSize: 10,
@@ -671,15 +669,4 @@ function isRunActive(status: TowerRunStatus | undefined): boolean {
 
 function formatNumber(value: number): string {
   return Number.isInteger(value) ? `${value}` : value.toFixed(1);
-}
-
-function getReadinessRenderKey(state: GameState): string {
-  return state.heroes
-    .map((hero) => {
-      const job = getHeroActiveRoomJob(state, hero.id);
-      return `${hero.id}:${Math.floor(hero.currentHp)}:${hero.status}:${hero.training.attackTrainingLevel}:${Math.floor(
-        hero.training.attackTrainingXp
-      )}:${job?.id ?? "none"}:${job?.status ?? "none"}:${Math.floor((job?.progress ?? 0) * 20)}`;
-    })
-    .join("|");
 }
