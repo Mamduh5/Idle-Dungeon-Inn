@@ -132,6 +132,41 @@ export function createInitialGameState(): GameState {
         isUnlocked: false,
         activeJob: null,
         jobs: []
+      },
+      {
+        roomId: roomDefinitions.kitchen.roomId,
+        level: 0,
+        isUnlocked: false,
+        activeJob: null,
+        jobs: []
+      },
+      {
+        roomId: roomDefinitions.forge.roomId,
+        level: 0,
+        isUnlocked: false,
+        activeJob: null,
+        jobs: []
+      },
+      {
+        roomId: roomDefinitions.tavern.roomId,
+        level: 0,
+        isUnlocked: false,
+        activeJob: null,
+        jobs: []
+      },
+      {
+        roomId: roomDefinitions.library.roomId,
+        level: 0,
+        isUnlocked: false,
+        activeJob: null,
+        jobs: []
+      },
+      {
+        roomId: roomDefinitions.gate_room.roomId,
+        level: 0,
+        isUnlocked: false,
+        activeJob: null,
+        jobs: []
       }
     ],
     automation: {

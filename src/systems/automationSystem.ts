@@ -5,10 +5,10 @@ import type { GameState } from "../types/gameState";
 import type { RecentEvent } from "../types/recentEventTypes";
 import { canCompleteSelectedFloor, completeSelectedFloor } from "./floorClearSystem";
 import { getSelectedPartyDispatchBlockReason, sendSelectedPartyToTower } from "./partyDispatchSystem";
+import { getLibraryAutoDispatchCooldownMs } from "./roomEffectSystem";
 import { canContinueTowerRun, continueSelectedTowerRun } from "./towerNodeActionSystem";
 
 const AUTO_DISPATCH_ID = automationDefinitions.auto_dispatch_board.automationId;
-const AUTO_DISPATCH_COOLDOWN_MS = 1500;
 const AUTO_TOWER_ACTION_READABILITY_DELAY_MS = 750;
 
 export interface AutoDispatchControlState {
@@ -68,7 +68,7 @@ export function tickAutomation(state: GameState, now: number): GameState {
   }
 
   const lastAutoDispatchAt = unlockedState.automation.lastAutoDispatchAt;
-  if (lastAutoDispatchAt !== null && now - lastAutoDispatchAt < AUTO_DISPATCH_COOLDOWN_MS) {
+  if (lastAutoDispatchAt !== null && now - lastAutoDispatchAt < getLibraryAutoDispatchCooldownMs(unlockedState)) {
     return unlockedState;
   }
 

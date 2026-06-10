@@ -10,6 +10,10 @@ import {
   calculateBedRoomHealingPerSecondForLevel,
   calculateTrainingRoomXpPerSecondForLevel
 } from "../systems/roomJobSystem";
+import {
+  calculateGateRoomTravelDurationMsForLevel,
+  calculateLibraryAutoDispatchCooldownMsForLevel
+} from "../systems/roomEffectSystem";
 import { getRoomUpgradePreview } from "../systems/roomUpgradeSystem";
 import { getInnRoom } from "../state/gameSelectors";
 import type { GameState } from "../types/gameState";
@@ -17,7 +21,7 @@ import type { RoomId } from "../types/ids";
 import { TRAINING_ROOM_BUILD_COPY } from "../ui/trainingRoomText";
 import { getBottleneckViewModel, type BottleneckViewModel } from "./bottleneckViewModel";
 
-const PRIMARY_ROOM_IDS: RoomId[] = ["bed_room", "training_room"];
+const PRIMARY_ROOM_IDS: RoomId[] = ["bed_room", "training_room", "kitchen", "forge", "tavern", "library", "gate_room"];
 
 export interface BuildRoomUpgradeViewModel {
   label: string;
@@ -91,11 +95,7 @@ export function getBuildViewModel(state: GameState): BuildViewModel {
   const bottleneckCallout = getFloor10BossCallout(state);
   const roomPlans = PRIMARY_ROOM_IDS.map((roomId) => createRoomPlanViewModel(state, roomId));
   const automation = createAutomationViewModel(state);
-  const choiceCards = [
-    ...roomPlans.map((roomPlan) => createRoomChoiceCard(state, roomPlan)),
-    createAutomationChoiceCard(automation),
-    ...createFutureChoiceCards()
-  ];
+  const choiceCards = [...roomPlans.map((roomPlan) => createRoomChoiceCard(state, roomPlan)), createAutomationChoiceCard(automation)];
 
   return {
     hasBottleneckCallout: Boolean(bottleneckCallout),
@@ -115,18 +115,13 @@ export function getBuildViewModel(state: GameState): BuildViewModel {
 
 function createRoomChoiceCard(state: GameState, roomPlan: BuildRoomPlanViewModel): BuildChoiceCardViewModel {
   const upgrade = getRoomUpgradePreview(state, roomPlan.roomId);
-  const isBedRoom = roomPlan.roomId === "bed_room";
 
   return {
     id: `room_${roomPlan.roomId}`,
-    category: isBedRoom ? "Sustain" : "Training",
+    category: getRoomChoiceCategory(roomPlan.roomId),
     title: roomPlan.title,
-    description: isBedRoom
-      ? "Recover wounded heroes for safer checkpoint retries."
-      : "Train selected heroes for personal attack gains.",
-    gameplayEffect: isBedRoom
-      ? `${roomPlan.effectLabel}. Improves retry pacing after wipes.`
-      : `${roomPlan.effectLabel}. Personal +ATK is kept per hero; no global aura.`,
+    description: getRoomChoiceDescription(roomPlan.roomId),
+    gameplayEffect: getRoomChoiceGameplayEffect(roomPlan),
     cost: upgrade?.cost ?? null,
     costLabel: upgrade ? `${upgrade.cost} coins` : "No upgrade",
     canAfford: upgrade?.canAfford ?? false,
@@ -153,37 +148,6 @@ function createAutomationChoiceCard(automation: BuildAutomationViewModel): Build
     recommendationBadge: null,
     targetRoomId: null,
     command: automation.isUnlocked ? "toggle_auto_dispatch" : null
-  };
-}
-
-function createFutureChoiceCards(): BuildChoiceCardViewModel[] {
-  return [
-    createLockedChoiceCard("future_tavern", "Tank", "Tavern", "Party capacity and roster management foundation."),
-    createLockedChoiceCard("future_gate_room", "Fast Clear", "Gate Room", "Shorter travel and retry pacing."),
-    createLockedChoiceCard("future_kitchen", "Loot", "Kitchen", "Preparation buffs and future loot support.")
-  ];
-}
-
-function createLockedChoiceCard(
-  id: string,
-  category: BuildChoiceCategory,
-  title: string,
-  description: string
-): BuildChoiceCardViewModel {
-  return {
-    id,
-    category,
-    title,
-    description,
-    gameplayEffect: "Coming in a later room phase.",
-    cost: null,
-    costLabel: "Locked",
-    canAfford: false,
-    isUnlocked: false,
-    blockedReason: "Coming soon",
-    recommendationBadge: null,
-    targetRoomId: null,
-    command: null
   };
 }
 
@@ -214,7 +178,7 @@ function createRoomPlanViewModel(state: GameState, roomId: RoomId): BuildRoomPla
     isFloorUnlocked: upgrade?.isFloorUnlocked ?? false,
     unlockStatusLabel: isAvailable ? "Unlocked" : upgrade?.isFloorUnlocked ? "Locked" : `Floor ${definition?.unlockFloor ?? "?"}`,
     recommendationBadge: recommendation ? "Recommended" : null,
-    strategicLabel: roomId === "bed_room" ? "Safer retry pacing" : "Personal hero training",
+    strategicLabel: getStrategicLabel(roomId),
     upgrade: upgrade
       ? {
           label: upgrade.canPurchase ? upgrade.label : upgrade.reason ?? upgrade.label,
@@ -249,5 +213,105 @@ function getRoomEffectLabel(roomId: RoomId, level: number): string {
     return `Training ${calculateTrainingRoomXpPerSecondForLevel(level)} XP/s`;
   }
 
+  if (roomId === "kitchen") {
+    return level > 0 ? "Food prep foundation active" : "Food prep foundation";
+  }
+
+  if (roomId === "forge") {
+    return level > 0 ? "Gear upgrade foundation active" : "Gear upgrade foundation";
+  }
+
+  if (roomId === "tavern") {
+    return level > 0 ? "Party planning foundation active" : "Party planning foundation";
+  }
+
+  if (roomId === "library") {
+    return `Auto cooldown ${calculateLibraryAutoDispatchCooldownMsForLevel(level)}ms`;
+  }
+
+  if (roomId === "gate_room") {
+    return `Travel ${calculateGateRoomTravelDurationMsForLevel(level)}ms`;
+  }
+
   return roomDefinitions[roomId]?.effectType.split("_").join(" ") ?? "unknown";
+}
+
+function getRoomChoiceCategory(roomId: RoomId): BuildChoiceCategory {
+  if (roomId === "bed_room") {
+    return "Sustain";
+  }
+
+  if (roomId === "training_room") {
+    return "Training";
+  }
+
+  if (roomId === "kitchen") {
+    return "Loot";
+  }
+
+  if (roomId === "forge" || roomId === "tavern") {
+    return "Tank";
+  }
+
+  if (roomId === "library") {
+    return "Automation";
+  }
+
+  if (roomId === "gate_room") {
+    return "Fast Clear";
+  }
+
+  return "Sustain";
+}
+
+function getRoomChoiceDescription(roomId: RoomId): string {
+  if (roomId === "bed_room") {
+    return "Recover wounded heroes for safer checkpoint retries.";
+  }
+
+  if (roomId === "training_room") {
+    return "Train selected heroes for personal attack gains.";
+  }
+
+  return roomDefinitions[roomId]?.description ?? "Inn room foundation.";
+}
+
+function getRoomChoiceGameplayEffect(roomPlan: BuildRoomPlanViewModel): string {
+  if (roomPlan.roomId === "bed_room") {
+    return `${roomPlan.effectLabel}. Improves retry pacing after wipes.`;
+  }
+
+  if (roomPlan.roomId === "training_room") {
+    return `${roomPlan.effectLabel}. Personal +ATK is kept per hero; no global aura.`;
+  }
+
+  if (roomPlan.roomId === "library") {
+    return `${roomPlan.effectLabel}. Research reduces local automation delay.`;
+  }
+
+  if (roomPlan.roomId === "gate_room") {
+    return `${roomPlan.effectLabel}. Gate prep shortens tower travel.`;
+  }
+
+  return `${roomPlan.effectLabel}. V0 foundation for future room jobs.`;
+}
+
+function getStrategicLabel(roomId: RoomId): string {
+  if (roomId === "bed_room") {
+    return "Safer retry pacing";
+  }
+
+  if (roomId === "training_room") {
+    return "Personal hero training";
+  }
+
+  if (roomId === "library") {
+    return "Automation timing";
+  }
+
+  if (roomId === "gate_room") {
+    return "Faster tower travel";
+  }
+
+  return roomDefinitions[roomId]?.effectType.split("_").join(" ") ?? "Room foundation";
 }

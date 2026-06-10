@@ -21,7 +21,15 @@ test("all Phase 1 view models generate display data without Phaser", () => {
 
   expect(getInnViewModel(state).bedRoom.healingSpeedLabel).toBe("Heal 2 HP/s");
   expect(getHeroesViewModel(state).roster[0]?.hpLabel).toBe("HP 120/120");
-  expect(getBuildViewModel(state).roomPlans.map((room) => room.title)).toEqual(["Bed Room", "Training Room"]);
+  expect(getBuildViewModel(state).roomPlans.map((room) => room.title)).toEqual([
+    "Bed Room",
+    "Training Room",
+    "Kitchen",
+    "Forge",
+    "Tavern",
+    "Library",
+    "Gate Room"
+  ]);
   expect(getTowerViewModel(state).message).toBe("Party is preparing at the inn.");
 
   for (const filePath of [

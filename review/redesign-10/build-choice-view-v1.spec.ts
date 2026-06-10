@@ -19,7 +19,9 @@ test("Build view model groups strategic choice cards by category", () => {
   expect(viewModel.choiceCategories.flatMap((category) => category.cards).map((card) => card.title)).toEqual([
     "Bed Room",
     "Training Room",
+    "Library",
     "Auto-Dispatch Board",
+    "Forge",
     "Tavern",
     "Gate Room",
     "Kitchen"
@@ -30,7 +32,7 @@ test("Build cards explain current real systems without global aura copy", () => 
   const cards = getBuildViewModel(createInitialGameState()).choiceCategories.flatMap((category) => category.cards);
   const bedCard = cards.find((card) => card.targetRoomId === "bed_room");
   const trainingCard = cards.find((card) => card.targetRoomId === "training_room");
-  const tankCard = cards.find((card) => card.category === "Tank");
+  const tankCard = cards.find((card) => card.title === "Forge");
 
   expect(bedCard?.category).toBe("Sustain");
   expect(bedCard?.description).toContain("Recover wounded heroes");
@@ -38,7 +40,7 @@ test("Build cards explain current real systems without global aura copy", () => 
   expect(trainingCard?.category).toBe("Training");
   expect(trainingCard?.description).toContain("selected heroes");
   expect(trainingCard?.gameplayEffect).toContain("no global aura");
-  expect(tankCard?.blockedReason).toBe("Coming soon");
+  expect(tankCard?.blockedReason).toBe("Reach Floor 12");
 });
 
 test("bottleneck recommendation highlights Bed Room and Training Room cards", () => {

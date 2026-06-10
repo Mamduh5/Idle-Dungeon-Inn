@@ -32,7 +32,7 @@ export class BuildScene extends Phaser.Scene {
 
   public create(): void {
     const viewModel = getBuildViewModel(getGameState());
-    const choicesY = viewModel.hasBottleneckCallout ? 284 : 218;
+    const choicesY = viewModel.hasBottleneckCallout ? 276 : 218;
 
     this.drawBackdrop();
     this.drawPlanTable();
@@ -177,10 +177,10 @@ export class BuildScene extends Phaser.Scene {
   private drawChoiceCategories(categories: BuildChoiceCategoryViewModel[], startY: number): void {
     const cards = categories.flatMap((category) => category.cards);
 
-    cards.slice(0, 6).forEach((card, index) => {
+    cards.slice(0, 8).forEach((card, index) => {
       const col = index % 2;
       const row = Math.floor(index / 2);
-      this.drawChoiceCard(48 + col * 158, startY + row * 128, card);
+      this.drawChoiceCard(48 + col * 158, startY + row * 118, card);
     });
   }
 
@@ -190,7 +190,7 @@ export class BuildScene extends Phaser.Scene {
     const stroke = isRecommended ? UI_COLORS.skyBlue : card.isUnlocked ? UI_COLORS.gold : 0x8a7a69;
     const canRunCommand = card.command !== null && card.blockedReason === null;
 
-    drawPanel(this, x, y, 136, 116, fill, stroke, 0.98, 7);
+    drawPanel(this, x, y, 136, 108, fill, stroke, 0.98, 7);
     addLabel(this, x + 10, y + 9, card.category, {
       color: isRecommended ? UI_HEX.skyBlue : UI_HEX.gold,
       fontSize: 9,
@@ -208,14 +208,14 @@ export class BuildScene extends Phaser.Scene {
       fontSize: 9,
       width: 116
     });
-    addLabel(this, x + 10, y + 72, card.gameplayEffect, {
+    addLabel(this, x + 10, y + 68, card.gameplayEffect, {
       color: card.isUnlocked ? UI_HEX.parchment : UI_HEX.mutedCream,
       fontSize: 8,
       width: 116
     });
 
     if (card.command) {
-      addLabel(this, x + 10, y + 92, card.recommendationBadge ?? card.costLabel, {
+      addLabel(this, x + 10, y + 88, card.recommendationBadge ?? card.costLabel, {
         color: card.recommendationBadge ? UI_HEX.skyBlue : UI_HEX.mutedCream,
         fontSize: 8,
         fontStyle: "700",
@@ -223,7 +223,7 @@ export class BuildScene extends Phaser.Scene {
       });
       drawActionButton(this, {
         x: x + 96,
-        y: y + 96,
+        y: y + 92,
         width: 68,
         height: 28,
         label: getChoiceActionLabel(card),
@@ -245,7 +245,7 @@ export class BuildScene extends Phaser.Scene {
         }
       });
     } else {
-      drawStatusBadge(this, x + 10, y + 88, card.recommendationBadge ?? card.costLabel, card.blockedReason ? 0x4a4038 : 0x275241);
+      drawStatusBadge(this, x + 10, y + 82, card.recommendationBadge ?? card.costLabel, card.blockedReason ? 0x4a4038 : 0x275241);
     }
   }
 

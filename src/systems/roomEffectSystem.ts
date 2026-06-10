@@ -1,66 +1,29 @@
-import { heroDefinitions } from "../data/heroData";
 import { getInnRoom } from "../state/gameSelectors";
 import type { GameState } from "../types/gameState";
-import type { HeroId } from "../types/ids";
+import type { RoomId } from "../types/ids";
 
-export function getBedRoomLevel(state: GameState): number {
-  const bedRoom = getInnRoom(state, "bed_room");
+export const BASE_TOWER_TRAVEL_DURATION_MS = 1600;
+export const BASE_AUTO_DISPATCH_COOLDOWN_MS = 1500;
 
-  if (!bedRoom?.isUnlocked) {
-    return 0;
-  }
-
-  return Math.max(0, Math.floor(bedRoom.level));
+export function getUnlockedRoomLevel(state: GameState, roomId: RoomId): number {
+  const room = getInnRoom(state, roomId);
+  return room?.isUnlocked ? Math.max(0, Math.floor(room.level)) : 0;
 }
 
-export function calculateBedRoomHealingForLevel(level: number): number {
-  const bedLevel = Math.max(0, Math.floor(level));
-  return bedLevel > 0 ? 15 + (bedLevel - 1) * 10 : 0;
+export function getGateRoomTravelDurationMs(state: GameState): number {
+  return calculateGateRoomTravelDurationMsForLevel(getUnlockedRoomLevel(state, "gate_room"));
 }
 
-export function calculateReturnHealingAmount(state: GameState): number {
-  return calculateBedRoomHealingForLevel(getBedRoomLevel(state));
+export function calculateGateRoomTravelDurationMsForLevel(level: number): number {
+  const reduction = Math.min(0.4, level * 0.08);
+  return Math.max(600, Math.round(BASE_TOWER_TRAVEL_DURATION_MS * (1 - reduction)));
 }
 
-export function applyReturnHealing(state: GameState, heroIds: HeroId[]): GameState {
-  const healingAmount = calculateReturnHealingAmount(state);
+export function getLibraryAutoDispatchCooldownMs(state: GameState): number {
+  return calculateLibraryAutoDispatchCooldownMsForLevel(getUnlockedRoomLevel(state, "library"));
+}
 
-  if (healingAmount <= 0 || heroIds.length === 0) {
-    return state;
-  }
-
-  const targetHeroIds = new Set(heroIds);
-  let changed = false;
-  const heroes = state.heroes.map((hero) => {
-    if (!targetHeroIds.has(hero.id) || hero.currentHp <= 0) {
-      return hero;
-    }
-
-    const maxHp = heroDefinitions[hero.classId]?.baseStats.hp;
-
-    if (!maxHp) {
-      return hero;
-    }
-
-    const nextHp = Math.min(maxHp, hero.currentHp + healingAmount);
-
-    if (nextHp === hero.currentHp) {
-      return hero;
-    }
-
-    changed = true;
-    return {
-      ...hero,
-      currentHp: nextHp
-    };
-  });
-
-  if (!changed) {
-    return state;
-  }
-
-  return {
-    ...state,
-    heroes
-  };
+export function calculateLibraryAutoDispatchCooldownMsForLevel(level: number): number {
+  const reduction = Math.min(0.5, level * 0.1);
+  return Math.max(500, Math.round(BASE_AUTO_DISPATCH_COOLDOWN_MS * (1 - reduction)));
 }

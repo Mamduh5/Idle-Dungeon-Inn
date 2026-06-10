@@ -3,13 +3,13 @@ import { prototypeTowerFloors } from "../data/towerData";
 import { appendRecentEvent } from "../state/recentEvents";
 import { createBossEncounterMessage } from "./bottleneckHintSystem";
 import { FLOOR_CLEAR_HOLD_REASON, TREASURE_HOLD_REASON } from "./towerNodeActionSystem";
+import { getGateRoomTravelDurationMs } from "./roomEffectSystem";
 import type { GameState } from "../types/gameState";
 import type { EnemyId } from "../types/ids";
 import type { PartyState } from "../types/partyTypes";
 import type { RecentEvent } from "../types/recentEventTypes";
 import type { TowerNodeDefinition, TowerRunEnemyState, TowerRunState } from "../types/towerTypes";
 
-const TRAVEL_DURATION_MS = 1600;
 const NODE_EXPLORE_DURATION_MS = 2000;
 
 export function tickTowerRuns(state: GameState, deltaMs: number, now: number): GameState {
@@ -22,7 +22,7 @@ export function tickTowerRuns(state: GameState, deltaMs: number, now: number): G
 
   const towerRuns = state.towerRuns.map((run) => {
     const party = state.parties.find((candidate) => candidate.id === run.partyId);
-    const result = tickTowerRun(run, party, deltaMs, now);
+    const result = tickTowerRun(run, party, deltaMs, now, getGateRoomTravelDurationMs(state));
 
     if (result.run !== run) {
       changed = true;
@@ -52,10 +52,11 @@ function tickTowerRun(
   run: TowerRunState,
   party: PartyState | undefined,
   deltaMs: number,
-  now: number
+  now: number,
+  travelDurationMs: number
 ): { run: TowerRunState; event: RecentEvent | null } {
   if (run.status === "traveling") {
-    const nextProgress = Math.min(1, run.nodeProgress + deltaMs / TRAVEL_DURATION_MS);
+    const nextProgress = Math.min(1, run.nodeProgress + deltaMs / travelDurationMs);
 
     if (nextProgress < 1) {
       return {

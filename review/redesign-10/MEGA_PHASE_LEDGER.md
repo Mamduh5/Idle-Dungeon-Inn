@@ -1,7 +1,7 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 10 - Party B + Safe Farm Mode
+Phase 11 - More Rooms v0
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
@@ -14,6 +14,7 @@ Phase 10 - Party B + Safe Farm Mode
 - Phase 7 - Floor 1-20 + Floor 20 Boss: added Bone Hall floors 11-20, Bone Guard/Archer/Shaman/Captain enemies, Floor 20 checkpoint messaging, bounded rewards, and Floor 20 bottleneck coverage.
 - Phase 8 - Build Choice View v1: added grouped strategic Build choice cards for Sustain, Training, Automation, and locked future categories; BuildScene now renders the grouped choices while purchases/toggles still flow through application commands.
 - Phase 9 - Offline Room Progress v1: added conservative offline room-job catch-up for preparing/waiting states, room-work report summaries, elapsed cap reporting, and focused pure offline room tests.
+- Phase 10 - Party B + Safe Farm Mode: added locked default Party B with its own tower run, Floor 20 progress unlock normalization, Tower party selector, safe-farm floor-clear semantics, and multi-party/backend safety tests.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -60,8 +61,11 @@ Phase 10 - Party B + Safe Farm Mode
 - Completed with an environment note: the browser offline-progress spec still needs a dev server on port 5174.
 
 ### Phase 10 - Party B + Safe Farm Mode
-- Add Party B unlock/state support and safe-farm mode behavior.
-- Keep multi-party simulation backend-owned and avoid duplicate hero assignment.
+- Completed.
+
+### Phase 11 - More Rooms v0
+- Add Kitchen, Forge, Tavern, Library, and Gate Room room data/state foundations.
+- Add at least two simple backend effects through pure systems/view models without scene-owned formulas.
 
 ## Changed files by phase
 ### Phase 0
@@ -156,6 +160,17 @@ Phase 10 - Party B + Safe Farm Mode
 - src/systems/offlineProgressSystem.ts
 - review/redesign-10/offline-room-progress-v1.spec.ts
 
+### Phase 10
+- src/application/towerCommands.ts
+- src/game/initialState.ts
+- src/scenes/TowerScene.ts
+- src/state/saveStorage.ts
+- src/systems/floorClearSystem.ts
+- src/systems/partyUnlockSystem.ts
+- src/viewModels/partyViewModel.ts
+- review/redesign-10/party-b-safe-farm.spec.ts
+- review/redesign-10/party-system-v1.spec.ts
+
 ## Commands run
 ### Phase 0
 - `git status --short`: clean before ledger creation.
@@ -229,6 +244,12 @@ Phase 10 - Party B + Safe Farm Mode
 - `Start-Process -FilePath npm -ArgumentList @('run','dev','--','--host','127.0.0.1','--port','5174') ...`: attempted to start a temporary hidden dev server after the offline browser spec failed; sandbox spawn failed twice with `windows sandbox: spawn setup refresh`, then escalation was rejected by the approval reviewer as out of credits. No server was left running.
 - `git diff --check`: passed with line-ending warnings only.
 
+### Phase 10
+- `npm run build`: passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/party-b-safe-farm.spec.ts`: passed, 7 tests.
+- `npm run test -- review/redesign-10/party-system-v1.spec.ts`: initially failed because its temporary Party B helper appended behind the new locked default Party B; updated the helper to unlock the default Party B, then passed, 5 tests.
+- `git diff --check`: passed.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
@@ -240,6 +261,7 @@ Phase 10 - Party B + Safe Farm Mode
 - Phase 7: no browser/manual visual checks were run; validation was build plus focused data/system/view-model tests.
 - Phase 8: no browser/manual visual checks were run; validation was build plus focused view-model/source tests.
 - Phase 9: `npm run test -- review/redesign-09/offline-progress.spec.ts` could not be validated because the required dev server on port 5174 could not be started in this sandbox session.
+- Phase 10: no browser/manual visual checks were run; validation was build plus focused backend/view-model/source tests.
 
 ## Known risks
 - The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.
