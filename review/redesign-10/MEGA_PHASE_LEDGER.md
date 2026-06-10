@@ -1,7 +1,7 @@
 # Idle Dungeon Inn Mega Phase Ledger
 
 ## Current phase
-Phase 8 - Build Choice View v1
+Phase 9 - Offline Room Progress v1
 
 ## Completed phases
 - Phase 0 - Setup and audit: created the mega-phase ledger, recorded baseline assumptions, confirmed clean tracked state before edits, and ran fast baseline validation.
@@ -12,6 +12,7 @@ Phase 8 - Build Choice View v1
 - Phase 5 - Party System v1: added a shared party view model, surfaced party mode/target state, validated party select/mode commands, and fixed duplicate/sparse party slot assignment.
 - Phase 6 - Second Hero + Party Size 2: added Lina the Apprentice Archer, made the starter party size 2, normalized old v1 saves additively, drew compact two-hero parties in Inn/Tower, kept combat/dispatch/recovery all-hero aware, and added focused Phase 6 coverage.
 - Phase 7 - Floor 1-20 + Floor 20 Boss: added Bone Hall floors 11-20, Bone Guard/Archer/Shaman/Captain enemies, Floor 20 checkpoint messaging, bounded rewards, and Floor 20 bottleneck coverage.
+- Phase 8 - Build Choice View v1: added grouped strategic Build choice cards for Sustain, Training, Automation, and locked future categories; BuildScene now renders the grouped choices while purchases/toggles still flow through application commands.
 
 ## Current assumptions
 - Idle Dungeon Inn remains a local offline Phaser + TypeScript + Vite game.
@@ -52,8 +53,11 @@ Phase 8 - Build Choice View v1
 - Completed.
 
 ### Phase 8 - Build Choice View v1
-- Refine Build view model cards into strategic categories and recommendation badges.
-- Keep purchase behavior behind Build commands and preserve room cost/currency semantics.
+- Completed.
+
+### Phase 9 - Offline Room Progress v1
+- Simulate Bed Room and Training Room jobs during offline load.
+- Add a compact offline report event without duplicate rewards or save-version changes.
 
 ## Changed files by phase
 ### Phase 0
@@ -139,6 +143,11 @@ Phase 8 - Build Choice View v1
 - src/viewModels/towerViewModel.ts
 - review/redesign-10/floor-11-20-boss.spec.ts
 
+### Phase 8
+- src/scenes/BuildScene.ts
+- src/viewModels/buildViewModel.ts
+- review/redesign-10/build-choice-view-v1.spec.ts
+
 ## Commands run
 ### Phase 0
 - `git status --short`: clean before ledger creation.
@@ -200,6 +209,11 @@ Phase 8 - Build Choice View v1
 - `npm run test -- review/redesign-09/balance-pass.spec.ts`: passed, 3 tests.
 - `git diff --check`: passed.
 
+### Phase 8
+- `npm run build`: initially failed because a compact Build card click closure did not narrow nullable `targetRoomId`; fixed with a local constant, then passed. Vite reported the existing large chunk warning.
+- `npm run test -- review/redesign-10/build-choice-view-v1.spec.ts`: initially failed because the test expected a coin block before Floor 2 unlock; updated the fixture to reach Floor 2, then passed, 5 tests.
+- `git diff --check`: passed with line-ending warnings only.
+
 ## Tests intentionally not run
 - Phase 0: no focused gameplay tests were required; Phase 1 will run the requested focused tests.
 - Phase 1: no broad redesign-09 long suites were run; not part of Phase 1 fast validation.
@@ -209,6 +223,7 @@ Phase 8 - Build Choice View v1
 - Phase 5: no browser/manual visual checks were run; validation was build plus focused party view-model/command tests.
 - Phase 6: no browser/manual visual checks were run; validation was build plus focused backend/view-model/source tests.
 - Phase 7: no browser/manual visual checks were run; validation was build plus focused data/system/view-model tests.
+- Phase 8: no browser/manual visual checks were run; validation was build plus focused view-model/source tests.
 
 ## Known risks
 - The pasted mega prompt asks to continue through all phases, but the current implementation will still validate and ledger each phase before moving on.
