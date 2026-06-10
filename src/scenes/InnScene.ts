@@ -15,10 +15,11 @@ import { canDispatchSelectedParty, sendSelectedPartyToTower } from "../systems/p
 import {
   calculateBedRoomHealingPerSecond,
   calculateTrainingRoomXpPerSecond,
+  cancelHeroTrainingDrill,
   getHeroActiveRoomJob,
   getHeroReadyHpThreshold,
-  getHeroTrainingAttackBonus,
-  getRoomJobCapacity
+  getRoomJobCapacity,
+  startHeroTrainingDrill
 } from "../systems/roomJobSystem";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
@@ -29,6 +30,7 @@ import type { TowerRunStatus } from "../types/towerTypes";
 import {
   addCenteredLabel,
   addLabel,
+  drawActionButton,
   drawDivider,
   drawHpBar,
   drawPanel,
@@ -37,6 +39,7 @@ import {
 } from "../ui/components";
 import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
+import { getTrainingRoomInnText } from "../ui/trainingRoomText";
 
 const INN_WORLD_WIDTH = 1260;
 const INN_INITIAL_SCROLL_X = 330;
@@ -386,26 +389,67 @@ export class InnScene extends Phaser.Scene {
     drawDivider(this, 910, 432, 876, 388, isUnlocked ? UI_COLORS.gold : UI_COLORS.mutedCream, 0.7);
 
     if (isUnlocked) {
-      const activeJob = hero ? getHeroActiveRoomJob(state, hero.id) : null;
-      const isTrainingHere = activeJob?.roomId === "training_room" && activeJob.jobType === "training";
-      const progress = Math.round((activeJob?.progress ?? 0) * 100);
-      addCenteredLabel(this, 844, 524, `Train ${formatNumber(trainingXpPerSecond)} XP/s`, {
+      const trainingText = getTrainingRoomInnText(state, hero);
+      addCenteredLabel(this, 844, 512, `Train ${formatNumber(trainingXpPerSecond)} XP/s`, {
         color: UI_HEX.gold,
         fontSize: 11,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 540, hero ? `${hero.name} +${getHeroTrainingAttackBonus(hero)} ATK` : "Personal ATK", {
+      addCenteredLabel(this, 844, 528, trainingText.assignmentLabel, {
+        color: trainingText.activeTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
+        fontSize: 10,
+        fontStyle: "700",
+        width: 142
+      });
+      addCenteredLabel(this, 844, 544, trainingText.bonusLabel, {
         color: UI_HEX.parchment,
         fontSize: 10,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 556, isTrainingHere ? `Drill ${progress}%` : "No drill active", {
-        color: isTrainingHere ? UI_HEX.success : UI_HEX.mutedCream,
+      addCenteredLabel(this, 844, 559, trainingText.progressLabel, {
+        color: trainingText.activeTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
         fontSize: 10,
         width: 142
       });
+      drawActionButton(this, {
+        x: 844,
+        y: 592,
+        width: 142,
+        height: 32,
+        label: trainingText.actionLabel,
+        enabled: trainingText.actionEnabled,
+        fill: trainingText.isCancelAction ? 0x5d5249 : UI_COLORS.amber,
+        stroke: UI_COLORS.gold,
+        onClick: () => {
+          if (this.didDragWorld || !hero) {
+            return;
+          }
+
+          updateGameState((currentState) => {
+            const latestHero = currentState.heroes.find((candidate) => candidate.id === hero.id);
+            if (!latestHero) {
+              return currentState;
+            }
+
+            const latestText = getTrainingRoomInnText(currentState, latestHero);
+            return latestText.isCancelAction
+              ? cancelHeroTrainingDrill(currentState, latestText.activeTrainingJob?.heroId ?? latestHero.id)
+              : startHeroTrainingDrill(currentState, latestHero.id);
+          });
+          this.scene.restart();
+        }
+      });
+
+      if (trainingText.blockedReason) {
+        addCenteredLabel(this, 844, 622, trainingText.blockedReason, {
+          color: UI_HEX.gold,
+          fontSize: 9,
+          fontStyle: "700",
+          width: 148
+        });
+      }
     }
 
     if (recommendationBadge) {
@@ -633,7 +677,9 @@ function getReadinessRenderKey(state: GameState): string {
   return state.heroes
     .map((hero) => {
       const job = getHeroActiveRoomJob(state, hero.id);
-      return `${hero.id}:${Math.floor(hero.currentHp)}:${hero.status}:${job?.id ?? "none"}:${job?.status ?? "none"}`;
+      return `${hero.id}:${Math.floor(hero.currentHp)}:${hero.status}:${hero.training.attackTrainingLevel}:${Math.floor(
+        hero.training.attackTrainingXp
+      )}:${job?.id ?? "none"}:${job?.status ?? "none"}:${Math.floor((job?.progress ?? 0) * 20)}`;
     })
     .join("|");
 }

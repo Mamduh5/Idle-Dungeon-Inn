@@ -25,6 +25,7 @@ import {
 } from "../ui/components";
 import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
+import { TRAINING_ROOM_BUILD_COPY } from "../ui/trainingRoomText";
 
 const isDevBuild = (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV === true;
 
@@ -41,14 +42,19 @@ export class BuildScene extends Phaser.Scene {
     const trainingUpgrade = getRoomUpgradePreview(state, "training_room");
     const bottleneckCallout = getFloor10BossCallout(state);
     const hasBottleneckCallout = Boolean(bottleneckCallout);
+    const roomPlanY = hasBottleneckCallout ? 284 : 218;
+    const trainingCopyY = hasBottleneckCallout ? 502 : 436;
+    const automationY = hasBottleneckCallout ? 548 : 490;
+    const futureY = hasBottleneckCallout ? 668 : 614;
 
     this.drawBackdrop();
     this.drawPlanTable();
     this.drawBottleneckCallout(state);
-    this.drawRoomPlan(48, hasBottleneckCallout ? 284 : 218, "bed_room", bedRoom, bedUpgrade, state);
-    this.drawRoomPlan(206, hasBottleneckCallout ? 284 : 218, "training_room", trainingRoom, trainingUpgrade, state);
-    this.drawAutomationPanel(state, hasBottleneckCallout ? 514 : 442);
-    this.drawFuturePlans(hasBottleneckCallout ? 628 : 572);
+    this.drawRoomPlan(48, roomPlanY, "bed_room", bedRoom, bedUpgrade, state);
+    this.drawRoomPlan(206, roomPlanY, "training_room", trainingRoom, trainingUpgrade, state);
+    this.drawTrainingRoomCopy(trainingCopyY);
+    this.drawAutomationPanel(state, automationY);
+    this.drawFuturePlans(futureY);
     this.drawDevControls();
 
     createSceneHud(this, { title: "Build", activeLabel: "Build" });
@@ -252,6 +258,33 @@ export class BuildScene extends Phaser.Scene {
         width: 126
       });
     }
+  }
+
+  private drawTrainingRoomCopy(panelY: number): void {
+    drawPanel(this, 48, panelY, 294, 42, 0x2f241d, UI_COLORS.gold, 0.98, 7);
+    addLabel(this, 62, panelY + 8, TRAINING_ROOM_BUILD_COPY[0], {
+      color: UI_HEX.cream,
+      fontSize: 10,
+      fontStyle: "700",
+      width: 132
+    });
+    addLabel(this, 62, panelY + 23, TRAINING_ROOM_BUILD_COPY[1], {
+      color: UI_HEX.mutedCream,
+      fontSize: 9,
+      width: 132
+    });
+    addLabel(this, 202, panelY + 8, TRAINING_ROOM_BUILD_COPY[2], {
+      color: UI_HEX.gold,
+      fontSize: 9,
+      fontStyle: "700",
+      width: 126
+    });
+    addLabel(this, 202, panelY + 23, TRAINING_ROOM_BUILD_COPY[3], {
+      color: UI_HEX.mutedCream,
+      fontSize: 9,
+      fontStyle: "700",
+      width: 126
+    });
   }
 
   private drawFuturePlans(panelY: number): void {

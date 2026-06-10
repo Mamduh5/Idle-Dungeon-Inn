@@ -1,8 +1,10 @@
 import { heroDefinitions } from "../data/heroData";
 import { getInnRoom } from "../state/gameSelectors";
+import { appendRecentEvent } from "../state/recentEvents";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
 import type { HeroId, RoomId } from "../types/ids";
+import type { RecentEvent } from "../types/recentEventTypes";
 import type { InnRoomState, RoomJob, RoomJobType } from "../types/roomTypes";
 
 export const HERO_READY_HP_RATIO = 0.9;
@@ -264,7 +266,7 @@ export function getHeroTrainingAttackBonus(hero: HeroInstance): number {
 export function assignHeroToTrainingRoom(state: GameState, heroId: HeroId, now = Date.now()): GameState {
   const hero = state.heroes.find((candidate) => candidate.id === heroId);
 
-  if (!hero || hero.status === "in_tower" || hero.status === "defeated") {
+  if (!hero || getTrainingRoomAssignmentBlockReason(state, heroId)) {
     return state;
   }
 
@@ -285,6 +287,124 @@ export function assignHeroToTrainingRoom(state: GameState, heroId: HeroId, now =
   };
 
   return assignHeroToRoomJob(trainingState, heroId, "training_room", "training", now);
+}
+
+export function getTrainingRoomAssignmentBlockReason(state: GameState, heroId: HeroId): string | null {
+  const room = getInnRoom(state, "training_room");
+  const hero = state.heroes.find((candidate) => candidate.id === heroId);
+
+  if (!room?.isUnlocked || room.level <= 0) {
+    return "Training Room is locked.";
+  }
+
+  if (!hero) {
+    return "No hero selected.";
+  }
+
+  if (hero.status === "in_tower") {
+    return `${hero.name} is in tower.`;
+  }
+
+  if (hero.status === "defeated" || hero.currentHp <= 0) {
+    return `${hero.name} is defeated.`;
+  }
+
+  if (hero.status === "resting") {
+    return `${hero.name} is resting.`;
+  }
+
+  const existingHeroJob = getHeroActiveRoomJob(state, heroId);
+  if (existingHeroJob?.roomId === "training_room" && existingHeroJob.jobType === "training") {
+    return `${hero.name} is already training.`;
+  }
+
+  if (existingHeroJob?.roomId === "bed_room" && existingHeroJob.jobType === "healing") {
+    return `${hero.name} is resting.`;
+  }
+
+  if (existingHeroJob) {
+    return `${hero.name} has an active room job.`;
+  }
+
+  if (getActiveRoomJobs(state, "training_room").length >= getRoomJobCapacity(state, "training_room")) {
+    return "Training Room job slot is full.";
+  }
+
+  return null;
+}
+
+export function startHeroTrainingDrill(state: GameState, heroId: HeroId, now = Date.now()): GameState {
+  const hero = state.heroes.find((candidate) => candidate.id === heroId);
+  const blockReason = getTrainingRoomAssignmentBlockReason(state, heroId);
+
+  if (blockReason) {
+    return withRoomJobEvent(state, {
+      id: `event_training_blocked_${heroId}_${now}`,
+      type: "room_job_blocked",
+      createdAt: now,
+      message: blockReason,
+      severity: "warning",
+      heroId
+    });
+  }
+
+  const nextState = assignHeroToTrainingRoom(state, heroId, now);
+  if (nextState === state || !hero) {
+    return nextState;
+  }
+
+  return withRoomJobEvent(nextState, {
+    id: `event_training_started_${heroId}_${now}`,
+    type: "room_job_started",
+    createdAt: now,
+    message: `${hero.name} started a training drill.`,
+    severity: "success",
+    heroId
+  });
+}
+
+export function cancelHeroTrainingDrill(state: GameState, heroId: HeroId, now = Date.now()): GameState {
+  const hero = state.heroes.find((candidate) => candidate.id === heroId);
+  const activeJob = getHeroActiveRoomJob(state, heroId);
+
+  if (!hero || activeJob?.roomId !== "training_room" || activeJob.jobType !== "training") {
+    return state;
+  }
+
+  const nextHeroStatus = hero.currentHp <= 0 ? "defeated" : isHeroHpReady(hero) ? "ready" : "resting";
+  const nextState: GameState = {
+    ...state,
+    heroes: state.heroes.map((candidate) =>
+      candidate.id === heroId
+        ? {
+            ...candidate,
+            status: nextHeroStatus
+          }
+        : candidate
+    ),
+    innRooms: state.innRooms.map((room) => {
+      if (room.roomId !== "training_room") {
+        return room;
+      }
+
+      const jobs = room.jobs.filter((job) => job.id !== activeJob.id);
+      return {
+        ...room,
+        activeJob: jobs.find((job) => job.status === "active")?.id ?? null,
+        jobs
+      };
+    }),
+    lastActiveAt: now
+  };
+
+  return withRoomJobEvent(nextState, {
+    id: `event_training_cancelled_${heroId}_${now}`,
+    type: "room_job_cancelled",
+    createdAt: now,
+    message: `${hero.name} stopped training.`,
+    severity: "info",
+    heroId
+  });
 }
 
 function tickHealingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs: number, now: number): GameState {
@@ -429,6 +549,14 @@ function isRoomJobTypeSupported(roomId: RoomId, jobType: RoomJobType): boolean {
   }
 
   return true;
+}
+
+function withRoomJobEvent(state: GameState, event: RecentEvent): GameState {
+  return {
+    ...state,
+    recentEvents: appendRecentEvent(state.recentEvents, event),
+    lastActiveAt: event.createdAt
+  };
 }
 
 export function normalizeRoomJobsForRuntime(room: InnRoomState): InnRoomState {

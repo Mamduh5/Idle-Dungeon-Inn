@@ -14,7 +14,7 @@ export const roomDefinitions: Record<RoomId, RoomDefinition> = {
   training_room: {
     roomId: "training_room",
     name: "Training Room",
-    description: "A future room for improving hero readiness.",
+    description: "Trains selected heroes over time for personal attack bonuses.",
     baseCost: 60,
     costGrowth: 1.45,
     effectType: "hero_training",
