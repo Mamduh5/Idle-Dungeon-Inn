@@ -117,6 +117,7 @@ export function createInitialGameState(): GameState {
     heroes: [starterHero, secondHero],
     parties: [starterParty, farmParty],
     selectedPartyId: STARTER_PARTY_ID,
+    selectedTrainingHeroId: STARTER_HERO_ID,
     towerRuns: [starterTowerRun, farmTowerRun],
     innRooms: [
       {
