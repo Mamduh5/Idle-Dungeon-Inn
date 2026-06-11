@@ -4,42 +4,14 @@ import {
   cancelHeroTrainingDrill,
   getActiveRoomJobs,
   getDefaultTrainingHero,
-  getTrainingHeroSelectionOptions,
   startHeroTrainingDrill
 } from "../systems/roomJobSystem";
 import type { GameState } from "../types/gameState";
 import type { HeroId } from "../types/ids";
 
-export function selectTrainingHero(state: GameState, heroId: HeroId): GameState {
-  if (!state.heroes.some((hero) => hero.id === heroId)) {
-    return state;
-  }
-
-  return {
-    ...state,
-    selectedTrainingHeroId: heroId
-  };
-}
-
-export function selectAdjacentTrainingHero(state: GameState, direction: "previous" | "next"): GameState {
-  const options = getTrainingHeroSelectionOptions(state);
-  if (options.length === 0) {
-    return state;
-  }
-
-  const currentIndex = Math.max(
-    0,
-    options.findIndex((hero) => hero.id === state.selectedTrainingHeroId)
-  );
-  const offset = direction === "next" ? 1 : -1;
-  const nextIndex = (currentIndex + offset + options.length) % options.length;
-
-  return selectTrainingHero(state, options[nextIndex].id);
-}
-
 export function startTrainingFromInn(state: GameState, heroId?: HeroId | null, now?: number): GameState {
-  const targetHeroId = heroId ?? getDefaultTrainingHero(state, state.selectedTrainingHeroId)?.id ?? null;
-  return targetHeroId ? startHeroTrainingDrill(selectTrainingHero(state, targetHeroId), targetHeroId, now) : state;
+  const targetHeroId = heroId ?? getDefaultTrainingHero(state)?.id ?? null;
+  return targetHeroId ? startHeroTrainingDrill(state, targetHeroId, now) : state;
 }
 
 export function cancelTrainingFromInn(state: GameState, heroId?: HeroId | null, now?: number): GameState {
@@ -70,19 +42,7 @@ export function handleInnTrainingAction(state: GameState, heroId?: HeroId | null
     return cancelTrainingFromInn(state, activeTrainingHeroId);
   }
 
-  if (activeTrainingHeroId && heroId && heroId !== activeTrainingHeroId) {
-    return startTrainingFromInn(cancelTrainingFromInn(state, activeTrainingHeroId), heroId);
-  }
-
   return startTrainingFromInn(state, heroId);
-}
-
-export function handleInnSelectPreviousTrainingHero(state: GameState): GameState {
-  return selectAdjacentTrainingHero(state, "previous");
-}
-
-export function handleInnSelectNextTrainingHero(state: GameState): GameState {
-  return selectAdjacentTrainingHero(state, "next");
 }
 
 export function handleInnToggleAutoDispatch(state: GameState): GameState {

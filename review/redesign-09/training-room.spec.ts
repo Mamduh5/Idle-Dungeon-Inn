@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 import { createInitialGameState } from "../../src/game/initialState";
-import { handleInnSelectNextTrainingHero, handleInnTrainingAction, selectTrainingHero } from "../../src/application/innCommands";
 import { normalizeLoadedGameState } from "../../src/state/saveStorage";
 import { createHeroCombatStats } from "../../src/systems/combatStatSystem";
 import {
@@ -11,7 +10,6 @@ import {
   getHeroActiveRoomJob,
   getHeroMaxHp,
   getHeroTrainingAttackBonus,
-  getTrainingHeroSelectionOptions,
   getTrainingRoomAssignmentBlockReason,
   MAX_TRAINING_ATTACK_LEVEL,
   startHeroTrainingDrill,
@@ -19,6 +17,7 @@ import {
   TRAINING_XP_PER_ATTACK_LEVEL
 } from "../../src/systems/roomJobSystem";
 import type { GameState } from "../../src/types/gameState";
+import type { HeroInstance } from "../../src/types/heroTypes";
 import {
   getDefaultTrainingHero,
   getEligibleTrainingHeroes,
@@ -28,9 +27,6 @@ import {
 } from "../../src/ui/trainingRoomText";
 import { getHeroHpDisplayText } from "../../src/ui/heroDisplayText";
 import { getInnReadinessRenderKey } from "../../src/ui/innRenderKey";
-
-const MIRA_ID = "hero_rookie_knight_1";
-const LINA_ID = "hero_apprentice_archer_1";
 
 test("old saves normalize missing or invalid hero training state", () => {
   const baseState = createInitialGameState();
@@ -58,58 +54,64 @@ test("old saves normalize missing or invalid hero training state", () => {
   });
 });
 
-test("Training Room assigns a training job to a specific selected hero", () => {
+test("Training Room assigns a training job to a specific hero", () => {
   const state = unlockTrainingRoom(createInitialGameState(), 1);
-  const selectedState = selectTrainingHero(state, LINA_ID);
-  const trainedState = assignHeroToTrainingRoom(selectedState, LINA_ID, 1000);
-  const job = getHeroActiveRoomJob(trainedState, LINA_ID);
+  const trainedState = assignHeroToTrainingRoom(state, state.heroes[0].id, 1000);
+  const job = getHeroActiveRoomJob(trainedState, state.heroes[0].id);
 
-  expect(trainedState.selectedTrainingHeroId).toBe(LINA_ID);
-  expect(trainedState.heroes.find((hero) => hero.id === LINA_ID)?.status).toBe("training");
-  expect(trainedState.heroes.find((hero) => hero.id === MIRA_ID)?.status).toBe("ready");
+  expect(trainedState.heroes[0]?.status).toBe("training");
   expect(job?.roomId).toBe("training_room");
   expect(job?.jobType).toBe("training");
-  expect(job?.heroId).toBe(LINA_ID);
+  expect(job?.heroId).toBe(state.heroes[0].id);
 });
 
-test("Training Room action creates a continuous training job and event for selected hero", () => {
-  const state = selectTrainingHero(unlockTrainingRoom(createInitialGameState(), 1), LINA_ID);
-  const trainedState = startHeroTrainingDrill(state, LINA_ID, 1000);
-  const job = getHeroActiveRoomJob(trainedState, LINA_ID);
-
-  expect(job?.roomId).toBe("training_room");
-  expect(trainedState.recentEvents[0]?.message).toBe("Lina started training until canceled.");
-});
-
-test("Training Room selector can move from first hero to second hero", () => {
+test("Training Room action creates a training job and event for the selected hero", () => {
   const state = unlockTrainingRoom(createInitialGameState(), 1);
-  const selectedState = handleInnSelectNextTrainingHero(state);
-  const text = getTrainingRoomInnText(selectedState, selectedState.heroes[1]);
+  const trainedState = startHeroTrainingDrill(state, state.heroes[0].id, 1000);
+  const job = getHeroActiveRoomJob(trainedState, state.heroes[0].id);
 
-  expect(getTrainingHeroSelectionOptions(selectedState).map((hero) => hero.name)).toEqual(["Mira", "Lina"]);
-  expect(selectedState.selectedTrainingHeroId).toBe(LINA_ID);
-  expect(text.selectorLabel).toBe("Target: Lina");
-  expect(text.actionLabel).toBe("Train Lina");
+  expect(trainedState.heroes[0]?.status).toBe("training");
+  expect(job?.roomId).toBe("training_room");
+  expect(job?.jobType).toBe("training");
+  expect(trainedState.recentEvents[0]?.message).toBe("Mira started a training drill.");
 });
 
-test("Training Room action label is data-driven from the selected eligible hero", () => {
+test("Training Room action label is data-driven from the eligible hero", () => {
   const state = {
-    ...selectTrainingHero(unlockTrainingRoom(createInitialGameState(), 1), LINA_ID),
-    heroes: createInitialGameState().heroes.map((hero) =>
-      hero.id === LINA_ID
+    ...unlockTrainingRoom(createInitialGameState(), 1),
+    heroes: unlockTrainingRoom(createInitialGameState(), 1).heroes.map((hero, index) =>
+      index === 0
         ? {
+            ...hero,
+            status: "in_tower" as const
+          }
+        : {
             ...hero,
             name: "Niko"
           }
-        : hero
     )
   };
-  const text = getTrainingRoomInnText(state, state.heroes[1]);
+  const text = getTrainingRoomInnText(state, state.heroes[0]);
 
-  expect(getEligibleTrainingHeroes(state).map((hero) => hero.name)).toEqual(["Mira", "Niko"]);
-  expect(getDefaultTrainingHero(state, state.selectedTrainingHeroId)?.name).toBe("Niko");
+  expect(getEligibleTrainingHeroes(state).map((hero) => hero.name)).toEqual(["Niko"]);
+  expect(getDefaultTrainingHero(state, state.heroes[0].id)?.name).toBe("Niko");
   expect(text.actionLabel).toBe("Train Niko");
   expect(text.targetHero?.name).toBe("Niko");
+});
+
+test("Changing hero name changes Training Room action label without hardcoded Mira", () => {
+  const state = {
+    ...unlockTrainingRoom(createInitialGameState(), 1),
+    heroes: createInitialGameState().heroes.map((hero) => ({
+      ...hero,
+      name: "Asha"
+    }))
+  };
+  const text = getTrainingRoomInnText(state, state.heroes[0]);
+
+  expect(text.actionLabel).toBe("Train Asha");
+  expect(text.bonusLabel).toBe("Asha training: +0 ATK");
+  expect(text.actionLabel).not.toContain("Mira");
 });
 
 test("Training Room action text reports no eligible hero instead of a misleading target", () => {
@@ -131,89 +133,78 @@ test("Training Room action text reports no eligible hero instead of a misleading
 test("Training Room action is blocked when hero is in tower", () => {
   const state = {
     ...unlockTrainingRoom(createInitialGameState(), 1),
-    heroes: createInitialGameState().heroes.map((hero) =>
-      hero.id === MIRA_ID
-        ? {
-            ...hero,
-            status: "in_tower" as const
-          }
-        : hero
-    )
+    heroes: createInitialGameState().heroes.map((hero) => ({
+      ...hero,
+      status: "in_tower" as const
+    }))
   };
 
-  const blockedState = startHeroTrainingDrill(state, MIRA_ID, 1000);
+  const blockedState = startHeroTrainingDrill(state, state.heroes[0].id, 1000);
 
-  expect(getTrainingRoomAssignmentBlockReason(state, MIRA_ID)).toBe("Mira is in tower.");
-  expect(getHeroActiveRoomJob(blockedState, MIRA_ID)).toBeNull();
+  expect(getTrainingRoomAssignmentBlockReason(state, state.heroes[0].id)).toBe("Mira is in tower.");
+  expect(getHeroActiveRoomJob(blockedState, state.heroes[0].id)).toBeNull();
+  expect(blockedState.heroes[0]?.status).toBe("in_tower");
   expect(blockedState.recentEvents[0]?.message).toBe("Mira is in tower.");
 });
 
 test("Training Room action is blocked when hero is resting in Bed Room", () => {
   const woundedState: GameState = {
     ...unlockTrainingRoom(createInitialGameState(), 1),
-    heroes: createInitialGameState().heroes.map((hero) =>
-      hero.id === MIRA_ID
-        ? {
-            ...hero,
-            currentHp: 40,
-            status: "resting" as const
-          }
-        : hero
-    )
+    heroes: createInitialGameState().heroes.map((hero) => ({
+      ...hero,
+      currentHp: 40,
+      status: "resting" as const
+    }))
   };
-  const restingState = assignHeroToBedHealingIfNeeded(woundedState, MIRA_ID, 1000);
-  const blockedState = startHeroTrainingDrill(restingState, MIRA_ID, 2000);
+  const restingState = assignHeroToBedHealingIfNeeded(woundedState, woundedState.heroes[0].id, 1000);
+  const blockedState = startHeroTrainingDrill(restingState, restingState.heroes[0].id, 2000);
 
-  expect(getTrainingRoomAssignmentBlockReason(restingState, MIRA_ID)).toBe("Mira is resting.");
-  expect(getHeroActiveRoomJob(blockedState, MIRA_ID)?.roomId).toBe("bed_room");
+  expect(getTrainingRoomAssignmentBlockReason(restingState, restingState.heroes[0].id)).toBe("Mira is resting.");
+  expect(getHeroActiveRoomJob(blockedState, restingState.heroes[0].id)?.roomId).toBe("bed_room");
   expect(blockedState.recentEvents[0]?.message).toBe("Mira is resting.");
 });
 
-test("Training Room status text reflects active continuous progress", () => {
-  const state = startHeroTrainingDrill(unlockTrainingRoom(createInitialGameState(), 1), MIRA_ID, 1000);
+test("Training Room status text reflects active drill progress", () => {
+  const state = startHeroTrainingDrill(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000);
   const partialState = tickRoomJobs(state, 30_000, 31_000);
   const text = getTrainingRoomInnText(partialState, partialState.heroes[0]);
 
   expect(text.speedLabel).toBe("Train 1 XP/s");
-  expect(text.selectorLabel).toBe("Target: Mira");
   expect(text.assignmentLabel).toBe("Mira training");
   expect(text.bonusLabel).toBe("Mira training: +0 ATK");
   expect(text.progressLabel).toBe("Next +ATK 30/60 XP");
   expect(text.actionLabel).toBe("Cancel Training");
 });
 
-test("training jobs keep running after one attack-training level", () => {
-  const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), MIRA_ID, 1000);
+test("Cancel Training safely frees the hero for dispatch readiness", () => {
+  const state = startHeroTrainingDrill(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000);
+  const cancelledState = cancelHeroTrainingDrill(state, "hero_rookie_knight_1", 2000);
+
+  expect(getHeroActiveRoomJob(cancelledState, "hero_rookie_knight_1")).toBeNull();
+  expect(cancelledState.heroes[0]?.status).toBe("ready");
+  expect(cancelledState.recentEvents[0]?.message).toBe("Mira stopped training.");
+});
+
+test("training jobs add XP, seconds, and complete one attack-training drill", () => {
+  const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000);
   const partialState = tickRoomJobs(state, 30_000, 31_000);
 
   expect(partialState.heroes[0]?.training.attackTrainingXp).toBe(30);
   expect(partialState.heroes[0]?.training.totalTrainingSeconds).toBe(30);
   expect(partialState.heroes[0]?.training.attackTrainingLevel).toBe(0);
-  expect(getHeroActiveRoomJob(partialState, MIRA_ID)?.progress).toBeCloseTo(0.5);
+  expect(getHeroActiveRoomJob(partialState, "hero_rookie_knight_1")?.progress).toBeCloseTo(0.5);
 
-  const continuedState = tickRoomJobs(partialState, 35_000, 66_000);
+  const completedState = tickRoomJobs(partialState, 30_000, 61_000);
 
-  expect(continuedState.heroes[0]?.training.attackTrainingXp).toBe(5);
-  expect(continuedState.heroes[0]?.training.attackTrainingLevel).toBe(1);
-  expect(continuedState.heroes[0]?.training.totalTrainingSeconds).toBe(65);
-  expect(continuedState.heroes[0]?.status).toBe("training");
-  expect(getHeroActiveRoomJob(continuedState, MIRA_ID)?.roomId).toBe("training_room");
-});
-
-test("Cancel Training safely frees the hero and keeps earned progress", () => {
-  const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), MIRA_ID, 1000);
-  const trainedState = tickRoomJobs(state, 65_000, 66_000);
-  const cancelledState = cancelHeroTrainingDrill(trainedState, MIRA_ID, 67_000);
-
-  expect(cancelledState.heroes[0]?.training.attackTrainingLevel).toBe(1);
-  expect(cancelledState.heroes[0]?.training.attackTrainingXp).toBe(5);
-  expect(getHeroActiveRoomJob(cancelledState, MIRA_ID)).toBeNull();
-  expect(cancelledState.heroes[0]?.status).toBe("ready");
-  expect(cancelledState.recentEvents[0]?.message).toBe("Mira stopped training.");
+  expect(completedState.heroes[0]?.training.attackTrainingXp).toBe(0);
+  expect(completedState.heroes[0]?.training.attackTrainingLevel).toBe(1);
+  expect(completedState.heroes[0]?.training.totalTrainingSeconds).toBe(60);
+  expect(completedState.heroes[0]?.status).toBe("ready");
+  expect(getHeroActiveRoomJob(completedState, "hero_rookie_knight_1")).toBeNull();
 });
 
 test("training tick only mutates training progress and status, not HP", () => {
-  const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), MIRA_ID, 1000);
+  const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000);
   const beforeHero = state.heroes[0];
   const beforeMaxHp = getHeroMaxHp(beforeHero);
   const tickedState = tickRoomJobs(state, 10_000, 11_000);
@@ -226,12 +217,12 @@ test("training tick only mutates training progress and status, not HP", () => {
 });
 
 test("active training progress does not churn Inn readiness render key", () => {
-  const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), MIRA_ID, 1000);
+  const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000);
   const beforeKey = getInnReadinessRenderKey(state);
   const tickedState = tickRoomJobs(state, 10_000, 11_000);
 
   expect(tickedState.heroes[0]?.training.attackTrainingXp).toBeGreaterThan(state.heroes[0].training.attackTrainingXp);
-  expect(getHeroActiveRoomJob(tickedState, MIRA_ID)?.progress).toBeGreaterThan(0);
+  expect(getHeroActiveRoomJob(tickedState, "hero_rookie_knight_1")?.progress).toBeGreaterThan(0);
   expect(getInnReadinessRenderKey(tickedState)).toBe(beforeKey);
 });
 
@@ -268,7 +259,7 @@ test("runtime training math clamps invalid values without changing HP", () => {
         }
       }))
     },
-    MIRA_ID,
+    "hero_rookie_knight_1",
     1000
   );
   const tickedState = tickRoomJobs(state, 1_000, 2_000);
@@ -279,7 +270,7 @@ test("runtime training math clamps invalid values without changing HP", () => {
 });
 
 test("combat stats use hero-specific training instead of a global room aura", () => {
-  const state = unlockTrainingRoom(createInitialGameState(), 3);
+  const state = withSecondHero(unlockTrainingRoom(createInitialGameState(), 3));
   const trainedHero = {
     ...state.heroes[0],
     training: {
@@ -304,11 +295,20 @@ test("Training Room level increases training speed", () => {
   expect(calculateTrainingRoomXpPerSecondForLevel(1)).toBe(1);
   expect(calculateTrainingRoomXpPerSecondForLevel(3)).toBe(2);
 
-  const levelOneState = tickRoomJobs(assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), MIRA_ID, 1000), 10_000, 11_000);
-  const levelThreeState = tickRoomJobs(assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 3), MIRA_ID, 1000), 10_000, 11_000);
+  const levelOneState = tickRoomJobs(
+    assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000),
+    10_000,
+    11_000
+  );
+  const levelThreeState = tickRoomJobs(
+    assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 3), "hero_rookie_knight_1", 1000),
+    10_000,
+    11_000
+  );
 
   expect(levelOneState.heroes[0]?.training.attackTrainingXp).toBe(10);
   expect(levelThreeState.heroes[0]?.training.attackTrainingXp).toBe(20);
+  expect(levelThreeState.heroes[0]?.training.attackTrainingXp).toBeGreaterThan(levelOneState.heroes[0]?.training.attackTrainingXp ?? 0);
 });
 
 test("Training Room drill size remains a simple 60 XP attack level", () => {
@@ -373,15 +373,6 @@ test("Build View copy explains selected-hero training instead of a global aura",
   expect(TRAINING_ROOM_BUILD_COPY).toContain("No global attack aura.");
 });
 
-test("Inn training action starts selected hero and then cancels active training", () => {
-  const selectedState = selectTrainingHero(unlockTrainingRoom(createInitialGameState(), 1), LINA_ID);
-  const trainingState = handleInnTrainingAction(selectedState, LINA_ID);
-  const cancelledState = handleInnTrainingAction(trainingState, LINA_ID);
-
-  expect(getHeroActiveRoomJob(trainingState, LINA_ID)?.jobType).toBe("training");
-  expect(getHeroActiveRoomJob(cancelledState, LINA_ID)).toBeNull();
-});
-
 function unlockTrainingRoom(state: GameState, level: number): GameState {
   return {
     ...state,
@@ -395,5 +386,24 @@ function unlockTrainingRoom(state: GameState, level: number): GameState {
           }
         : room
     )
+  };
+}
+
+function withSecondHero(state: GameState): GameState {
+  const secondHero: HeroInstance = {
+    ...state.heroes[0],
+    id: "hero_rookie_knight_2",
+    name: "Niko",
+    assignedPartyId: null,
+    training: {
+      attackTrainingXp: 0,
+      attackTrainingLevel: 0,
+      totalTrainingSeconds: 0
+    }
+  };
+
+  return {
+    ...state,
+    heroes: [...state.heroes, secondHero]
   };
 }

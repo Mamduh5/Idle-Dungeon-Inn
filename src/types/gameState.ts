@@ -1,7 +1,7 @@
 import type { AutomationState } from "./automationTypes";
 import type { CurrencyState } from "./economyTypes";
 import type { HeroInstance } from "./heroTypes";
-import type { HeroId, PartyId, TowerFloorId } from "./ids";
+import type { PartyId, TowerFloorId } from "./ids";
 import type { InventoryState } from "./lootTypes";
 import type { PartyState } from "./partyTypes";
 import type { RecentEvent } from "./recentEventTypes";
@@ -14,7 +14,6 @@ export interface GameState {
   heroes: HeroInstance[];
   parties: PartyState[];
   selectedPartyId: PartyId;
-  selectedTrainingHeroId: HeroId | null;
   towerRuns: TowerRunState[];
   innRooms: InnRoomState[];
   automation: AutomationState;
