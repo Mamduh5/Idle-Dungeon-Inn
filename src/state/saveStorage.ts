@@ -96,6 +96,7 @@ export function normalizeLoadedGameState(raw: unknown): GameState | null {
     unlockedFloor
   );
   const selectedPartyId = normalizeSelectedPartyId(raw.selectedPartyId, parties, defaults.selectedPartyId);
+  const selectedTrainingHeroId = normalizeSelectedTrainingHeroId(raw.selectedTrainingHeroId, heroes, defaults.selectedTrainingHeroId);
 
   return {
     ...defaults,
@@ -108,6 +109,7 @@ export function normalizeLoadedGameState(raw: unknown): GameState | null {
     heroes,
     parties,
     selectedPartyId,
+    selectedTrainingHeroId,
     towerRuns: normalizeTowerRuns(defaults.towerRuns, raw.towerRuns, parties),
     innRooms: normalizeInnRooms(defaults.innRooms, raw.innRooms),
     automation: normalizeAutomationState(defaults.automation, raw.automation),
@@ -120,6 +122,22 @@ export function normalizeLoadedGameState(raw: unknown): GameState | null {
     recentEvents: normalizeRecentEvents(raw.recentEvents),
     lastActiveAt: normalizeNumber(raw.lastActiveAt, Date.now(), 0)
   };
+}
+
+function normalizeSelectedTrainingHeroId(
+  rawSelectedTrainingHeroId: unknown,
+  heroes: GameState["heroes"],
+  fallback: string | null
+): string | null {
+  if (typeof rawSelectedTrainingHeroId === "string" && heroes.some((hero) => hero.id === rawSelectedTrainingHeroId)) {
+    return rawSelectedTrainingHeroId;
+  }
+
+  if (fallback && heroes.some((hero) => hero.id === fallback)) {
+    return fallback;
+  }
+
+  return heroes[0]?.id ?? null;
 }
 
 function normalizeAutomationState(defaults: AutomationState, rawAutomation: Record<string, unknown>): AutomationState {

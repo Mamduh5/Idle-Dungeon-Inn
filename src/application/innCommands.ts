@@ -9,8 +9,19 @@ import {
 import type { GameState } from "../types/gameState";
 import type { HeroId } from "../types/ids";
 
+export function selectTrainingHeroFromInn(state: GameState, heroId: HeroId | null): GameState {
+  if (!heroId || !state.heroes.some((hero) => hero.id === heroId)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    selectedTrainingHeroId: heroId
+  };
+}
+
 export function startTrainingFromInn(state: GameState, heroId?: HeroId | null, now?: number): GameState {
-  const targetHeroId = heroId ?? getDefaultTrainingHero(state)?.id ?? null;
+  const targetHeroId = heroId ?? getDefaultTrainingHero(state, state.selectedTrainingHeroId)?.id ?? null;
   return targetHeroId ? startHeroTrainingDrill(state, targetHeroId, now) : state;
 }
 

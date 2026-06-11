@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import {
+  selectTrainingHeroFromInn,
   handleInnSendSelectedParty,
   handleInnToggleAutoDispatch,
   handleInnTrainingAction
@@ -13,6 +14,7 @@ import {
   type InnBedRoomViewModel,
   type InnGateViewModel,
   type InnHeroViewModel,
+  type InnRoomCardViewModel,
   type InnTrainingRoomViewModel
 } from "../viewModels/innViewModel";
 import { getInnCameraScrollForCreate } from "../ui/innCameraScroll";
@@ -28,7 +30,7 @@ import {
 import { createSceneHud } from "../ui/sceneHud";
 import { UI_COLORS, UI_HEX } from "../ui/theme";
 
-const INN_WORLD_WIDTH = 1260;
+const INN_WORLD_WIDTH = 1560;
 const INN_INITIAL_SCROLL_X = 330;
 const WORLD_DRAG_TOP = 108;
 const WORLD_DRAG_BOTTOM = GAME_HEIGHT - 92;
@@ -65,6 +67,7 @@ export class InnScene extends Phaser.Scene {
     );
     this.drawTrainingRoom(viewModel.trainingRoom);
     this.drawTowerGate(viewModel.gate, viewModel.autoDispatch.label, viewModel.autoDispatch.isUnlocked);
+    this.drawExtraRoomCards(viewModel.extraRooms);
     this.drawDragHints();
 
     this.drawHeroes(viewModel.heroes.length > 0 ? viewModel.heroes : viewModel.hero ? [viewModel.hero] : []);
@@ -146,7 +149,8 @@ export class InnScene extends Phaser.Scene {
       { x: 120, width: 260, height: 112 },
       { x: 410, width: 340, height: 138 },
       { x: 770, width: 290, height: 104 },
-      { x: 1090, width: 350, height: 148 }
+      { x: 1090, width: 350, height: 148 },
+      { x: 1390, width: 300, height: 118 }
     ]) {
       this.add.ellipse(hill.x, 318, hill.width, hill.height, 0x171d29, 0.88);
     }
@@ -157,8 +161,8 @@ export class InnScene extends Phaser.Scene {
   }
 
   private drawInnBase(): void {
-    this.add.rectangle(56, 560, 970, 50, 0x3a241d, 1).setOrigin(0, 0).setStrokeStyle(2, 0xb57745);
-    this.add.rectangle(90, 602, 896, 26, 0x251611, 1).setOrigin(0, 0);
+    this.add.rectangle(56, 560, 1260, 50, 0x3a241d, 1).setOrigin(0, 0).setStrokeStyle(2, 0xb57745);
+    this.add.rectangle(90, 602, 1190, 26, 0x251611, 1).setOrigin(0, 0);
 
     for (const x of [106, 310, 392, 650, 728, 944]) {
       this.add.rectangle(x, 194, 12, 384, UI_COLORS.darkTimber, 1).setStrokeStyle(1, 0xe7ac64);
@@ -180,11 +184,18 @@ export class InnScene extends Phaser.Scene {
       fontStyle: "700",
       width: 70
     });
-    addCenteredLabel(this, 705, 716, "Gate >", {
+    addCenteredLabel(this, 705, 716, "Gate >",
+      {
       color: UI_HEX.skyBlue,
       fontSize: 12,
       fontStyle: "700",
       width: 80
+    });
+    addCenteredLabel(this, 1246, 716, "Rooms >", {
+      color: UI_HEX.gold,
+      fontSize: 12,
+      fontStyle: "700",
+      width: 86
     });
   }
 
@@ -334,26 +345,70 @@ export class InnScene extends Phaser.Scene {
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 528, room.assignmentLabel, {
+      addCenteredLabel(this, 844, 528, room.targetLabel, {
+        color: UI_HEX.cream,
+        fontSize: 10,
+        fontStyle: "700",
+        width: 150
+      });
+      addCenteredLabel(this, 844, 544, room.assignmentLabel, {
         color: room.hasActiveTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
         fontSize: 10,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 544, room.bonusLabel, {
+      addCenteredLabel(this, 844, 559, room.bonusLabel, {
         color: UI_HEX.parchment,
         fontSize: 10,
         fontStyle: "700",
         width: 142
       });
-      addCenteredLabel(this, 844, 559, room.progressLabel, {
+      addCenteredLabel(this, 844, 574, room.progressLabel, {
         color: room.hasActiveTrainingJob ? UI_HEX.success : UI_HEX.mutedCream,
         fontSize: 10,
         width: 142
       });
       drawActionButton(this, {
+        x: 796,
+        y: 600,
+        width: 54,
+        height: 26,
+        label: "Prev",
+        enabled: room.selectorEnabled && Boolean(room.previousHeroId),
+        fill: 0x4d3b31,
+        stroke: UI_COLORS.gold,
+        textColor: UI_HEX.cream,
+        onClick: () => {
+          if (this.didDragWorld || !room.previousHeroId) {
+            return;
+          }
+
+          updateGameState((currentState) => selectTrainingHeroFromInn(currentState, room.previousHeroId));
+          this.restartWithCurrentScroll();
+        }
+      });
+      drawActionButton(this, {
+        x: 892,
+        y: 600,
+        width: 54,
+        height: 26,
+        label: "Next",
+        enabled: room.selectorEnabled && Boolean(room.nextHeroId),
+        fill: 0x4d3b31,
+        stroke: UI_COLORS.gold,
+        textColor: UI_HEX.cream,
+        onClick: () => {
+          if (this.didDragWorld || !room.nextHeroId) {
+            return;
+          }
+
+          updateGameState((currentState) => selectTrainingHeroFromInn(currentState, room.nextHeroId));
+          this.restartWithCurrentScroll();
+        }
+      });
+      drawActionButton(this, {
         x: 844,
-        y: 592,
+        y: 636,
         width: 142,
         height: 32,
         label: room.actionLabel,
@@ -371,7 +426,7 @@ export class InnScene extends Phaser.Scene {
       });
 
       if (room.blockedReason) {
-        addCenteredLabel(this, 844, 622, room.blockedReason, {
+        addCenteredLabel(this, 844, 666, room.blockedReason, {
           color: UI_HEX.gold,
           fontSize: 9,
           fontStyle: "700",
@@ -398,6 +453,45 @@ export class InnScene extends Phaser.Scene {
       fontSize: 10,
       fontStyle: "700",
       width: 178
+    });
+  }
+
+  private drawExtraRoomCards(rooms: InnRoomCardViewModel[]): void {
+    rooms.forEach((room, index) => {
+      const columns = 2;
+      const cardWidth = 134;
+      const cardHeight = 112;
+      const startX = 1244 + (index % columns) * 148;
+      const startY = 210 + Math.floor(index / columns) * 128;
+      this.drawExtraRoomCard(startX, startY, cardWidth, cardHeight, room);
+    });
+  }
+
+  private drawExtraRoomCard(x: number, y: number, width: number, height: number, room: InnRoomCardViewModel): void {
+    drawPanel(this, x, y, width, height, room.isUnlocked ? 0x3f3528 : 0x2e2d2c, room.isUnlocked ? UI_COLORS.gold : 0x8a7a69, 0.96, 6);
+    addLabel(this, x + 12, y + 10, room.name, {
+      color: UI_HEX.cream,
+      fontSize: 12,
+      fontStyle: "700",
+      width: width - 58
+    });
+    addLabel(this, x + width - 46, y + 10, room.levelLabel, {
+      color: room.isUnlocked ? UI_HEX.gold : UI_HEX.mutedCream,
+      fontSize: 11,
+      fontStyle: "700",
+      width: 34,
+      align: "right"
+    });
+    addLabel(this, x + 12, y + 38, room.statusLabel, {
+      color: room.isUnlocked ? UI_HEX.success : UI_HEX.gold,
+      fontSize: 10,
+      fontStyle: "700",
+      width: width - 24
+    });
+    addLabel(this, x + 12, y + 62, room.effectLabel, {
+      color: UI_HEX.mutedCream,
+      fontSize: 10,
+      width: width - 24
     });
   }
 

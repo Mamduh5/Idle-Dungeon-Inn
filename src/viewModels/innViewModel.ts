@@ -1,8 +1,10 @@
 import { getAutoDispatchControlState } from "../systems/automationSystem";
 import { getFloor10BossCallout, getFloor10RoomRecommendation } from "../systems/bottleneckCalloutSystem";
+import { roomDefinitions } from "../data/roomData";
 import { canDispatchSelectedParty } from "../systems/partyDispatchSystem";
 import {
   calculateBedRoomHealingPerSecond,
+  getEligibleTrainingHeroes,
   getHeroActiveRoomJob,
   getHeroReadyHpThreshold,
   getRoomJobCapacity
@@ -10,7 +12,7 @@ import {
 import { getFirstPartyHero, getHeroesForParty, getInnRoom, getSelectedParty, getSelectedTowerRun } from "../state/gameSelectors";
 import type { GameState } from "../types/gameState";
 import type { HeroInstance } from "../types/heroTypes";
-import type { HeroId, HeroStatus } from "../types/ids";
+import type { HeroId, HeroStatus, RoomId } from "../types/ids";
 import type { TowerRunStatus } from "../types/towerTypes";
 import { getHeroHpDisplayText } from "../ui/heroDisplayText";
 import { getTrainingRoomInnText } from "../ui/trainingRoomText";
@@ -42,6 +44,10 @@ export interface InnTrainingRoomViewModel {
   levelLabel: string;
   speedLabel: string;
   assignmentLabel: string;
+  targetLabel: string;
+  previousHeroId: HeroId | null;
+  nextHeroId: HeroId | null;
+  selectorEnabled: boolean;
   hasActiveTrainingJob: boolean;
   bonusLabel: string;
   progressLabel: string;
@@ -51,6 +57,15 @@ export interface InnTrainingRoomViewModel {
   blockedReason: string | null;
   targetHeroId: HeroId | null;
   recommendationBadge: string | null;
+}
+
+export interface InnRoomCardViewModel {
+  roomId: RoomId;
+  name: string;
+  levelLabel: string;
+  statusLabel: string;
+  effectLabel: string;
+  isUnlocked: boolean;
 }
 
 export interface InnGateViewModel {
@@ -72,6 +87,7 @@ export interface InnViewModel {
   heroes: InnHeroViewModel[];
   bedRoom: InnBedRoomViewModel;
   trainingRoom: InnTrainingRoomViewModel;
+  extraRooms: InnRoomCardViewModel[];
   gate: InnGateViewModel;
   autoDispatch: InnAutoDispatchViewModel;
   latestMessage: string;
@@ -107,7 +123,8 @@ export function getInnViewModel(state: GameState): InnViewModel {
       ...createBedHeroStatus(state, hero),
       recommendationBadge: getFloor10RoomRecommendation(state, "bed_room")?.innBadge ?? null
     },
-    trainingRoom: createTrainingRoomViewModel(state, trainingRoom?.isUnlocked === true, trainingRoom?.level ?? 0, hero),
+    trainingRoom: createTrainingRoomViewModel(state, trainingRoom?.isUnlocked === true, trainingRoom?.level ?? 0),
+    extraRooms: createExtraRoomCards(state),
     gate: {
       targetFloorLabel: `Target F${targetFloor}`,
       actionLabel: isRunActive(run?.status) ? "Party in Tower" : canDispatch ? "Send to Tower" : "Party Not Ready",
@@ -164,9 +181,10 @@ function createBedHeroStatus(
 function createTrainingRoomViewModel(
   state: GameState,
   isUnlocked: boolean,
-  level: number,
-  selectedHero: HeroInstance | null
+  level: number
 ): InnTrainingRoomViewModel {
+  const selector = createTrainingHeroSelector(state);
+  const selectedHero = selector.activeHero ?? selector.selectedHero;
   const trainingText = getTrainingRoomInnText(state, selectedHero);
 
   return {
@@ -175,6 +193,10 @@ function createTrainingRoomViewModel(
     levelLabel: isUnlocked ? `Lv ${level}` : "Floor 2",
     speedLabel: trainingText.speedLabel,
     assignmentLabel: trainingText.assignmentLabel,
+    targetLabel: selectedHero ? `Target: ${selectedHero.name}` : "Target: None",
+    previousHeroId: selector.previousHeroId,
+    nextHeroId: selector.nextHeroId,
+    selectorEnabled: selector.canSwitch,
     hasActiveTrainingJob: trainingText.activeTrainingJob !== null,
     bonusLabel: trainingText.bonusLabel,
     progressLabel: trainingText.progressLabel,
@@ -187,8 +209,88 @@ function createTrainingRoomViewModel(
   };
 }
 
+function createTrainingHeroSelector(state: GameState): {
+  selectedHero: HeroInstance | null;
+  activeHero: HeroInstance | null;
+  previousHeroId: HeroId | null;
+  nextHeroId: HeroId | null;
+  canSwitch: boolean;
+} {
+  const activeJob = state.innRooms
+    .find((room) => room.roomId === "training_room")
+    ?.jobs.find((job) => job.status === "active" && job.jobType === "training") ?? null;
+  const activeHero = activeJob ? state.heroes.find((hero) => hero.id === activeJob.heroId) ?? null : null;
+  const eligibleHeroes = getEligibleTrainingHeroes(state);
+  const savedHero = state.selectedTrainingHeroId
+    ? eligibleHeroes.find((hero) => hero.id === state.selectedTrainingHeroId) ?? null
+    : null;
+  const selectedHero = activeHero ?? savedHero ?? eligibleHeroes[0] ?? null;
+  const selectedIndex = selectedHero ? eligibleHeroes.findIndex((hero) => hero.id === selectedHero.id) : -1;
+  const canSwitch = !activeHero && eligibleHeroes.length > 1 && selectedIndex >= 0;
+
+  if (!canSwitch) {
+    return {
+      selectedHero,
+      activeHero,
+      previousHeroId: null,
+      nextHeroId: null,
+      canSwitch: false
+    };
+  }
+
+  const previousIndex = (selectedIndex - 1 + eligibleHeroes.length) % eligibleHeroes.length;
+  const nextIndex = (selectedIndex + 1) % eligibleHeroes.length;
+
+  return {
+    selectedHero,
+    activeHero,
+    previousHeroId: eligibleHeroes[previousIndex]?.id ?? null,
+    nextHeroId: eligibleHeroes[nextIndex]?.id ?? null,
+    canSwitch
+  };
+}
+
+function createExtraRoomCards(state: GameState): InnRoomCardViewModel[] {
+  const detailedRoomIds = new Set<RoomId>(["bed_room", "training_room"]);
+
+  return state.innRooms
+    .filter((room) => !detailedRoomIds.has(room.roomId))
+    .map((room) => {
+      const definition = roomDefinitions[room.roomId];
+      const name = definition?.name ?? room.roomId;
+      const unlockLabel = definition ? `Unlock F${definition.unlockFloor}` : "Future room";
+      const statusLabel = room.isUnlocked ? "Unlocked" : `${unlockLabel} - future`;
+
+      return {
+        roomId: room.roomId,
+        name,
+        levelLabel: `Lv ${room.level}`,
+        statusLabel,
+        effectLabel: room.isUnlocked ? createRoomEffectLabel(definition?.effectType) : "Foundation / coming soon",
+        isUnlocked: room.isUnlocked
+      };
+    });
+}
+
+function createRoomEffectLabel(effectType: string | undefined): string {
+  switch (effectType) {
+    case "food_prep":
+      return "Food prep foundation";
+    case "gear_upgrade":
+      return "Gear upgrade foundation";
+    case "party_capacity":
+      return "Party planning foundation";
+    case "automation_research":
+      return "Automation foundation";
+    case "travel_prep":
+      return "Travel prep foundation";
+    default:
+      return "Foundation / coming soon";
+  }
+}
+
 function isRunActive(status: TowerRunStatus | undefined): boolean {
-  return status === "traveling" || status === "exploring" || status === "fighting" || status === "looting";
+  return status === "traveling" || status === "exploring" || status === "fighting" || status === "looting" || status === "retreating" || status === "boss_ready";
 }
 
 function formatNumber(value: number): string {

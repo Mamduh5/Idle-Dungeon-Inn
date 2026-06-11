@@ -73,7 +73,7 @@ test("Training Room action creates a training job and event for the selected her
   expect(trainedState.heroes[0]?.status).toBe("training");
   expect(job?.roomId).toBe("training_room");
   expect(job?.jobType).toBe("training");
-  expect(trainedState.recentEvents[0]?.message).toBe("Mira started a training drill.");
+  expect(trainedState.recentEvents[0]?.message).toBe("Mira started training until canceled.");
 });
 
 test("Training Room action label is data-driven from the eligible hero", () => {
@@ -185,7 +185,7 @@ test("Cancel Training safely frees the hero for dispatch readiness", () => {
   expect(cancelledState.recentEvents[0]?.message).toBe("Mira stopped training.");
 });
 
-test("training jobs add XP, seconds, and complete one attack-training drill", () => {
+test("training jobs add XP, seconds, and continue after one attack-training level", () => {
   const state = assignHeroToTrainingRoom(unlockTrainingRoom(createInitialGameState(), 1), "hero_rookie_knight_1", 1000);
   const partialState = tickRoomJobs(state, 30_000, 31_000);
 
@@ -199,8 +199,8 @@ test("training jobs add XP, seconds, and complete one attack-training drill", ()
   expect(completedState.heroes[0]?.training.attackTrainingXp).toBe(0);
   expect(completedState.heroes[0]?.training.attackTrainingLevel).toBe(1);
   expect(completedState.heroes[0]?.training.totalTrainingSeconds).toBe(60);
-  expect(completedState.heroes[0]?.status).toBe("ready");
-  expect(getHeroActiveRoomJob(completedState, "hero_rookie_knight_1")).toBeNull();
+  expect(completedState.heroes[0]?.status).toBe("training");
+  expect(getHeroActiveRoomJob(completedState, "hero_rookie_knight_1")?.jobType).toBe("training");
 });
 
 test("training tick only mutates training progress and status, not HP", () => {

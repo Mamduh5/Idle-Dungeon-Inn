@@ -117,12 +117,12 @@ export function getTrainingRoomInnText(state: GameState, selectedHero: HeroInsta
     };
   }
 
-  return {
-    speedLabel: `Train ${formatNumber(calculateTrainingRoomXpPerSecond(state))} XP/s`,
-    assignmentLabel: "Training Room idle",
-    bonusLabel: `${displayHero.name} training: +${getHeroTrainingAttackBonus(displayHero)} ATK`,
-    progressLabel: blockedReason ?? "Short drill to next +ATK",
-    actionLabel: `Train ${displayHero.name}`,
+    return {
+      speedLabel: `Train ${formatNumber(calculateTrainingRoomXpPerSecond(state))} XP/s`,
+      assignmentLabel: "Training Room idle",
+      bonusLabel: `${displayHero.name} training: +${getHeroTrainingAttackBonus(displayHero)} ATK`,
+      progressLabel: blockedReason ?? "Training until canceled",
+      actionLabel: `Train ${displayHero.name}`,
     actionEnabled: blockedReason === null,
     blockedReason,
     isCancelAction: false,

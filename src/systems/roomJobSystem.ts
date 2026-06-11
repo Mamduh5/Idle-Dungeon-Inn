@@ -6,11 +6,21 @@ import type { HeroInstance } from "../types/heroTypes";
 import type { HeroId, RoomId } from "../types/ids";
 import type { RecentEvent } from "../types/recentEventTypes";
 import type { InnRoomState, RoomJob, RoomJobType } from "../types/roomTypes";
+import type { TowerRunStatus } from "../types/towerTypes";
 
 export const HERO_READY_HP_RATIO = 0.9;
 export const TRAINING_XP_PER_ATTACK_LEVEL = 60;
 export const MAX_TRAINING_ATTACK_LEVEL = 999;
 export const MAX_TRAINING_TOTAL_SECONDS = 9_999_999;
+
+const ACTIVE_TOWER_STATUSES: TowerRunStatus[] = [
+  "traveling",
+  "exploring",
+  "fighting",
+  "looting",
+  "retreating",
+  "boss_ready"
+];
 
 export function getHeroMaxHp(hero: HeroInstance): number {
   const baseHp = heroDefinitions[hero.classId]?.baseStats.hp;
@@ -36,6 +46,16 @@ export function isHeroDispatchReady(state: GameState, hero: HeroInstance): boole
   }
 
   return getHeroActiveRoomJob(state, hero.id) === null;
+}
+
+export function isHeroInActiveTowerRun(state: GameState, heroId: HeroId): boolean {
+  const party = state.parties.find((candidate) => candidate.heroIds.includes(heroId));
+  if (!party) {
+    return false;
+  }
+
+  const run = state.towerRuns.find((candidate) => candidate.partyId === party.id);
+  return Boolean(run && ACTIVE_TOWER_STATUSES.includes(run.status));
 }
 
 export function getRoomJobCapacity(state: GameState, roomId: RoomId): number {
@@ -78,6 +98,10 @@ export function canAssignHeroToRoomJob(
   }
 
   if (!isRoomJobTypeSupported(roomId, jobType)) {
+    return false;
+  }
+
+  if (roomId === "bed_room" && jobType === "healing" && isHeroInActiveTowerRun(state, heroId)) {
     return false;
   }
 
@@ -189,7 +213,7 @@ export function tickRoomJobs(state: GameState, deltaMs: number, now: number): Ga
 export function assignHeroToBedHealingIfNeeded(state: GameState, heroId: HeroId, now = Date.now()): GameState {
   const hero = state.heroes.find((candidate) => candidate.id === heroId);
 
-  if (!hero || hero.currentHp <= 0 || isHeroHpReady(hero)) {
+  if (!hero || hero.currentHp <= 0 || isHeroHpReady(hero) || isHeroInActiveTowerRun(state, heroId)) {
     return state;
   }
 
@@ -208,26 +232,36 @@ export function assignHeroToBedHealingIfNeeded(state: GameState, heroId: HeroId,
   return assignHeroToRoomJob(restingState, heroId, "bed_room", "healing", now);
 }
 
-export function updateHeroReadinessAfterInnReturn(state: GameState, heroIds: HeroId[], now = Date.now()): GameState {
-  let nextState = state;
-  const targetHeroIds = new Set(heroIds);
+export function prepareReturnedHeroForInnRecovery(state: GameState, heroId: HeroId, now = Date.now()): GameState {
+  const hero = state.heroes.find((candidate) => candidate.id === heroId);
+  if (!hero || isHeroInActiveTowerRun(state, heroId)) {
+    return state;
+  }
 
-  nextState = {
-    ...nextState,
-    heroes: nextState.heroes.map((hero) => {
-      if (!targetHeroIds.has(hero.id)) {
-        return hero;
+  const safeHp = hero.currentHp <= 0 ? 1 : hero.currentHp;
+  const returnedState: GameState = {
+    ...state,
+    heroes: state.heroes.map((candidate) => {
+      if (candidate.id !== heroId) {
+        return candidate;
       }
 
       return {
-        ...hero,
-        status: isHeroHpReady(hero) ? "ready" : "resting"
+        ...candidate,
+        currentHp: safeHp,
+        status: isHeroHpReady({ ...candidate, currentHp: safeHp }) ? "ready" : "resting"
       };
     })
   };
 
+  return assignHeroToBedHealingIfNeeded(returnedState, heroId, now);
+}
+
+export function updateHeroReadinessAfterInnReturn(state: GameState, heroIds: HeroId[], now = Date.now()): GameState {
+  let nextState = state;
+
   for (const heroId of heroIds) {
-    nextState = assignHeroToBedHealingIfNeeded(nextState, heroId, now);
+    nextState = prepareReturnedHeroForInnRecovery(nextState, heroId, now);
   }
 
   return nextState;
@@ -309,6 +343,10 @@ export function getTrainingRoomAssignmentBlockReason(state: GameState, heroId: H
     return `${hero.name} is in tower.`;
   }
 
+  if (isHeroInActiveTowerRun(state, heroId)) {
+    return `${hero.name} is in tower.`;
+  }
+
   if (hero.status === "defeated" || hero.currentHp <= 0) {
     return `${hero.name} is defeated.`;
   }
@@ -381,7 +419,7 @@ export function startHeroTrainingDrill(state: GameState, heroId: HeroId, now = D
     id: `event_training_started_${heroId}_${now}`,
     type: "room_job_started",
     createdAt: now,
-    message: `${hero.name} started a training drill.`,
+    message: `${hero.name} started training until canceled.`,
     severity: "success",
     heroId
   });
@@ -497,6 +535,7 @@ function assignNextWaitingHeroToBed(state: GameState, now: number): GameState {
     (hero) =>
       hero.currentHp > 0 &&
       !isHeroHpReady(hero) &&
+      !isHeroInActiveTowerRun(state, hero.id) &&
       getHeroActiveRoomJob(state, hero.id) === null &&
       (hero.status === "resting" || hero.status === "wounded")
   );
@@ -514,6 +553,10 @@ function tickTrainingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs
 
   const hero = state.heroes.find((candidate) => candidate.id === job.heroId);
   if (!hero) {
+    return completeRoomJob(state, job.id, now);
+  }
+
+  if (hero.currentHp <= 0 || isHeroInActiveTowerRun(state, hero.id)) {
     return completeRoomJob(state, job.id, now);
   }
 
@@ -535,7 +578,7 @@ function tickTrainingJob(state: GameState, roomId: RoomId, job: RoomJob, deltaMs
     totalTrainingSeconds: Math.min(MAX_TRAINING_TOTAL_SECONDS, currentTrainingSeconds + addedSeconds)
   };
   const progress = Math.min(1, nextTraining.attackTrainingXp / TRAINING_XP_PER_ATTACK_LEVEL);
-  const shouldComplete = gainedLevels > 0 || nextTrainingLevel >= MAX_TRAINING_ATTACK_LEVEL;
+  const shouldComplete = nextTrainingLevel >= MAX_TRAINING_ATTACK_LEVEL;
 
   let nextState: GameState = {
     ...state,
